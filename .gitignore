@@ -42,3 +42,6 @@ backend/*.db-wal
 agent-roster.md
 团队章程.md
 记忆/
+changelog/
+requirements/
+产品方向.md
