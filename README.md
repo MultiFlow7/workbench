@@ -62,7 +62,7 @@ uvicorn main:app --reload --port 8000
 ```bash
 cd backend
 cargo run
-# listens on :3000 by default
+# listens on :8081 by default
 ```
 
 **3. Workbench (desktop app)**
@@ -89,22 +89,23 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and PRs are welcome.
 ### 架构
 
 ```
-┌─────────────┐  HTTP/WS   ┌─────────────────┐
-│  workbench/ │ ─────────► │   backend/      │
-│  Tauri + React           │   Rust · Axum   │
-│  TypeScript  │            │   SQLite        │
-└─────────────┘            └─────────────────┘
-                                    │
-                            HTTP    │
-                                    ▼
-                           ┌─────────────────┐
-                           │  ai-service/    │
-                           │  Python · FastAPI│
-                           │  LLM 路由层     │
-                           └─────────────────┘
-                                    │
-                        ┌───────────┴───────────┐
-                     Claude   OpenAI   DeepSeek  Gemini
+┌──────────────────┐  HTTP/WS   ┌──────────────────┐
+│   workbench/     │ ─────────► │    backend/      │
+│   桌面前端        │            │    业务后端       │
+│   Tauri + React  │            │    Rust · Axum   │
+│   TypeScript     │            │    SQLite        │
+└──────────────────┘            └──────────────────┘
+                                         │
+                                  HTTP   │
+                                         ▼
+                                ┌──────────────────┐
+                                │   ai-service/    │
+                                │   AI 路由层      │
+                                │   Python · FastAPI│
+                                └──────────────────┘
+                                         │
+                             ┌───────────┴───────────┐
+                          Claude   OpenAI   DeepSeek  Gemini
 ```
 
 ### 核心功能
@@ -140,7 +141,7 @@ uvicorn main:app --reload --port 8000
 ```bash
 cd backend
 cargo run
-# 默认监听 :3000
+# 默认监听 :8081
 ```
 
 **3. Workbench（桌面应用）**
