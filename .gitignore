@@ -45,3 +45,8 @@ agent-roster.md
 changelog/
 requirements/
 产品方向.md
+原型设计意图.md
+CLAUDE.md
+prototype.html
+project-intro.html
+workbench/src-tauri/.env
