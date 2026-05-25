@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-const BACKEND_URL: &str = "http://43.135.174.27:8081";
+fn backend_url() -> String {
+    std::env::var("BACKEND_URL")
+        .unwrap_or_else(|_| "http://localhost:8081".to_string())
+}
 
 /// Node 10: 返回后端地址，供前端动态构造 EventSource URL，避免 hardcode
 #[tauri::command]
 pub async fn get_backend_url() -> Result<String, String> {
-    Ok(BACKEND_URL.to_string())
+    Ok(backend_url())
 }
 
 fn make_client() -> reqwest::Client {
@@ -21,7 +24,7 @@ fn make_client() -> reqwest::Client {
 #[tauri::command]
 pub async fn create_task(task_req: serde_json::Value) -> Result<String, String> {
     let client = make_client();
-    let url = format!("{}/api/tasks", BACKEND_URL);
+    let url = format!("{}/api/tasks", backend_url());
     let resp = client
         .post(&url)
         .json(&task_req)
@@ -55,7 +58,7 @@ pub async fn dispatch_task(
     documents: HashMap<String, String>,
 ) -> Result<(), String> {
     let client = make_client();
-    let url = format!("{}/api/tasks/{}/dispatch", BACKEND_URL, task_id);
+    let url = format!("{}/api/tasks/{}/dispatch", backend_url(), task_id);
     let body = serde_json::json!({ "documents": documents });
     let resp = client
         .post(&url)
@@ -76,7 +79,7 @@ pub async fn dispatch_task(
 #[tauri::command]
 pub async fn list_decisions(filter: Option<String>) -> Result<Vec<serde_json::Value>, String> {
     let client = make_client();
-    let mut url = format!("{}/api/decisions", BACKEND_URL);
+    let mut url = format!("{}/api/decisions", backend_url());
     if let Some(f) = filter {
         url = format!("{}?filter={}", url, f);
     }
@@ -103,7 +106,7 @@ pub async fn list_decisions(filter: Option<String>) -> Result<Vec<serde_json::Va
 #[tauri::command]
 pub async fn get_decision(decision_id: String) -> Result<serde_json::Value, String> {
     let client = make_client();
-    let url = format!("{}/api/decisions/{}", BACKEND_URL, decision_id);
+    let url = format!("{}/api/decisions/{}", backend_url(), decision_id);
     let resp = client
         .get(&url)
         .send()
@@ -130,7 +133,7 @@ pub async fn resolve_decision(
     resolution: String,
 ) -> Result<(), String> {
     let client = make_client();
-    let url = format!("{}/api/decisions/{}/resolve", BACKEND_URL, decision_id);
+    let url = format!("{}/api/decisions/{}/resolve", backend_url(), decision_id);
     let body = serde_json::json!({ "resolution": resolution });
     let resp = client
         .post(&url)
@@ -158,7 +161,7 @@ pub async fn check_backend_health() -> Result<bool, String> {
         Err(_) => return Ok(false),
     };
 
-    let url = format!("{}/health", BACKEND_URL);
+    let url = format!("{}/health", backend_url());
     match client.get(&url).send().await {
         Ok(resp) => Ok(resp.status().is_success()),
         Err(_) => Ok(false),
@@ -177,9 +180,9 @@ pub async fn list_tasks(
     if let Some(r) = role    { params.push(format!("role={}", r)); }
     if let Some(p) = project { params.push(format!("project={}", p)); }
     let url = if params.is_empty() {
-        format!("{}/api/tasks", BACKEND_URL)
+        format!("{}/api/tasks", backend_url())
     } else {
-        format!("{}/api/tasks?{}", BACKEND_URL, params.join("&"))
+        format!("{}/api/tasks?{}", backend_url(), params.join("&"))
     };
     let resp = client
         .get(&url)
@@ -204,7 +207,7 @@ pub async fn list_tasks(
 #[tauri::command]
 pub async fn get_task_stats() -> Result<serde_json::Value, String> {
     let client = make_client();
-    let url = format!("{}/api/tasks/stats", BACKEND_URL);
+    let url = format!("{}/api/tasks/stats", backend_url());
     let resp = client
         .get(&url)
         .send()
@@ -235,9 +238,9 @@ pub async fn get_token_stats_from_gateway(
     if let Some(ref df) = date_from { parts.push(format!("date_from={}", df)); }
     if let Some(ref dt) = date_to   { parts.push(format!("date_to={}", dt));   }
     let url = if parts.is_empty() {
-        format!("{}/llm/stats", BACKEND_URL)
+        format!("{}/llm/stats", backend_url())
     } else {
-        format!("{}/llm/stats?{}", BACKEND_URL, parts.join("&"))
+        format!("{}/llm/stats?{}", backend_url(), parts.join("&"))
     };
 
     let resp = client
@@ -291,11 +294,11 @@ pub async fn list_capability_tokens(
         params.push("active_only=true".to_string());
     }
     let url = if params.is_empty() {
-        format!("{}/api/capability-tokens", BACKEND_URL)
+        format!("{}/api/capability-tokens", backend_url())
     } else {
         format!(
             "{}/api/capability-tokens?{}",
-            BACKEND_URL,
+            backend_url(),
             params.join("&")
         )
     };
@@ -325,7 +328,7 @@ pub async fn create_capability_token(
     req: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     let client = make_client();
-    let url = format!("{}/api/capability-tokens", BACKEND_URL);
+    let url = format!("{}/api/capability-tokens", backend_url());
     let resp = client
         .post(&url)
         .json(&req)
@@ -351,7 +354,7 @@ pub async fn create_capability_token(
 #[tauri::command]
 pub async fn get_llm_stats(days: u32) -> Result<serde_json::Value, String> {
     let client = make_client();
-    let url = format!("{}/api/llm-stats?days={}", BACKEND_URL, days);
+    let url = format!("{}/api/llm-stats?days={}", backend_url(), days);
     let resp = client
         .get(&url)
         .send()
@@ -380,7 +383,7 @@ pub async fn revoke_capability_token(
     let client = make_client();
     let url = format!(
         "{}/api/capability-tokens/{}",
-        BACKEND_URL, token_id
+        backend_url(), token_id
     );
     let resp = client
         .delete(&url)
