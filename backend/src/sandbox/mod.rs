@@ -2,18 +2,18 @@ use std::collections::HashMap;
 
 use crate::error::AppError;
 
-pub fn product_direction_path(project: &str) -> String {
-    format!("01-Vibe项目区/{}/产品方向.md", project)
+pub fn product_direction_path(projects_dir: &str, project: &str) -> String {
+    format!("{}/{}/产品方向.md", projects_dir, project)
 }
 
-pub fn requirements_readme_path(project: &str) -> String {
-    format!("01-Vibe项目区/{}/requirements/README.md", project)
+pub fn requirements_readme_path(projects_dir: &str, project: &str) -> String {
+    format!("{}/{}/requirements/README.md", projects_dir, project)
 }
 
-pub fn technical_md_path(project: &str, version: &str) -> String {
+pub fn technical_md_path(projects_dir: &str, project: &str, version: &str) -> String {
     format!(
-        "01-Vibe项目区/{}/changelog/{}/technical.md",
-        project, version
+        "{}/{}/changelog/{}/technical.md",
+        projects_dir, project, version
     )
 }
 

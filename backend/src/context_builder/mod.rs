@@ -25,14 +25,16 @@ pub struct ApiMessage {
 
 pub struct ContextBuilder {
     pub roles_dir: String,
-    pub workspace_root: String, // v0.7: file_refs 解析根路径，来自 WORKSPACE_ROOT 环境变量
+    pub workspace_root: String,
+    pub projects_dir: String,
 }
 
 impl ContextBuilder {
-    pub fn new(roles_dir: String, workspace_root: String) -> Self {
+    pub fn new(roles_dir: String, workspace_root: String, projects_dir: String) -> Self {
         ContextBuilder {
             roles_dir,
             workspace_root,
+            projects_dir,
         }
     }
 
@@ -53,7 +55,7 @@ impl ContextBuilder {
         system_parts.push(task_state);
 
         // 层 3: Relevant documents (uploaded_docs whitelist mode)
-        let allowed = task.allowed_documents();
+        let allowed = task.allowed_documents(&self.projects_dir);
         if allowed.is_empty() {
             info!("[context_builder] skipped: no allowed documents");
         } else {

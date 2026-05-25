@@ -37,9 +37,10 @@ pub struct AgentDispatcher {
     pub sub2api_key: String,
     pub sub2api_url: String,
     pub sse_tx: broadcast::Sender<SseEvent>,
-    pub notify_tx: broadcast::Sender<SseNotification>, // v0.7
+    pub notify_tx: broadcast::Sender<SseNotification>,
     pub agent_model: String,
-    pub roles_dir: String, // v0.9 req-024
+    pub roles_dir: String,
+    pub projects_dir: String,
 }
 
 // v0.9 req-024: 角色级模型配置
@@ -72,7 +73,8 @@ impl AgentDispatcher {
         sse_tx: broadcast::Sender<SseEvent>,
         notify_tx: broadcast::Sender<SseNotification>,
         agent_model: String,
-        roles_dir: String, // v0.9 req-024
+        roles_dir: String,
+        projects_dir: String,
     ) -> Self {
         AgentDispatcher {
             state_machine,
@@ -87,6 +89,7 @@ impl AgentDispatcher {
             notify_tx,
             agent_model,
             roles_dir,
+            projects_dir,
         }
     }
 
@@ -105,7 +108,11 @@ impl AgentDispatcher {
             let technical_path = task
                 .technical_md_path_from_context()
                 .unwrap_or_else(|| {
-                    crate::sandbox::technical_md_path(&task.project, &task.version)
+                    crate::sandbox::technical_md_path(
+                        &self.projects_dir,
+                        &task.project,
+                        &task.version,
+                    )
                 });
 
             match pre_hook_engineering_start(pool, task_id, &technical_path).await {

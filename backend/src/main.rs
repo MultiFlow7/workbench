@@ -65,10 +65,15 @@ async fn main() {
     let workspace_root = std::env::var("WORKSPACE_ROOT")
         .unwrap_or_else(|_| "/data/workbench".to_string());
 
+    // PROJECTS_DIR: 用户项目根目录（sandbox 路径白名单的前缀）
+    let projects_dir = std::env::var("PROJECTS_DIR")
+        .unwrap_or_else(|_| "projects".to_string());
+
     info!("数据库路径: {}", database_url);
     info!("Agent 模型: {}", agent_model);
     info!("Roles 目录: {}", roles_dir);
     info!("Workspace 根目录: {}", workspace_root);
+    info!("Projects 目录: {}", projects_dir);
 
     // Initialize DB
     let pool = db::init_db(&database_url).await;
@@ -79,13 +84,17 @@ async fn main() {
     // v0.7: Create notification broadcast channel
     let (notify_tx, _) = broadcast::channel::<SseNotification>(128);
 
-    // Create context builder (v0.7: 传入 workspace_root)
-    let context_builder = Arc::new(ContextBuilder::new(roles_dir.clone(), workspace_root));
+    // Create context builder
+    let context_builder = Arc::new(ContextBuilder::new(
+        roles_dir.clone(),
+        workspace_root,
+        projects_dir.clone(),
+    ));
 
     // Create state machine
     let state_machine = Arc::new(state_machine::StateMachine::new());
 
-    // Create dispatcher (v0.7: 传入 notify_tx; v0.9 req-024: 传入 roles_dir)
+    // Create dispatcher
     let dispatcher = Arc::new(AgentDispatcher::new(
         state_machine.clone(),
         context_builder.clone(),
@@ -94,6 +103,7 @@ async fn main() {
         notify_tx.clone(),
         agent_model,
         roles_dir,
+        projects_dir,
     ));
 
     let state = AppState {

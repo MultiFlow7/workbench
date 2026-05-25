@@ -62,7 +62,7 @@ pub struct DecisionRequest {
 
 impl AgentTask {
     /// 返回本次任务允许注入的文档路径白名单
-    pub fn allowed_documents(&self) -> Vec<String> {
+    pub fn allowed_documents(&self, projects_dir: &str) -> Vec<String> {
         match self.task_type {
             TaskType::Review => {
                 let path = self.output_path_of_product_doc();
@@ -73,10 +73,12 @@ impl AgentTask {
                 }
             }
             TaskType::ProductPlanning => vec![
-                product_direction_path(&self.project),
-                requirements_readme_path(&self.project),
+                product_direction_path(projects_dir, &self.project),
+                requirements_readme_path(projects_dir, &self.project),
             ],
-            TaskType::Engineering => vec![technical_md_path(&self.project, &self.version)],
+            TaskType::Engineering => vec![
+                technical_md_path(projects_dir, &self.project, &self.version)
+            ],
             _ => vec![],
         }
     }
