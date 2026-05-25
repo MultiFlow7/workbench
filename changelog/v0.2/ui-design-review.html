@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工作台 v0.2 UI 设计方案对比</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ===== Design Tokens ===== */
+    :root {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --surface-2: #f4f4f5;
+      --surface-3: #e4e4e7;
+      --border: #e4e4e7;
+      --text: #18181b;
+      --text-2: #71717a;
+      --text-3: #a1a1aa;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-bg: #eff6ff;
+      --accent-text: #1d4ed8;
+      --success: #16a34a;
+      --warning: #b45309;
+      --danger: #dc2626;
+      --warning-bg: #fffbeb;
+      --danger-bg: #fef2f2;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #f0f0f0;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ===== Page Layout ===== */
+    .page-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 24px 40px;
+    }
+    .page-header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .page-header p {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-top: 4px;
+    }
+    .page-header .meta {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .page-header .badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--accent-bg);
+      color: var(--accent-text);
+    }
+
+    .page-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 32px 40px;
+    }
+
+    /* ===== Section ===== */
+    .section {
+      margin-bottom: 48px;
+    }
+    .section-header {
+      margin-bottom: 20px;
+    }
+    .section-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--surface-3);
+      color: var(--text-2);
+      letter-spacing: 0.5px;
+    }
+    .section-desc {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-top: 6px;
+      max-width: 700px;
+    }
+
+    /* ===== Option Cards (outer wrapper) ===== */
+    .options-row {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .option-card {
+      flex: 1;
+      background: var(--surface);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .option-card-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .option-card-header h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .option-card-body {
+      padding: 16px;
+    }
+
+    /* Preview container */
+    .preview-wrap {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    /* Pros/Cons */
+    .pros-cons {
+      margin-top: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .pros-cons .label {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .pro { color: var(--success); }
+    .con { color: var(--danger); }
+    .pros-cons ul {
+      padding-left: 14px;
+      color: var(--text-2);
+      margin-bottom: 6px;
+    }
+
+    /* ================================================
+       SHARED MINI-APP COMPONENTS
+       ================================================ */
+
+    /* TopBar */
+    .topbar {
+      height: 36px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .topbar-brand {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .topbar-spacer { flex: 1; }
+    .topbar-pip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--text-2);
+    }
+    .pip-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+    }
+    .pip-dot.green { background: var(--success); }
+    .pip-dot.red { background: var(--danger); }
+    .pip-dot.orange { background: #f59e0b; }
+
+    /* P1-Icons column */
+    .p1-icons {
+      width: 52px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      width: 36px; height: 36px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-2);
+      position: relative;
+      transition: background 0.15s, color 0.15s;
+      font-size: 16px;
+    }
+    .nav-btn:hover { background: var(--surface-2); color: var(--text); }
+    .nav-btn.active { background: var(--accent-bg); color: var(--accent); }
+
+    /* Badge (A1 style) */
+    .badge-dot {
+      position: absolute;
+      top: 3px; right: 3px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--danger);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.5px solid var(--surface);
+      line-height: 1;
+    }
+
+    /* Tiny dot (A2 style) */
+    .tiny-dot {
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--danger);
+      border: 1.5px solid var(--surface);
+    }
+
+    /* Spacer in P1 */
+    .p1-spacer { flex: 1; }
+
+    /* ================================================
+       SECTION A PREVIEWS
+       ================================================ */
+    .a-preview {
+      display: flex;
+      height: 300px;
+    }
+    .a-p1 {
+      width: 52px;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      gap: 4px;
+    }
+    .a-main {
+      flex: 1;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .a-placeholder {
+      font-size: 11px;
+      color: var(--text-3);
+      text-align: center;
+    }
+
+    /* SVG icons inline */
+    .icon {
+      width: 18px; height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ================================================
+       SECTION B PREVIEWS
+       ================================================ */
+    .b-preview {
+      height: 480px;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+    .b-inner {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* B1: Card list */
+    .decision-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .decision-header-bar .title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .decision-header-bar .sub {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-left: 6px;
+    }
+    .btn-back {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--accent);
+      background: none;
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-back:hover { background: var(--accent-bg); }
+
+    .decision-list {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      height: calc(100% - 41px);
+    }
+
+    .d-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .d-card-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .agent-tag {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: var(--accent-bg);
+      color: var(--accent-text);
+    }
+    .risk-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .risk-high { background: #fef2f2; color: var(--danger); }
+    .risk-med { background: var(--warning-bg); color: var(--warning); }
+    .risk-low { background: var(--surface-2); color: var(--text-3); }
+    .wait-label {
+      font-size: 10px;
+      color: var(--text-3);
+      margin-left: auto;
+    }
+    .d-question {
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .d-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-primary {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-2);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-secondary:hover { background: var(--surface-2); }
+
+    /* B2: Table style */
+    .d-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .d-table thead tr {
+      background: var(--surface-2);
+    }
+    .d-table thead th {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 6px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .d-table tbody tr {
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s;
+      background: var(--surface);
+    }
+    .d-table tbody tr:hover { background: var(--surface-2); }
+    .d-table td {
+      padding: 10px;
+      font-size: 12px;
+      color: var(--text);
+      vertical-align: middle;
+    }
+    .risk-bar {
+      width: 3px;
+      height: 24px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .bar-high { background: var(--danger); }
+    .bar-med { background: #f59e0b; }
+    .bar-low { background: var(--text-3); }
+    .d-table td.summary { max-width: 200px; }
+    .summary-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+      display: block;
+      font-size: 12px;
+    }
+
+    /* Accordion row */
+    .d-expand {
+      background: var(--accent-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+    }
+    .d-expand-content {
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .d-expand .d-actions { margin-top: 6px; }
+
+    /* B3: Master-detail */
+    .b3-wrap {
+      display: flex;
+      height: 100%;
+    }
+    .b3-list {
+      width: 220px;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .b3-list-header {
+      padding: 8px 10px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    .b3-item {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .b3-item:hover { background: var(--surface-2); }
+    .b3-item.selected { background: var(--accent-bg); border-left: 2px solid var(--accent); }
+    .b3-item-top {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 3px;
+    }
+    .b3-agent { font-size: 10px; font-weight: 600; color: var(--accent-text); }
+    .b3-wait { font-size: 10px; color: var(--text-3); margin-left: auto; }
+    .b3-summary {
+      font-size: 11px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .b3-detail {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      overflow-y: auto;
+    }
+    .b3-detail-agent {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .b3-detail-agent .agent-tag { font-size: 11px; padding: 3px 9px; }
+    .b3-detail-q {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+    .b3-source {
+      font-size: 11px;
+      color: var(--text-3);
+      background: var(--surface-2);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 14px;
+    }
+    .b3-detail .d-actions { gap: 8px; }
+
+    /* ================================================
+       SECTION C PREVIEWS
+       ================================================ */
+    .c-preview {
+      background: var(--bg);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .c-topbar-area {
+      /* just the topbar + a bit of the layout below */
+    }
+    .c-layout-strip {
+      display: flex;
+      height: 60px;
+    }
+    .c-p1 {
+      width: 52px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 0;
+      gap: 3px;
+    }
+    .c-p2 {
+      flex: 1;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .c-placeholder {
+      font-size: 10px;
+      color: var(--text-3);
+    }
+
+    /* C2 banner */
+    .offline-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--danger-bg);
+      border-bottom: 1px solid #fca5a5;
+      padding: 0 12px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+    .offline-banner .icon-warn {
+      font-size: 13px;
+    }
+    .offline-banner .text {
+      font-size: 11px;
+      color: var(--danger);
+      font-weight: 500;
+      flex: 1;
+    }
+    .offline-banner .btn-close {
+      width: 18px; height: 18px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: #fca5a5;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 3px;
+    }
+    .offline-banner .btn-close:hover { background: #fee2e2; color: var(--danger); }
+
+    /* C3: greyed out icons */
+    .nav-btn.disabled {
+      color: var(--text-3);
+      cursor: not-allowed;
+      position: relative;
+    }
+    .nav-btn.disabled::after {
+      content: '×';
+      position: absolute;
+      bottom: 3px; right: 3px;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--danger);
+      line-height: 1;
+    }
+    .nav-btn.disabled:hover { background: transparent; color: var(--text-3); }
+
+    /* Tooltip */
+    .tooltip-wrap { position: relative; }
+    .tooltip-wrap .tooltip-box {
+      display: none;
+      position: absolute;
+      left: 52px; top: 50%;
+      transform: translateY(-50%);
+      background: var(--text);
+      color: #fff;
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 5px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .tooltip-wrap:hover .tooltip-box { display: block; }
+
+    /* ================================================
+       INTERACTIVE STATES
+       ================================================ */
+    .view { display: none; }
+    .view.active { display: flex; flex-direction: column; height: 100%; }
+
+    /* decision mode in B2 */
+    .row-expanded-detail {
+      display: none;
+    }
+    .row-expanded-detail.open {
+      display: table-row;
+    }
+
+    /* Divider */
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 40px 0;
+    }
+
+    /* Recommendation note */
+    .rec-note {
+      margin-top: 16px;
+      background: var(--accent-bg);
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--accent-text);
+    }
+    .rec-note strong { font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<!-- ===== PAGE HEADER ===== -->
+<div class="page-header">
+  <h1>工作台 v0.2 · UI 设计方案对比</h1>
+  <p>以下方案供设计评审使用，请选择各议题的落地方案后推进实现。</p>
+  <div class="meta">
+    <span class="badge">议题 A · P1 决策角标</span>
+    <span class="badge">议题 B · 决策列表视图</span>
+    <span class="badge">议题 C · 后端离线提示</span>
+  </div>
+</div>
+
+<div class="page-content">
+
+  <!-- ================================================
+       SECTION A: P1 决策角标
+       ================================================ -->
+  <div class="section">
+    <div class="section-header">
+      <h2><span class="section-tag">A</span> P1 决策角标</h2>
+      <p class="section-desc">当有未处理的 Agent 决策时，P1-Icons 需要某种视觉提示，点击后进入决策模式。约束：不能太抢眼，工具型 App 整体要克制。</p>
+    </div>
+
+    <div class="options-row">
+
+      <!-- A1 -->
+      <div class="option-card">
+        <div class="option-card-header">
+          <h3>A1 · 角标叠在图标上</h3>
+        </div>
+        <div class="option-card-body">
+          <div class="preview-wrap">
+            <div style="display:flex; height:300px;">
+              <div class="a-p1" style="border-right:1px solid var(--border);">
+                <!-- Chat icon with badge -->
+                <button class="nav-btn active" title="对话">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </button>
+                <!-- Decision icon with badge -->
+                <button class="nav-btn" title="决策" style="position:relative;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  <span class="badge-dot">3</span>
+                </button>
+                <!-- Tools -->
+                <button class="nav-btn" title="工具">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                </button>
+                <!-- Console -->
+                <button class="nav-btn" title="控制台">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                </button>
+                <div style="flex:1;"></div>
+                <!-- Settings -->
+                <button class="nav-btn" title="设置">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>
+                </button>
+              </div>
+              <div class="a-main">
+                <div class="a-placeholder">← 图标列预览<br>红色角标含数字 "3"<br>角标叠加在决策图标右上角</div>
+              </div>
+            </div>
+          </div>
+          <div class="pros-cons">
+            <div class="label pro">优点</div>
+            <ul>
+              <li>数字直观，一眼得知待决策数量</li>
+              <li>视觉优先级高，不容易被忽略</li>
+              <li>符合移动端 / 桌面端用户习惯</li>
+            </ul>
+            <div class="label con">缺点</div>
+            <ul>
+              <li>红色角标相对抢眼，破坏克制感</li>
+              <li>需新增决策图标，扩展了 P1 占用</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- A2 -->
+      <div class="option-card">
+        <div class="option-card-header">
+          <h3>A2 · Inbox 图标 + 小红点</h3>
+        </div>
+        <div class="option-card-body">
+          <div class="preview-wrap">
+            <div style="display:flex; height:300px;">
+              <div class="a-p1" style="border-right:1px solid var(--border);">
+                <button class="nav-btn active" title="对话">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </button>
+                <!-- Inbox icon, accent + tiny dot -->
+                <button class="nav-btn" title="决策收件箱" style="color: var(--accent); position:relative;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+                  <span class="tiny-dot"></span>
+                </button>
+                <button class="nav-btn" title="工具">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                </button>
+                <button class="nav-btn" title="控制台">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                </button>
+                <div style="flex:1;"></div>
+                <button class="nav-btn" title="设置">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>
+                </button>
+              </div>
+              <div class="a-main">
+                <div class="a-placeholder">← Inbox 图标变蓝<br>右上角 6px 红点（无数字）<br>整体更克制</div>
+              </div>
+            </div>
+          </div>
+          <div class="pros-cons">
+            <div class="label pro">优点</div>
+            <ul>
+              <li>无数字角标，视觉噪音最低</li>
+              <li>蓝色高亮 + 小红点区分「有 / 无」两态</li>
+              <li>Inbox 语义清晰，符合「收件箱」心智</li>
+            </ul>
+            <div class="label con">缺点</div>
+            <ul>
+              <li>小红点无数量信息，需点进去才知道</li>
+              <li>需新增图标，P1 栏位增加</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- A3 -->
+      <div class="option-card">
+        <div class="option-card-header">
+          <h3>A3 · TopBar 文字按钮</h3>
+        </div>
+        <div class="option-card-body">
+          <div class="preview-wrap">
+            <div style="height:300px; display:flex; flex-direction:column;">
+              <!-- TopBar with decision button -->
+              <div class="topbar" style="justify-content:flex-start;">
+                <span class="topbar-brand">workbench</span>
+                <div class="topbar-spacer"></div>
+                <div class="topbar-pip">
+                  <span class="pip-dot green"></span>
+                  <span>sub2api</span>
+                </div>
+                <div class="topbar-pip" style="margin-left:8px;">
+                  <span class="pip-dot green"></span>
+                  <span>gemini</span>
+                </div>
+                <!-- Decision alert button -->
+                <button id="a3-btn" style="margin-left:12px; display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:var(--warning); background:var(--warning-bg); border:1px solid #fcd34d; border-radius:5px; padding:3px 9px; cursor:pointer; transition:background 0.15s;" onclick="a3Toggle()">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <span id="a3-label">3 个待决策</span>
+                </button>
+              </div>
+              <!-- Layout below -->
+              <div style="display:flex; flex:1;">
+                <div class="a-p1" style="border-right:1px solid var(--border);">
+                  <button class="nav-btn active">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  </button>
+                  <button class="nav-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                  </button>
+                  <button class="nav-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                  </button>
+                  <div style="flex:1;"></div>
+                  <button class="nav-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>
+                  </button>
+                </div>
+                <div class="a-main">
+                  <div class="a-placeholder">P1 不变<br>点击 TopBar 按钮<br>切换 P3 到决策列表</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pros-cons">
+            <div class="label pro">优点</div>
+            <ul>
+              <li>P1 结构完全不变，不新增图标</li>
+              <li>文字按钮含数量信息，语义最清晰</li>
+              <li>可变色（橙/红）体现紧迫程度</li>
+            </ul>
+            <div class="label con">缺点</div>
+            <ul>
+              <li>TopBar 位置较高，注意力扫描靠后</li>
+              <li>文字占宽度，TopBar 右侧较拥挤</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /options-row A -->
+  </div><!-- /section A -->
+
+  <hr class="section-divider">
+
+  <!-- ================================================
+       SECTION B: P3 决策列表视图
+       ================================================ -->
+  <div class="section">
+    <div class="section-header">
+      <h2><span class="section-tag">B</span> P3 决策列表视图</h2>
+      <p class="section-desc">点击决策入口后，P3 区域替换为决策列表（decisions 模式），展示待处理的 Agent 决策。完成后一键切回主对话。</p>
+    </div>
+
+    <div class="options-row" style="align-items:stretch;">
+
+      <!-- B1: Card list -->
+      <div class="option-card">
+        <div class="option-card-header">
+          <h3>B1 · 卡片列表</h3>
+        </div>
+        <div class="option-card-body">
+          <div class="preview-wrap" style="height:480px;">
+            <div id="b1-decision-view" style="display:flex; flex-direction:column; height:100%;">
+              <!-- Header bar -->
+              <div class="decision-header-bar">
+                <span>
+                  <span class="title">待决策</span>
+                  <span class="sub">3 条 · 按风险排序</span>
+                </span>
+                <button class="btn-back" onclick="b1BackToChat()">← 切回对话</button>
+              </div>
+              <!-- Card list -->
+              <div class="decision-list">
+                <!-- Card 1: HIGH -->
+                <div class="d-card" style="border-left: 3px solid var(--danger);">
+                  <div class="d-card-top">
+                    <span class="agent-tag">review-agent</span>
+                    <span class="risk-badge risk-high">HIGH</span>
+                    <span class="wait-label">等待 12 分钟</span>
+                  </div>
+                  <p class="d-question">product.md v2 存在 2 处逻辑矛盾，是否打回重写？</p>
+                  <div class="d-actions">
+                    <button class="btn-primary">打回重写</button>
+                    <button class="btn-secondary">忽略继续</button>
+                  </div>
+                </div>
+                <!-- Card 2: MEDIUM -->
+                <div class="d-card" style="border-left: 3px solid #f59e0b;">
+                  <div class="d-card-top">
+                    <span class="agent-tag">product-agent</span>
+                    <span class="risk-badge risk-med">MEDIUM</span>
+                    <span class="wait-label">等待 3 分钟</span>
+                  </div>
+                  <p class="d-question">req-018 决策收件箱是否纳入 v0.2 范围？</p>
+                  <div class="d-actions">
+                    <button class="btn-primary">纳入</button>
+                    <button class="btn-secondary">推 v0.3</button>
+                  </div>
+                </div>
+                <!-- Card 3: LOW -->
+                <div class="d-card" style="border-left: 3px solid var(--text-3);">
+                  <div class="d-card-top">
+                    <span class="agent-tag">ceo-event</span>
+                    <span class="risk-badge risk-low">LOW</span>
+                    <span class="wait-label">等待 1 分钟</span>
+                  </div>
+                  <p class="d-question">technical.md 已生成，是否批准开始实现阶段？</p>
+                  <div class="d-actions">
+                    <button class="btn-primary">批准</button>
+                    <button class="btn-secondary">再看看</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Chat view placeholder (hidden) -->
+            <div id="b1-chat-view" style="display:none; height:100%; align-items:center; justify-content:center; flex-direction:column; gap:8px;">
+              <span style="font-size:13px; color:var(--text-2);">已切回主对话</span>
+              <button class="btn-primary" onclick="b1ToDec()">重新进入决策列表</button>
+            </div>
+          </div>
+          <div class="pros-cons">
+            <div class="label pro">优点</div>
+            <ul>
+              <li>信息展示最完整，操作按钮始终可见</li>
+              <li>左侧彩色竖线传达风险等级，一眼聚焦</li>
+              <li>符合用户「逐条处理」的自然习惯</li>
+            </ul>
+            <div class="label con">缺点</div>
+            <ul>
+              <li>决策多时需滚动，整体略占空间</li>
+              <li>每张卡片重复结构，视觉略冗余</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- B2: Table / Accordion -->
+      <div class="option-card">
+        <div class="option-card-header">
+          <h3>B2 · 紧凑表格 + 手风琴</h3>
+        </div>
+        <div class="option-card-body">
+          <div class="preview-wrap" style="height:480px;">
+            <div style="display:flex; flex-direction:column; height:100%;">
+              <div class="decision-header-bar">
+                <span>
+                  <span class="title">待决策</span>
+                  <span class="sub">3 条 · 按风险排序</span>
+                </span>
+                <button class="btn-back">← 切回对话</button>
+              </div>
+              <div style="overflow-y:auto; flex:1;">
+                <table class="d-table" style="width:100%;">
+                  <thead>
+                    <tr>
+                      <th style="width:4px;padding:6px 4px;"></th>
+                      <th>问题</th>
+                      <th>Agent</th>
+                      <th>等待</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr onclick="b2Toggle(1)" style="cursor:pointer;">
+                      <td style="padding:10px 8px; width:4px;"><span class="risk-bar bar-high"></span></td>
+                      <td class="summary"><span class="summary-text">product.md v2 存在 2 处逻辑矛盾，是否打回重写？</span></td>
+                      <td><span style="font-size:11px; color:var(--text-2);">review-agent</span></td>
+                      <td><span style="font-size:11px; color:var(--text-3);">12m</span></td>
+                      <td><span style="font-size:10px; color:var(--accent);">展开 ▾</span></td>
+                    </tr>
+                    <tr id="b2-expand-1" class="row-expanded-detail">
+                      <td colspan="5" style="padding:0;">
+                        <div class="d-expand">
+                          <div class="d-expand-content">product.md v2 存在 2 处逻辑矛盾，是否打回重写？</div>
+                          <div class="d-actions">
+                            <button class="btn-primary">打回重写</button>
+                            <button class="btn-secondary">忽略继续</button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr onclick="b2Toggle(2)" style="cursor:pointer;">
+                      <td style="padding:10px 8px; width:4px;"><span class="risk-bar bar-med"></span></td>
+                      <td class="summary"><span class="summary-text">req-018 决策收件箱是否纳入 v0.2 范围？</span></td>
+                      <td><span style="font-size:11px; color:var(--text-2);">product-agent</span></td>
+                      <td><span style="font-size:11px; color:var(--text-3);">3m</span></td>
+                      <td><span style="font-size:10px; color:var(--accent);">展开 ▾</span></td>
+                    </tr>
+                    <tr id="b2-expand-2" class="row-expanded-detail">
+                      <td colspan="5" style="padding:0;">
+                        <div class="d-expand">
+                          <div class="d-expand-content">req-018 决策收件箱是否纳入 v0.2 范围？</div>
+                          <div class="d-actions">
+                            <button class="btn-primary">纳入</button>
+                            <button class="btn-secondary">推 v0.3</button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr onclick="b2Toggle(3)" style="cursor:pointer;">
+                      <td style="padding:10px 8px; width:4px;"><span class="risk-bar bar-low"></span></td>
+                      <td class="summary"><span class="summary-text">technical.md 已生成，是否批准开始实现阶段？</span></td>
+                      <td><span style="font-size:11px; color:var(--text-2);">ceo-event</span></td>
+                      <td><span style="font-size:11px; color:var(--text-3);">1m</span></td>
+                      <td><span style="font-size:10px; color:var(--accent);">展开 ▾</span></td>
+                    </tr>
+                    <tr id="b2-expand-3" class="row-expanded-detail">
+                      <td colspan="5" style="padding:0;">
+                        <div class="d-expand">
+                          <div class="d-expand-content">technical.md 已生成，是否批准开始实现阶段？</div>
+                          <div class="d-actions">
+                            <button class="btn-primary">批准</button>
+                            <button class="btn-secondary">再看看</button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="pros-cons">
+            <div class="label pro">优点</div>
+            <ul>
+              <li>最紧凑，决策多时一屏能看到全部</li>
+              <li>手风琴展开保持上下文不丢失</li>
+              <li>左侧彩条色阶清晰区分风险</li>
+            </ul>
+            <div class="label con">缺点</div>
+            <ul>
+              <li>操作需先展开再点击，多一步</li>
+              <li>摘要截断可能丢失关键信息</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- B3: Master-detail -->
+      <div class="option-card">
+        <div class="option-card-header">
+          <h3>B3 · 主从视图（邮件式）</h3>
+        </div>
+        <div class="option-card-body">
+          <div class="preview-wrap" style="height:480px;">
+            <div style="display:flex; flex-direction:column; height:100%;">
+              <div class="decision-header-bar">
+                <span>
+                  <span class="title">待决策</span>
+                  <span class="sub">3 条</span>
+                </span>
+                <button class="btn-back">← 切回对话</button>
+              </div>
+              <div class="b3-wrap" style="flex:1; overflow:hidden;">
+                <!-- Left list -->
+                <div class="b3-list">
+                  <div class="b3-list-header">待处理</div>
+                  <div class="b3-item selected" onclick="b3Select(this, 1)">
+                    <div class="b3-item-top">
+                      <span class="b3-agent">review-agent</span>
+                      <span class="risk-badge risk-high" style="font-size:9px; padding:1px 5px;">HIGH</span>
+                      <span class="b3-wait">12m</span>
+                    </div>
+                    <div class="b3-summary">product.md 逻辑矛盾，打回重写？</div>
+                  </div>
+                  <div class="b3-item" onclick="b3Select(this, 2)">
+                    <div class="b3-item-top">
+                      <span class="b3-agent">product-agent</span>
+                      <span class="risk-badge risk-med" style="font-size:9px; padding:1px 5px;">MED</span>
+                      <span class="b3-wait">3m</span>
+                    </div>
+                    <div class="b3-summary">req-018 是否纳入 v0.2 范围？</div>
+                  </div>
+                  <div class="b3-item" onclick="b3Select(this, 3)">
+                    <div class="b3-item-top">
+                      <span class="b3-agent">ceo-event</span>
+                      <span class="risk-badge risk-low" style="font-size:9px; padding:1px 5px;">LOW</span>
+                      <span class="b3-wait">1m</span>
+                    </div>
+                    <div class="b3-summary">批准开始实现阶段？</div>
+                  </div>
+                </div>
+
+                <!-- Right detail -->
+                <div class="b3-detail" id="b3-detail">
+                  <!-- content injected by JS, default = item 1 -->
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pros-cons">
+            <div class="label pro">优点</div>
+            <ul>
+              <li>左右分栏，选中即看详情，体验流畅</li>
+              <li>上下文切换无需滚动，邮件客户端熟悉感</li>
+              <li>详情区空间充足，可附更多 Agent 信息</li>
+            </ul>
+            <div class="label con">缺点</div>
+            <ul>
+              <li>P3 横向空间被切分，窄屏下较局促</li>
+              <li>实现复杂度高于 B1/B2</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /options-row B -->
+  </div><!-- /section B -->
+
+  <hr class="section-divider">
+
+  <!-- ================================================
+       SECTION C: 后端离线提示
+       ================================================ -->
+  <div class="section">
+    <div class="section-header">
+      <h2><span class="section-tag">C</span> 后端离线提示</h2>
+      <p class="section-desc">服务器 43.135.174.27:8081 不可达时，前端需告知用户 Agent 调度不可用，但主对话仍然正常使用。</p>
+    </div>
+
+    <div class="options-row">
+
+      <!-- C1: TopBar pip -->
+      <div class="option-card">
+        <div class="option-card-header">
+          <h3>C1 · TopBar 状态 pip</h3>
+        </div>
+        <div class="option-card-body">
+          <div class="preview-wrap">
+            <div class="c-topbar-area">
+              <div class="topbar">
+                <span class="topbar-brand">workbench</span>
+                <div class="topbar-spacer"></div>
+                <div class="topbar-pip">
+                  <span class="pip-dot green"></span>
+                  <span>sub2api</span>
+                </div>
+                <div class="topbar-pip" style="margin-left:8px;">
+                  <span class="pip-dot green"></span>
+                  <span>gemini</span>
+                </div>
+                <!-- Offline pip -->
+                <div class="topbar-pip" style="margin-left:8px; color:var(--danger);">
+                  <span class="pip-dot red"></span>
+                  <span>后端离线 · Agent 调度暂停</span>
+                </div>
+              </div>
+              <div class="c-layout-strip">
+                <div class="c-p1">
+                  <button class="nav-btn active" style="font-size:14px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  </button>
+                  <button class="nav-btn" style="font-size:14px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                  </button>
+                </div>
+                <div class="c-p2">
+                  <span class="c-placeholder">主界面正常</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pros-cons">
+            <div class="label pro">优点</div>
+            <ul>
+              <li>最克制，不新增任何额外 UI 层</li>
+              <li>与现有 pip 状态一致，视觉语言统一</li>
+              <li>不打断工作流，用户主动查看</li>
+            </ul>
+            <div class="label con">缺点</div>
+            <ul>
+              <li>TopBar 右侧文字较小，极易被忽略</li>
+              <li>首次不知道「Agent 调度暂停」含义</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- C2: P3 Banner -->
+      <div class="option-card">
+        <div class="option-card-header">
+          <h3>C2 · P3 顶部 Banner</h3>
+        </div>
+        <div class="option-card-body">
+          <div class="preview-wrap">
+            <div class="c-topbar-area">
+              <!-- Normal topbar -->
+              <div class="topbar">
+                <span class="topbar-brand">workbench</span>
+                <div class="topbar-spacer"></div>
+                <div class="topbar-pip">
+                  <span class="pip-dot green"></span>
+                  <span>sub2api</span>
+                </div>
+                <div class="topbar-pip" style="margin-left:8px;">
+                  <span class="pip-dot green"></span>
+                  <span>gemini</span>
+                </div>
+                <!-- small red dot only after banner close -->
+                <div class="topbar-pip" style="margin-left:8px;" id="c2-topbar-dot" style="display:none;">
+                  <span class="pip-dot red" title="后端离线"></span>
+                </div>
+              </div>
+              <!-- Layout with banner inside P3 area -->
+              <div style="display:flex; height:140px;">
+                <div class="c-p1" style="border-right:1px solid var(--border);">
+                  <button class="nav-btn active" style="font-size:14px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  </button>
+                  <button class="nav-btn" style="font-size:14px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                  </button>
+                </div>
+                <!-- P3 simulation -->
+                <div style="flex:1; display:flex; flex-direction:column; background:var(--bg);">
+                  <!-- Banner -->
+                  <div class="offline-banner" id="c2-banner">
+                    <span class="icon-warn">⚠</span>
+                    <span class="text">后端服务不可达，Agent 调度已暂停 · 主对话正常可用</span>
+                    <button class="btn-close" onclick="c2CloseBanner()" title="关闭">×</button>
+                  </div>
+                  <!-- Mock chat -->
+                  <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+                    <span style="font-size:11px; color:var(--text-3);">主对话正常使用</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pros-cons">
+            <div class="label pro">优点</div>
+            <ul>
+              <li>P3 内明显，用户工作时必然注意到</li>
+              <li>文字说明清晰，消除用户疑虑</li>
+              <li>可关闭，不强制持续占用空间</li>
+              <li>服务恢复后自动消失，无需手动</li>
+            </ul>
+            <div class="label con">缺点</div>
+            <ul>
+              <li>每次进入 P3 都显示，略有打断感</li>
+              <li>Banner 占 36px 高度，压缩内容区</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- C3: P1 icon degraded -->
+      <div class="option-card">
+        <div class="option-card-header">
+          <h3>C3 · P1 图标降级态</h3>
+        </div>
+        <div class="option-card-body">
+          <div class="preview-wrap">
+            <div class="c-topbar-area">
+              <div class="topbar">
+                <span class="topbar-brand">workbench</span>
+                <div class="topbar-spacer"></div>
+                <div class="topbar-pip">
+                  <span class="pip-dot green"></span>
+                  <span>sub2api</span>
+                </div>
+                <div class="topbar-pip" style="margin-left:8px;">
+                  <span class="pip-dot green"></span>
+                  <span>gemini</span>
+                </div>
+              </div>
+              <div class="c-layout-strip" style="height:120px;">
+                <div class="c-p1" style="border-right:1px solid var(--border); height:120px; padding:8px 0; gap:4px;">
+                  <!-- Chat: normal -->
+                  <button class="nav-btn active" style="font-size:14px;" title="对话（正常）">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  </button>
+                  <!-- Tools: disabled -->
+                  <div class="tooltip-wrap">
+                    <button class="nav-btn disabled" style="font-size:14px;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    </button>
+                    <div class="tooltip-box">后端服务离线，此功能暂不可用</div>
+                  </div>
+                  <!-- Console: disabled -->
+                  <div class="tooltip-wrap">
+                    <button class="nav-btn disabled" style="font-size:14px;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                    </button>
+                    <div class="tooltip-box">后端服务离线，此功能暂不可用</div>
+                  </div>
+                </div>
+                <div class="c-p2">
+                  <span class="c-placeholder">对话图标正常<br>工具/控制台图标灰化<br>带 × 叠加 + hover tooltip</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pros-cons">
+            <div class="label pro">优点</div>
+            <ul>
+              <li>无额外 UI 弹层，最不打断工作流</li>
+              <li>精准区分「可用」vs「不可用」功能</li>
+              <li>符合渐进式降级设计原则</li>
+            </ul>
+            <div class="label con">缺点</div>
+            <ul>
+              <li>隐藏较深，用户不主动 hover 难发现</li>
+              <li>灰色叠 × 视觉语义不够直觉</li>
+              <li>无全局提示，用户可能困惑为权限问题</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /options-row C -->
+
+    <div class="rec-note">
+      <strong>建议组合：</strong>C2（P3 Banner，可关闭）+ C1 降级（关闭 Banner 后在 TopBar 留红 pip）。Banner 提供初次清晰告知，pip 保留持续感知，两者成本都低。
+    </div>
+  </div><!-- /section C -->
+
+</div><!-- /page-content -->
+
+<!-- ================================================
+     JAVASCRIPT
+     ================================================ -->
+<script>
+  // ===== A3 toggle =====
+  function a3Toggle() {
+    const btn = document.getElementById('a3-btn');
+    const label = document.getElementById('a3-label');
+    if (label.textContent === '3 个待决策') {
+      label.textContent = '决策模式 ✓';
+      btn.style.color = 'var(--success)';
+      btn.style.background = '#f0fdf4';
+      btn.style.borderColor = '#86efac';
+    } else {
+      label.textContent = '3 个待决策';
+      btn.style.color = 'var(--warning)';
+      btn.style.background = 'var(--warning-bg)';
+      btn.style.borderColor = '#fcd34d';
+    }
+  }
+
+  // ===== B1 toggle =====
+  function b1BackToChat() {
+    document.getElementById('b1-decision-view').style.display = 'none';
+    const chat = document.getElementById('b1-chat-view');
+    chat.style.display = 'flex';
+  }
+  function b1ToDec() {
+    document.getElementById('b1-chat-view').style.display = 'none';
+    document.getElementById('b1-decision-view').style.display = 'flex';
+  }
+
+  // ===== B2 accordion =====
+  function b2Toggle(id) {
+    const el = document.getElementById('b2-expand-' + id);
+    if (el.classList.contains('open')) {
+      el.classList.remove('open');
+    } else {
+      // close all others
+      [1,2,3].forEach(function(i) {
+        document.getElementById('b2-expand-' + i).classList.remove('open');
+      });
+      el.classList.add('open');
+    }
+  }
+
+  // ===== B3 master-detail =====
+  var b3Data = [
+    {
+      agent: 'review-agent',
+      risk: 'HIGH',
+      riskClass: 'risk-high',
+      wait: '12 分钟',
+      question: 'product.md v2 存在 2 处逻辑矛盾，是否打回重写？',
+      source: '来源：review-agent 在分支 feature/product-v2 上执行 review-task 时触发。文档版本：v2.1，矛盾位置：第 3 节与第 7 节。',
+      actions: ['打回重写', '忽略继续']
+    },
+    {
+      agent: 'product-agent',
+      risk: 'MEDIUM',
+      riskClass: 'risk-med',
+      wait: '3 分钟',
+      question: 'req-018 决策收件箱是否纳入 v0.2 范围？',
+      source: '来源：product-agent 在规划 v0.2 需求清单时，发现 req-018 优先级评分接近阈值，需人工确认范围。',
+      actions: ['纳入', '推 v0.3']
+    },
+    {
+      agent: 'ceo-event',
+      risk: 'LOW',
+      riskClass: 'risk-low',
+      wait: '1 分钟',
+      question: 'technical.md 已生成，是否批准开始实现阶段？',
+      source: '来源：ceo-event 监听到 technical.md 写入完成事件，触发阶段推进决策。',
+      actions: ['批准', '再看看']
+    }
+  ];
+
+  function b3Render(idx) {
+    var d = b3Data[idx];
+    var html = '<div class="b3-detail-agent">'
+      + '<span class="agent-tag" style="font-size:11px;padding:3px 9px;">' + d.agent + '</span>'
+      + '<span class="risk-badge ' + d.riskClass + '">' + d.risk + '</span>'
+      + '<span style="font-size:11px;color:var(--text-3);margin-left:auto;">等待 ' + d.wait + '</span>'
+      + '</div>'
+      + '<div class="b3-detail-q">' + d.question + '</div>'
+      + '<div class="b3-source">' + d.source + '</div>'
+      + '<div class="d-actions">'
+      + '<button class="btn-primary">' + d.actions[0] + '</button>'
+      + '<button class="btn-secondary">' + d.actions[1] + '</button>'
+      + '</div>';
+    document.getElementById('b3-detail').innerHTML = html;
+  }
+
+  function b3Select(el, idx) {
+    document.querySelectorAll('.b3-item').forEach(function(item) {
+      item.classList.remove('selected');
+    });
+    el.classList.add('selected');
+    b3Render(idx - 1);
+  }
+
+  // Init B3 with first item
+  b3Render(0);
+
+  // ===== C2 banner close =====
+  function c2CloseBanner() {
+    document.getElementById('c2-banner').style.display = 'none';
+    // Show small dot in topbar
+    document.getElementById('c2-topbar-dot').style.display = 'flex';
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,180 @@
+.decision-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  overflow: hidden;
+}
+
+.decision-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 8px 0 0 8px;
+}
+
+.decision-card--HIGH::before {
+  background: #dc2626;
+}
+
+.decision-card--MEDIUM::before {
+  background: #f59e0b;
+}
+
+.decision-card--LOW::before {
+  background: #a1a1aa;
+}
+
+.decision-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-color: #d4d4d8;
+}
+
+.decision-card--selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+/* Header row */
+.decision-card__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.decision-card__agent-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.decision-card__risk-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.decision-card__risk-badge--HIGH {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.decision-card__risk-badge--MEDIUM {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.decision-card__risk-badge--LOW {
+  background: #f4f4f5;
+  color: #71717a;
+}
+
+.decision-card__wait-time {
+  margin-left: auto;
+  font-size: 11px;
+  color: #a1a1aa;
+  white-space: nowrap;
+}
+
+/* Question text */
+.decision-card__question {
+  font-size: 13px;
+  color: #18181b;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+/* Option descriptions */
+.decision-card__options {
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.decision-card__option-row {
+  font-size: 11px;
+  color: #52525b;
+  line-height: 1.4;
+}
+
+.decision-card__option-label {
+  font-weight: 600;
+  color: #3f3f46;
+}
+
+.decision-card__option-desc {
+  color: #71717a;
+}
+
+/* Action buttons */
+.decision-card__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.decision-card__btn {
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s ease, opacity 0.1s ease;
+  white-space: nowrap;
+}
+
+.decision-card__btn--primary {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+}
+
+.decision-card__btn--primary:hover {
+  background: #1d4ed8;
+}
+
+.decision-card__btn--secondary {
+  background: transparent;
+  color: #2563eb;
+  border: 1px solid #2563eb;
+}
+
+.decision-card__btn--secondary:hover {
+  background: #eff6ff;
+}
+
+.decision-card__btn--snooze {
+  background: transparent;
+  color: #a1a1aa;
+  border: 1px solid #e4e4e7;
+  margin-left: auto;
+}
+
+.decision-card__btn--snooze:hover {
+  background: #f4f4f5;
+  color: #71717a;
+}

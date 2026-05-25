@@ -1,0 +1,247 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 8px;
+  gap: 8px;
+  z-index: 50;
+}
+
+.topbar__left {
+  display: flex;
+  align-items: center;
+  width: 52px;
+  flex-shrink: 0;
+}
+
+.topbar__sidebar-toggle {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-panel);
+  padding: 0;
+}
+
+.topbar__sidebar-toggle:hover {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+.topbar__center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.01em;
+}
+
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar__service {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.topbar__pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.topbar__pip--ok {
+  background: #22c55e;
+}
+
+.topbar__pip--warn {
+  background: #f59e0b;
+}
+
+.topbar__pip--error {
+  background: #ef4444;
+}
+
+.topbar__service-name {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* v0.2: 后端离线红点 */
+.topbar__pip--backend-offline {
+  background: #dc2626;
+  width: 8px;
+  height: 8px;
+}
+
+/* v0.2: 离线 Banner */
+.topbar-offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 12px;
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+  flex-shrink: 0;
+  z-index: 49;
+}
+
+.topbar-offline-banner__text {
+  font-size: 13px;
+  color: #b91c1c;
+  flex: 1;
+}
+
+.topbar-offline-banner__close {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #b91c1c;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.topbar-offline-banner__close:hover {
+  background: #fee2e2;
+}
+
+/* v0.7: 瞬态通知 Toast */
+.topbar__toast-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  max-width: 480px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.topbar__toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  animation: topbar-toast-in 0.15s ease;
+  flex-shrink: 0;
+  max-width: 240px;
+}
+
+@keyframes topbar-toast-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.topbar__toast--success {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.topbar__toast--error {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.topbar__toast--info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.topbar__toast-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.topbar__toast-close {
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: inherit;
+  opacity: 0.7;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.topbar__toast-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* v0.6: 决策 Badge */
+.topbar__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #f97316;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* v0.8: badge 按钮交互 */
+.topbar__badge--btn {
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.topbar__badge--btn:hover {
+  background: #ea580c;
+  transform: scale(1.1);
+}
+
+.topbar__badge--btn:active {
+  transform: scale(0.95);
+}

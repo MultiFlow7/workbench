@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工作台 · AI 协作平面</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f5f5;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --accent: #2563eb;
+  --accent-light: #eff6ff;
+  --accent-border: #bfdbfe;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-tertiary: #94a3b8;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --green: #16a34a;
+  --green-light: #f0fdf4;
+  --amber: #b45309;
+  --amber-light: #fffbeb;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.04);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+section { padding: 88px 0; }
+section + section { border-top: 1px solid var(--border); }
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.section-title {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.section-desc {
+  font-size: 16px;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  max-width: 620px;
+}
+
+.sub-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+  margin-top: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sub-title:first-of-type { margin-top: 0; }
+
+/* ====== NAV ====== */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(245,245,245,0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 40px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nav-brand {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-brand-badge {
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 99px;
+  letter-spacing: 0.02em;
+}
+.nav-links {
+  display: flex;
+  gap: 28px;
+  list-style: none;
+}
+.nav-links a {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--text-primary); }
+
+/* ====== HERO ====== */
+.hero {
+  padding: 72px 0 88px;
+  background: var(--bg);
+}
+.hero-inner {
+  display: grid;
+  grid-template-columns: 1fr 500px;
+  gap: 56px;
+  align-items: start;
+}
+.hero-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.hero-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.hero-eyebrow-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.hero-title {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.10;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+.hero-title-sub {
+  display: block;
+  font-size: 32px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+  margin-top: 4px;
+}
+
+.hero-layer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.hero-layer-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+}
+.hero-layer-item:nth-child(1) { border-left-color: var(--accent); }
+.hero-layer-item:nth-child(2) { border-left-color: #7c3aed; }
+.hero-layer-item:nth-child(3) { border-left-color: #0891b2; }
+.hero-layer-item:nth-child(4) { border-left-color: var(--border-strong); opacity: 0.65; }
+
+.hero-layer-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.hero-layer-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.hero-layer-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.hero-tagline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 20px;
+}
+.hero-tagline .hl-ai { color: #93c5fd; }
+.hero-tagline .hl-human { color: #86efac; }
+.hero-tagline .sep { color: #475569; margin: 0 8px; }
+
+.hero-audience {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ====== FOUR PANEL MOCK ====== */
+.panel-mock-wrap { position: relative; }
+.panel-mock {
+  display: flex;
+  height: 400px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+}
+/* mock topbar */
+.mock-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 32px;
+  background: #1e293b;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 6px;
+  z-index: 2;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.mock-tb-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+.mock-tb-dot:nth-child(1) { background: #ef4444; }
+.mock-tb-dot:nth-child(2) { background: #f59e0b; }
+.mock-tb-dot:nth-child(3) { background: #22c55e; }
+.mock-tb-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 16px;
+}
+.mock-tb-tab {
+  padding: 3px 12px;
+  border-radius: 5px;
+  font-size: 10px;
+  color: #94a3b8;
+}
+.mock-tb-tab--active {
+  background: rgba(255,255,255,0.1);
+  color: #e2e8f0;
+}
+.mock-inner {
+  display: flex;
+  width: 100%;
+  margin-top: 32px;
+  height: calc(400px - 32px);
+}
+
+/* P1 nav */
+.mock-p1 {
+  width: 44px;
+  background: #1e293b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 0;
+  gap: 18px;
+  flex-shrink: 0;
+}
+.m-icon {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+}
+.m-icon--active { background: rgba(37,99,235,0.35); }
+.m-icon svg {
+  width: 13px; height: 13px;
+  fill: none; stroke: #64748b; stroke-width: 1.5;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.m-icon--active svg { stroke: #93c5fd; }
+
+/* P2 structure */
+.mock-p2 {
+  width: 188px;
+  background: #f8fafc;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  padding: 10px 10px;
+  overflow: hidden;
+}
+.m-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 4px 4px 8px;
+}
+.m-node {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1.3;
+}
+.m-node--active {
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 500;
+}
+.m-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+.m-node--active .m-dot { background: var(--accent); }
+.m-line {
+  width: 1px; height: 10px;
+  background: var(--border);
+  margin: 0 0 0 13px;
+}
+
+/* P3 main */
+.mock-p3 {
+  flex: 1;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 10px;
+  gap: 7px;
+  overflow: hidden;
+  min-width: 0;
+}
+.m-breadcrumb {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-bubble {
+  max-width: 88%;
+  padding: 6px 9px;
+  border-radius: 7px;
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.m-bubble--user {
+  background: var(--accent);
+  color: #fff;
+  align-self: flex-end;
+}
+.m-bubble--ai { background: #f1f5f9; }
+.m-bubble--ai-done {
+  background: #f0fdf4;
+  color: #166534;
+}
+.m-input {
+  margin-top: auto;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+
+/* P4 detail */
+.mock-p4 {
+  width: 192px;
+  background: #fafafa;
+  border-left: 1px solid var(--border);
+  flex-shrink: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+.m-detail-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding-bottom: 6px;
+}
+.m-detail-row {
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.m-detail-key {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  margin-bottom: 1px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.m-atom-chip {
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: var(--accent-light);
+  border: 1px solid var(--accent-border);
+  border-radius: 5px;
+  font-size: 9px;
+  color: var(--accent);
+  line-height: 1.6;
+}
+
+.panel-p-labels {
+  display: flex;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* ====== WHY ====== */
+.scene-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 32px;
+}
+.scene-block p {
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--text-secondary);
+}
+.scene-block p + p { margin-top: 12px; }
+
+.pain-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.pain-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+}
+.pain-card-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+.pain-card-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+/* ====== WHAT ====== */
+.collab-types {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 44px;
+}
+.collab-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 22px;
+  position: relative;
+  overflow: hidden;
+}
+.collab-num {
+  position: absolute;
+  top: 16px; right: 18px;
+  font-size: 36px;
+  font-weight: 800;
+  color: #f1f5f9;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+.collab-icon {
+  font-size: 22px;
+  margin-bottom: 14px;
+  display: block;
+}
+.collab-relation {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.collab-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+.collab-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* Panel breakdown table */
+.panel-breakdown {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.panel-col {
+  padding: 22px 20px;
+  border-right: 1px solid var(--border);
+}
+.panel-col:last-child { border-right: none; }
+.panel-col-id {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.panel-col-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.panel-col-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.available-now {
+  background: var(--green-light);
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.available-now-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.available-now h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green);
+  margin-bottom: 6px;
+}
+.available-now p {
+  font-size: 13px;
+  color: #166534;
+  line-height: 1.7;
+}
+
+/* ====== ARCH ====== */
+.arch-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.arch-layer {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.arch-layer-label {
+  background: #1e293b;
+  color: #94a3b8;
+  padding: 14px 18px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.02em;
+}
+.arch-layer-content {
+  background: var(--surface);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.arch-tag {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+}
+.arch-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.arch-layer--storage {
+  border-color: var(--accent-border);
+}
+.arch-layer--storage .arch-layer-label {
+  background: #1e3a8a;
+  color: #93c5fd;
+}
+.arch-layer--storage .arch-layer-content {
+  background: var(--accent-light);
+}
+.arch-layer--storage .arch-tag {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: rgba(255,255,255,0.7);
+}
+.arch-layer--storage .arch-desc { color: var(--accent); }
+
+/* Business flows */
+.flow-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin-bottom: 10px;
+}
+.flow-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.flow-num {
+  width: 19px; height: 19px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+}
+.flow-steps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.flow-node {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 11px;
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.flow-node--hi {
+  background: var(--accent-light);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+.flow-node--warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: var(--amber);
+}
+.flow-node--storage {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+  color: #0369a1;
+}
+.flow-arr {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+/* Storage deep dive */
+.storage-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.storage-col {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+.storage-col--old { opacity: 0.65; }
+.storage-col-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.storage-col-title--new { color: var(--accent); }
+.storage-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 5px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.s-icon { flex-shrink: 0; }
+
+.atom-block {
+  background: #0f172a;
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 2;
+  color: #94a3b8;
+  white-space: pre;
+  overflow-x: auto;
+}
+.c { color: #334155; }
+.k { color: #93c5fd; }
+.v { color: #86efac; }
+.s { color: #fca5a5; }
+.h { color: #fcd34d; font-weight: 600; }
+
+/* Module cards */
+.module-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.module-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+.module-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.module-icon {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.module-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.module-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: 'JetBrains Mono', monospace;
+}
+.module-items {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.module-item {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.6;
+}
+.module-item::before {
+  content: '·';
+  color: var(--accent);
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+/* ====== INNOVATIONS ====== */
+.innovation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.innovation-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px;
+  position: relative;
+  overflow: hidden;
+}
+.innovation-card--featured {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+  align-items: start;
+  background: var(--accent-light);
+  border-color: var(--accent-border);
+}
+.innovation-num {
+  position: absolute;
+  right: 18px; top: 14px;
+  font-size: 44px;
+  font-weight: 800;
+  color: #f1f5f9;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  pointer-events: none;
+}
+.innovation-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.innovation-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+.innovation-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.75;
+}
+.atom-feature-box {
+  background: var(--surface);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  padding: 18px;
+}
+.atom-feature-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+.atom-feature-item {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.55;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.atom-feature-item:last-child { border-bottom: none; }
+.atom-feature-mark { flex-shrink: 0; }
+
+/* ====== PROGRESS ====== */
+.progress-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.progress-col {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.progress-head {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.p-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.p-dot--done { background: var(--green); }
+.p-dot--wip  { background: #f59e0b; }
+.p-dot--plan { background: var(--text-tertiary); }
+.p-head-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+.p-head-title--done  { color: var(--green); }
+.p-head-title--wip   { color: #b45309; }
+.p-head-title--plan  { color: var(--text-secondary); }
+.progress-items {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.progress-item {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  line-height: 1.55;
+}
+.pi-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+.pi-dot--done { background: var(--green); }
+.pi-dot--wip  { background: #f59e0b; }
+.pi-dot--plan { background: var(--text-tertiary); }
+
+/* ====== FOOTER ====== */
+footer {
+  padding: 36px 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+footer p {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-family: 'JetBrains Mono', monospace;
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a class="nav-brand" href="#">
+      工作台
+      <span class="nav-brand-badge">v0.11</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#why">为什么</a></li>
+      <li><a href="#what">是什么</a></li>
+      <li><a href="#arch">技术架构</a></li>
+      <li><a href="#innovation">核心创新</a></li>
+      <li><a href="#progress">能力全景</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-inner">
+      <!-- Left: copy -->
+      <div>
+        <div class="hero-eyebrow">
+          <div class="hero-dot"></div>
+          <span class="hero-eyebrow-text">private-ai-workspace · active</span>
+        </div>
+
+        <h1 class="hero-title">
+          工作台
+          <span class="hero-title-sub">AI 协作平面</span>
+        </h1>
+
+        <div class="hero-tagline">
+          后端&nbsp;<span class="hl-ai">AI first</span>
+          <span class="sep">/</span>
+          前端&nbsp;<span class="hl-human">Human first</span>
+        </div>
+
+        <div class="hero-layer">
+          <div class="hero-layer-item">
+            <div class="hero-layer-label">第一阶段</div>
+            <div class="hero-layer-title">AI 工作需要协作平面，不是聊天窗口</div>
+            <div class="hero-layer-desc">四面板布局让结构与内容同时在视野里，无需在多个窗口间来回切换</div>
+          </div>
+          <div class="hero-layer-item">
+            <div class="hero-layer-label">深层逻辑</div>
+            <div class="hero-layer-title">协作不止发生在人与 AI 之间，也发生在 AI 与 AI 之间</div>
+            <div class="hero-layer-desc">Agent 通过共享信息库传递上下文，接力完成复杂任务链</div>
+          </div>
+        </div>
+
+        <div class="hero-layer" style="margin-top: 8px; gap: 8px;">
+          <div class="hero-layer-item" style="padding: 11px 14px;">
+            <div class="hero-layer-title" style="font-size: 13px;">🤝 AI 服务于我 — 执行任务、生成内容、分析问题</div>
+          </div>
+          <div class="hero-layer-item" style="padding: 11px 14px;">
+            <div class="hero-layer-title" style="font-size: 13px;">🎛️ 我管理 AI 团队 — 调度 Agent、监控状态、设定规则</div>
+          </div>
+          <div class="hero-layer-item" style="padding: 11px 14px;">
+            <div class="hero-layer-title" style="font-size: 13px;">🔄 AI 与 AI 协作 — 通过信息库传递上下文，接力任务链</div>
+          </div>
+          <div class="hero-layer-item" style="padding: 11px 14px; border-left-color: var(--border-strong); opacity: 0.6;">
+            <div class="hero-layer-title" style="font-size: 13px;">↩ 我服务于 AI — 提供需求、决策与上下文</div>
+          </div>
+        </div>
+
+        <div class="hero-audience" style="margin-top: 20px;">
+          适合：需要同时管理多个 AI 协作场景、处理复杂任务链的个人或小团队
+        </div>
+      </div>
+
+      <!-- Right: four-panel mock -->
+      <div class="panel-mock-wrap">
+        <div class="panel-mock">
+          <div class="mock-topbar">
+            <div class="mock-tb-dot"></div>
+            <div class="mock-tb-dot"></div>
+            <div class="mock-tb-dot"></div>
+            <div class="mock-tb-tabs">
+              <div class="mock-tb-tab mock-tb-tab--active">无限画布 bug 排查</div>
+              <div class="mock-tb-tab">工作台规划</div>
+              <div class="mock-tb-tab">+ 新工作区</div>
+            </div>
+          </div>
+          <div class="mock-inner">
+            <!-- P1 -->
+            <div class="mock-p1">
+              <div class="m-icon m-icon--active">
+                <svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+              </div>
+              <div class="m-icon">
+                <svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
+              </div>
+              <div class="m-icon">
+                <svg viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+              </div>
+            </div>
+            <!-- P2 -->
+            <div class="mock-p2">
+              <div class="m-label">对话分支</div>
+              <div class="m-node m-node--active"><div class="m-dot"></div>无限画布 bug 排查</div>
+              <div class="m-line"></div>
+              <div class="m-node" style="padding-left:18px;"><div class="m-dot"></div>分析 streaming 卡片</div>
+              <div class="m-line" style="margin-left:21px;"></div>
+              <div class="m-node" style="padding-left:30px;font-size:9px;"><div class="m-dot"></div>修复方案 A ✓</div>
+              <div class="m-line" style="margin-left:21px;"></div>
+              <div class="m-node" style="padding-left:30px;font-size:9px;opacity:.5;"><div class="m-dot"></div>修复方案 B</div>
+              <div class="m-line"></div>
+              <div class="m-node" style="opacity:.6;"><div class="m-dot"></div>race condition 深挖</div>
+              <div class="m-line"></div>
+              <div class="m-node" style="opacity:.5;"><div class="m-dot"></div>回归测试对话</div>
+            </div>
+            <!-- P3 -->
+            <div class="mock-p3">
+              <div class="m-breadcrumb">bug 排查 › streaming 卡片 › 修复方案 A</div>
+              <div class="m-bubble m-bubble--user">streaming 卡片切换节点时会卡住</div>
+              <div class="m-bubble m-bubble--ai">这是 race condition——ai-done 事件与 setTimeout 队列竞争导致的……</div>
+              <div class="m-bubble m-bubble--user">给我完整修复方案</div>
+              <div class="m-bubble m-bubble--ai-done">在 ai-done handler 头部清除超时，invoke 完成后仅当仍处于 streaming 状态才重设。已验证可行。</div>
+              <div class="m-input">继续这个对话…</div>
+            </div>
+            <!-- P4 -->
+            <div class="mock-p4">
+              <div class="m-detail-label">节点详情</div>
+              <div class="m-detail-row">
+                <div class="m-detail-key">Atom ID</div>
+                20260521-1430-a
+              </div>
+              <div class="m-detail-row">
+                <div class="m-detail-key">状态</div>
+                已完成
+              </div>
+              <div class="m-detail-row">
+                <div class="m-detail-key">前置</div>
+                [[1430-q]]
+              </div>
+              <div class="m-detail-row">
+                <div class="m-detail-key">Token 用量</div>
+                in 1,284 / out 847
+              </div>
+              <div class="m-atom-chip">
+                关联 Atom ×3<br>
+                <span style="opacity:.7;">req-036 · race-condition</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-p-labels">
+          <div style="width:44px;flex-shrink:0;text-align:center;">P1<br>导航</div>
+          <div style="width:188px;flex-shrink:0;text-align:center;">P2<br>结构</div>
+          <div style="flex:1;text-align:center;">P3<br>主工作区</div>
+          <div style="width:192px;flex-shrink:0;text-align:center;">P4<br>详情</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section id="why">
+  <div class="container">
+    <div class="section-label">问题</div>
+    <h2 class="section-title">为什么需要协作平面</h2>
+
+    <div class="scene-block">
+      <p>你同时开着六个 Claude 对话窗口——工作台规划在这个 Tab，bug 排查在那个 Tab，技术文档在另一个窗口。你发现自己花了大量时间在窗口之间来回切换，试图记住"刚才那个节点讲到哪里了"，而不是在真正解决问题。</p>
+      <p>更深的问题是：你的每个 AI 对话都是孤岛。昨天这个 Agent 分析出来的结论，今天另一个 Agent 完全不知道。知识在对话里产生，也在对话里消失，没有任何沉淀。</p>
+    </div>
+
+    <div class="pain-grid">
+      <div class="pain-card">
+        <div class="pain-card-label">界面痛点</div>
+        <div class="pain-card-text">多 AI 工具分散在不同窗口，对话历史和结构信息无法同时看到</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-card-label">管理痛点</div>
+        <div class="pain-card-text">AI 任务执行不透明，高风险操作没有审批机制，需要人工全程盯</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-card-label">协作痛点</div>
+        <div class="pain-card-text">AI 之间无法共享上下文，对话是孤岛，知识无法在 Agent 之间流动</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-card-label">能力痛点</div>
+        <div class="pain-card-text">AI 只能"说"，无法执行本地操作，人还是要手动转化每一个指令</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT -->
+<section id="what">
+  <div class="container">
+    <div class="section-label">产品</div>
+    <h2 class="section-title">三种协作，一个平面</h2>
+    <p class="section-desc" style="margin-bottom:40px;">工作台的核心不是更好的聊天界面，而是让三种协作关系在同一个空间里同时运转。</p>
+
+    <div class="collab-types">
+      <div class="collab-card">
+        <div class="collab-num">01</div>
+        <span class="collab-icon">🤝</span>
+        <div class="collab-relation">人 ↔ AI</div>
+        <div class="collab-title">对话工作区</div>
+        <div class="collab-desc">四面板布局让对话分支树（P2）和线性历史（P3）同时可见。点击任意节点，从根到该节点的完整上下文链路瞬间呈现，无需切窗口。</div>
+      </div>
+      <div class="collab-card">
+        <div class="collab-num">02</div>
+        <span class="collab-icon">🔄</span>
+        <div class="collab-relation">AI ↔ AI</div>
+        <div class="collab-title">Agent 协作网络</div>
+        <div class="collab-desc">一个 Agent 的输出 Atom 成为另一个 Agent 的输入上下文。调度器自动接取任务、传递知识、推进任务链，AI 之间的协作不需要人工中转。</div>
+      </div>
+      <div class="collab-card">
+        <div class="collab-num">03</div>
+        <span class="collab-icon">🎛️</span>
+        <div class="collab-relation">人 管理 AI</div>
+        <div class="collab-title">执行控制台</div>
+        <div class="collab-desc">Agent 注册表、任务状态机、Decision Inbox——所有 AI 的执行状态和高风险操作都汇聚在控制台，人保留完整控制权。</div>
+      </div>
+    </div>
+
+    <div class="sub-title">四面板职责分工</div>
+    <div class="panel-breakdown">
+      <div class="panel-grid">
+        <div class="panel-col">
+          <div class="panel-col-id">P1 · 导航</div>
+          <div class="panel-col-name">模式入口</div>
+          <div class="panel-col-desc">切换三种工作模式（对话 / Agent 管理 / 控制台），浏览项目列表。不渲染结构，不渲染内容。</div>
+        </div>
+        <div class="panel-col">
+          <div class="panel-col-id">P2 · 结构</div>
+          <div class="panel-col-name">可视化结构</div>
+          <div class="panel-col-desc">对话模式显示分支树；Agent 管理模式显示注册表；控制台显示服务状态。纯结构，不处理业务逻辑。</div>
+        </div>
+        <div class="panel-col">
+          <div class="panel-col-id">P3 · 主工作区</div>
+          <div class="panel-col-name">当前内容</div>
+          <div class="panel-col-desc">线性对话视图、Agent 文档查看、任务总览与 Decision Inbox。P3 是人主要工作的地方，P2 选择节点，P3 响应内容。</div>
+        </div>
+        <div class="panel-col">
+          <div class="panel-col-id">P4 · 详情</div>
+          <div class="panel-col-name">上下文辅助</div>
+          <div class="panel-col-desc">点击节点 / 任务后显示详情、元数据、关联 Atom。演化路径：只读详情 → 文档查看器 → 可编辑第二工作区。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="available-now">
+      <div class="available-now-icon">✅</div>
+      <div>
+        <h4>v0.10 当前可用</h4>
+        <p>四面板布局 · 流式对话 · 对话分支树 · 线性历史联动 · Agent 状态机（6 态）· 自动调度器 · Decision Inbox · Agent 注册表 · 任务触发 · SSE 实时更新 · Markdown 渲染 · Sandbox + Harness 权限管控</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECHNICAL ARCHITECTURE -->
+<section id="arch">
+  <div class="container">
+    <div class="section-label">技术</div>
+    <h2 class="section-title">技术架构</h2>
+    <p class="section-desc" style="margin-bottom:40px;">五层结构支撑三种协作关系。后端以 Agent 调度为第一公民，前端以降低认知负担为第一公民。</p>
+
+    <!-- 5-layer stack -->
+    <div class="sub-title">系统分层</div>
+    <div class="arch-stack" style="margin-bottom:44px;">
+      <div class="arch-layer">
+        <div class="arch-layer-label">界面层</div>
+        <div class="arch-layer-content">
+          <span class="arch-tag">Tauri 桌面端</span>
+          <span class="arch-tag">React</span>
+          <span class="arch-tag">Zustand</span>
+          <span class="arch-desc">四面板布局 · 多工作区 Tab · 实时 UI 更新</span>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">桥接层</div>
+        <div class="arch-layer-content">
+          <span class="arch-tag">Tauri Rust</span>
+          <span class="arch-desc">stream_ai · execute_tool · write_qa_atom · list_projects — 本地文件系统的唯一入口</span>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">服务层</div>
+        <div class="arch-layer-content">
+          <span class="arch-tag">Axum :8081</span>
+          <span class="arch-desc">Agent 状态机 · 自动调度器 · Context Builder · Harness · Sandbox · REST API · SSE</span>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">AI 层</div>
+        <div class="arch-layer-content">
+          <span class="arch-tag">Claude API</span>
+          <span class="arch-tag">sub2api</span>
+          <span class="arch-desc">流式对话 · Agent 任务执行 · Tool Calling（v0.11 即将上线）</span>
+        </div>
+      </div>
+      <div class="arch-layer arch-layer--storage">
+        <div class="arch-layer-label">存储层 ✦</div>
+        <div class="arch-layer-content">
+          <span class="arch-tag">Markdown Vault</span>
+          <span class="arch-tag">SQLite</span>
+          <span class="arch-desc">思维粒子 Atom · 对话分支 · 任务 / 决策 / Token 日志 · LLM 调用记录</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 business flows -->
+    <div class="sub-title">三条核心业务流</div>
+
+    <div class="flow-item">
+      <div class="flow-name"><div class="flow-num">1</div>用户对话流</div>
+      <div class="flow-steps">
+        <div class="flow-node">用户输入</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node">ChatView</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node flow-node--hi">Claude API 流式</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node flow-node--warn">触发工具调用？</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node">本地执行 · 结果注入</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node flow-node--storage">Atom 写入 Vault</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node">BranchTree 更新</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-name"><div class="flow-num">2</div>Agent 任务流</div>
+      <div class="flow-steps">
+        <div class="flow-node">触发（人工 / 规则）</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node flow-node--storage">SQLite · Pending</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node flow-node--hi">调度器接取（5s 轮询）</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node flow-node--storage">Context Builder 四层注入</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node flow-node--hi">Claude API 执行</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node flow-node--warn">高风险操作？</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node">Completed · SSE 通知</div>
+      </div>
+    </div>
+
+    <div class="flow-item" style="margin-bottom:44px;">
+      <div class="flow-name"><div class="flow-num">3</div>人工决策流</div>
+      <div class="flow-steps">
+        <div class="flow-node flow-node--warn">Agent 遇高风险操作</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node">Decision Inbox</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node">人工 Approve / Reject</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node flow-node--hi">颁发 capability_token</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node">Agent 继续执行</div>
+        <div class="flow-arr">→</div>
+        <div class="flow-node flow-node--hi">DAG 推进下游任务</div>
+      </div>
+    </div>
+
+    <!-- Storage deep dive: 信息库 -->
+    <div class="sub-title">存储层深度：信息库与思维粒子</div>
+    <p style="font-size:14px;color:var(--text-secondary);margin-bottom:20px;line-height:1.8;">传统数据库为人设计——行和列，SQL 查询，精确匹配。工作台的存储层从底层重新设计，让每一次对话以 <strong style="color:var(--text-primary);">AI 原生的形态</strong>沉淀下来：自包含、可关联、带语义环境的思维粒子，构成 Agent 之间流通的信息库。</p>
+
+    <div class="storage-compare">
+      <div class="storage-col storage-col--old">
+        <div class="storage-col-title">传统数据库</div>
+        <div class="storage-row"><span class="s-icon">📋</span>数据被肢解成行和列，信息依赖外部拼装才有意义</div>
+        <div class="storage-row"><span class="s-icon">🔍</span>AI 需要 SQL 检索再组装，费力消化，高噪音</div>
+        <div class="storage-row"><span class="s-icon">⏱</span>不知道哪条数据过时，没有知识时效管理</div>
+        <div class="storage-row"><span class="s-icon">🏝</span>Agent 之间的知识是孤岛，无法直接传递</div>
+      </div>
+      <div class="storage-col">
+        <div class="storage-col-title storage-col-title--new">信息库 · 思维粒子 Atom</div>
+        <div class="storage-row"><span class="s-icon">✦</span>每个 Atom 自包含——背景、内容、关联关系一体，自我解释</div>
+        <div class="storage-row"><span class="s-icon">🔗</span>wikilink 动态关联，AI 拿到一个粒子就能沿链拽出相关上下文</div>
+        <div class="storage-row"><span class="s-icon">📥</span>Context Builder 直接把 Atom 注入上下文窗口，无需检索</div>
+        <div class="storage-row"><span class="s-icon">🔄</span>Agent A 的输出 Atom 直接成为 Agent B 的 file_refs 输入</div>
+      </div>
+    </div>
+
+    <div class="atom-block"><span class="h"># 一个 Q/A Atom 的结构（思维粒子）</span>
+<span class="c">--- 原子身份 ---</span>
+<span class="k">atom_id:</span>   <span class="v">20260521-143015-a</span>
+<span class="k">type:</span>      <span class="v">qa_response</span>
+
+<span class="c">--- 自包含语义核心 ---</span>
+<span class="k">summary:</span>   <span class="s">"streaming race condition 修复方案"</span>
+<span class="k">content:</span>   <span class="s">"在 ai-done handler 头部清除超时……"</span>
+
+<span class="c">--- 动态关联 ---</span>
+<span class="k">prev:</span>      <span class="v">[[20260521-143012-q]]</span>    <span class="c"># 前置问题 Atom</span>
+<span class="k">related:</span>   <span class="v">[[req-036-race-condition]]</span>
+<span class="k">project:</span>   <span class="v">工作台开发</span>
+
+<span class="c">--- 可信度外壳 ---</span>
+<span class="k">created:</span>   <span class="v">2026-05-21T14:30:15</span>
+<span class="k">tokens:</span>    <span class="v">{ input: 1284, output: 847 }</span></div>
+
+    <!-- Module cards -->
+    <div class="sub-title" style="margin-top:48px;">关键模块</div>
+    <div class="module-grid">
+      <div class="module-card">
+        <div class="module-head">
+          <div class="module-icon">⚙️</div>
+          <div>
+            <div class="module-name">Agent 状态机</div>
+            <div class="module-sub">6-state · terminal-protection</div>
+          </div>
+        </div>
+        <div class="module-items">
+          <div class="module-item">Pending → Dispatched → Running → Completed / Failed / Cancelled</div>
+          <div class="module-item">Completed / Failed 不可逆，尝试迁移返回 HTTP 422</div>
+          <div class="module-item">全生命周期事件写入 ui_events 审计表</div>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="module-head">
+          <div class="module-icon">🚀</div>
+          <div>
+            <div class="module-name">自动调度器</div>
+            <div class="module-sub">concurrent-4 · timeout-600s</div>
+          </div>
+        </div>
+        <div class="module-items">
+          <div class="module-item">5s 轮询接取 Pending 任务，最多 4 个 Agent 并发</div>
+          <div class="module-item">单任务 600s 超时保护，超时转人工介入</div>
+          <div class="module-item">R-001 规则：每 30s 检测文档完成度，自动触发 QA Agent</div>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="module-head">
+          <div class="module-icon">🛡️</div>
+          <div>
+            <div class="module-name">Sandbox + Harness</div>
+            <div class="module-sub">whitelist · pre/post-hook</div>
+          </div>
+        </div>
+        <div class="module-items">
+          <div class="module-item">文件读写权限白名单（基于 file_refs 授权），越界记录审计日志</div>
+          <div class="module-item">PreHook 检查权限和依赖 → 执行 → PostHook 颁 Token + DAG 推进</div>
+          <div class="module-item">ErrorHook：自动重试策略 + 失败时创建人工介入决策</div>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="module-head">
+          <div class="module-icon">🏗️</div>
+          <div>
+            <div class="module-name">Context Builder</div>
+            <div class="module-sub">4-layer · atom-injection</div>
+          </div>
+        </div>
+        <div class="module-items">
+          <div class="module-item">① 角色提示（roles/{role}.yaml，per-agent 模型配置）</div>
+          <div class="module-item">② 任务状态（当前任务全量信息）</div>
+          <div class="module-item">③ file_refs（读取 Atom 文件注入上下文，信息库的传递机制）</div>
+          <div class="module-item">④ trigger_reason（本次任务的触发意图）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INNOVATIONS -->
+<section id="innovation">
+  <div class="container">
+    <div class="section-label">差异化</div>
+    <h2 class="section-title">核心创新</h2>
+
+    <div class="innovation-grid">
+
+      <!-- Featured: 信息库 -->
+      <div class="innovation-card innovation-card--featured">
+        <div>
+          <div class="innovation-label">知识基底 · 信息库</div>
+          <div class="innovation-title">AI 原生的知识底座——思维粒子 Atom</div>
+          <div class="innovation-desc" style="margin-bottom:16px;">
+            不是给旧仓库加语义索引，而是从数据的原子结构本身重塑。工作台里的每一次对话，产生的不是聊天记录，而是一个自包含的思维粒子——带有 ID、语义摘要、动态关联、前后文链接。
+          </div>
+          <div class="innovation-desc">
+            这是 AI 与 AI 协作的基础设施：Agent A 分析出的结论以 Atom 形式存入信息库，Agent B 通过 file_refs 直接拿到这个粒子注入自己的上下文，无需中转，无需重建。知识在 Agent 网络里自由流动。
+          </div>
+        </div>
+        <div class="atom-feature-box">
+          <div class="atom-feature-title">思维粒子的四个特性</div>
+          <div class="atom-feature-item">
+            <span class="atom-feature-mark">✦</span>
+            <div><strong>自包含</strong> — 背景、内容、关系一体，不依赖外部隐式知识，切片本身讲清一切</div>
+          </div>
+          <div class="atom-feature-item">
+            <span class="atom-feature-mark">🔗</span>
+            <div><strong>预关联</strong> — wikilink 形成动态关联图，相关上下文不需要检索，沿链滑入</div>
+          </div>
+          <div class="atom-feature-item">
+            <span class="atom-feature-mark">📥</span>
+            <div><strong>直接注入</strong> — Context Builder 把 Atom 文件推进上下文窗口，零检索开销</div>
+          </div>
+          <div class="atom-feature-item">
+            <span class="atom-feature-mark">🔄</span>
+            <div><strong>跨 Agent 流动</strong> — 粒子在 Agent 间自由传递，知识不是孤岛</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="innovation-card">
+        <div class="innovation-num">01</div>
+        <div class="innovation-label">交互设计</div>
+        <div class="innovation-title">双线对话视图</div>
+        <div class="innovation-desc">分支树（P2）和线性历史（P3）分离。P2 纯结构，P3 纯内容，点击节点联动切换完整上下文路径。线性对话的流畅感，加上分叉导航的灵活性，两者不互相干扰。</div>
+      </div>
+
+      <div class="innovation-card">
+        <div class="innovation-num">02</div>
+        <div class="innovation-label">人机协作</div>
+        <div class="innovation-title">非阻塞 Decision Inbox</div>
+        <div class="innovation-desc">AI 执行高风险操作时不强制打断当前工作——决策进入收件箱排队，按风险等级排序。人可以批量处理，批准后自动颁发 capability_token，Agent 从断点继续执行，工作流不中断。</div>
+      </div>
+
+      <div class="innovation-card">
+        <div class="innovation-num">03</div>
+        <div class="innovation-label">执行层</div>
+        <div class="innovation-title">四层 Context 注入调度</div>
+        <div class="innovation-desc">调度器不只是转发任务。Context Builder 为每个 Agent 构建完整认知包：角色提示 + 任务状态 + 信息库粒子（file_refs）+ 触发意图。Agent 以满上下文启动，不需要追问背景。</div>
+      </div>
+
+      <div class="innovation-card">
+        <div class="innovation-num">04</div>
+        <div class="innovation-label">设计哲学</div>
+        <div class="innovation-title">AI-first 后端 / Human-first 前端</div>
+        <div class="innovation-desc">后端以 Agent 自主执行能力为第一公民——状态机、并发控制、权限管控都服务于此。前端以降低认知负担为第一公民——四面板的每个职责边界，都在减少人切换上下文的次数。两者不冲突。</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- PROGRESS -->
+<section id="progress">
+  <div class="container">
+    <div class="section-label">现状</div>
+    <h2 class="section-title">当前能力全景</h2>
+
+    <div class="progress-grid">
+      <div class="progress-col">
+        <div class="progress-head">
+          <div class="p-dot p-dot--done"></div>
+          <div class="p-head-title p-head-title--done">已落地 · v0.10</div>
+        </div>
+        <div class="progress-items">
+          <div class="progress-item"><div class="pi-dot pi-dot--done"></div>四面板布局 + 三种工作模式切换</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--done"></div>多工作区 Tab（独立模式与焦点状态）</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--done"></div>对话分支树（P2）+ 线性历史联动（P3）</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--done"></div>流式对话 + Markdown 渲染</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--done"></div>Q/A Atom 写入 Vault（思维粒子存储）</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--done"></div>Agent 状态机（6 态）+ 自动调度器</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--done"></div>Decision Inbox（非阻塞人工决策）</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--done"></div>Agent 注册表 UI + 任务触发 UI</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--done"></div>SSE 实时通知 · LLM 调用日志</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--done"></div>Sandbox + Harness 权限管控层</div>
+        </div>
+      </div>
+
+      <div class="progress-col">
+        <div class="progress-head">
+          <div class="p-dot p-dot--wip"></div>
+          <div class="p-head-title p-head-title--wip">进行中 · v0.11</div>
+        </div>
+        <div class="progress-items">
+          <div class="progress-item"><div class="pi-dot pi-dot--wip"></div>Tool Calling 基础框架（AI 真正执行本地操作）</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--wip"></div>内置工具：read_file · search_vault</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--wip"></div>ChatView 工具执行状态 UI 反馈</div>
+        </div>
+      </div>
+
+      <div class="progress-col">
+        <div class="progress-head">
+          <div class="p-dot p-dot--plan"></div>
+          <div class="p-head-title p-head-title--plan">规划中</div>
+        </div>
+        <div class="progress-items">
+          <div class="progress-item"><div class="pi-dot pi-dot--plan"></div>Context Window 指示器（Atom token 用量可视化）</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--plan"></div>LLM Gateway（统一模型路由与成本管理）</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--plan"></div>Memory Agent（持久化跨会话知识）</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--plan"></div>跨工作区拖拽（Atom / 节点 / 文件）</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--plan"></div>P4 第二工作区（Obsidian vault 文件编辑）</div>
+          <div class="progress-item"><div class="pi-dot pi-dot--plan"></div>信息库增强（Atom 可信度评分 · 知识半衰期）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>工作台 · private-ai-workspace · v0.11 · 2026</p>
+  </div>
+</footer>
+
+</body>
+</html>
