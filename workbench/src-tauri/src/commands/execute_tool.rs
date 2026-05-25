@@ -5,7 +5,10 @@ use tauri::command;
 use crate::commands::vault::search_vault;
 
 const MAX_CHARS: usize = 8000;
-const VAULT_ROOT: &str = "/Users/morgan/Desktop/Morgan工作仓库/Morgan工作仓库";
+
+fn get_vault_root() -> String {
+    std::env::var("VAULT_ROOT").unwrap_or_default()
+}
 
 fn safe_truncate(s: String) -> String {
     if s.chars().count() <= MAX_CHARS {
@@ -18,8 +21,9 @@ fn safe_truncate(s: String) -> String {
 fn tool_read_file(path: &str) -> Result<String, String> {
     let canonical = std::fs::canonicalize(path)
         .map_err(|e| format!("无法解析路径: {}", e))?;
-    let vault_root = Path::new(VAULT_ROOT);
-    if !canonical.starts_with(vault_root) {
+    let vault_root_str = get_vault_root();
+    let vault_root = Path::new(&vault_root_str);
+    if !vault_root_str.is_empty() && !canonical.starts_with(vault_root) {
         return Err(format!("路径超出 Vault 范围: {}", path));
     }
     let content = fs::read_to_string(&canonical)
@@ -56,9 +60,10 @@ pub fn execute_tool(
             let keyword = tool_input["keyword"]
                 .as_str()
                 .ok_or("缺少 keyword 参数")?;
+            let vault_root = get_vault_root();
             let vault_path = tool_input["vault_path"]
                 .as_str()
-                .unwrap_or(VAULT_ROOT);
+                .unwrap_or(&vault_root);
             tool_search_vault(keyword, vault_path)
         }
         "run_shell" => {

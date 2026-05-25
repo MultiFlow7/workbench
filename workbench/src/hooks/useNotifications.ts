@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useStore } from '../store'
 
-const BACKEND_URL = 'http://43.135.174.27:8081'
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8081'
 
 interface SseNotificationPayload {
   type: string

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { TaskRecord } from './TaskCard'
 import './TaskOverview.css'
 
-const BACKEND_URL = 'http://43.135.174.27:8081'
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8081'
 
 interface UiEvent {
   event_id: string

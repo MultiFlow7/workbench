@@ -9,7 +9,7 @@ export interface AgentInfo {
   failed_count: number
 }
 
-const BACKEND_URL = 'http://43.135.174.27:8081'
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8081'
 
 type DotStatus = 'idle' | 'running' | 'awaiting' | 'failed'
 

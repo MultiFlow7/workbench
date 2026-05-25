@@ -12,8 +12,6 @@ interface ServiceIndicator {
 }
 
 const SERVICES: ServiceIndicator[] = [
-  { name: 'sub2api', status: 'ok' },
-  { name: 'n8n', status: 'ok' },
   { name: 'API Layer', status: 'warn' },
 ]
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { AgentInfo } from './AgentList'
 import './AgentRegistry.css'
 
-const BACKEND_URL = 'http://43.135.174.27:8081'
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8081'
 
 interface AgentTask {
   task_id: string
