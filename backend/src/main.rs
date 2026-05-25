@@ -36,6 +36,9 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() {
+    // Load .env if present (local dev)
+    dotenvy::dotenv().ok();
+
     // Initialize tracing
     tracing_subscriber::registry()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
