@@ -70,6 +70,7 @@ impl AgentDispatcher {
         state_machine: Arc<StateMachine>,
         context_builder: Arc<ContextBuilder>,
         sub2api_key: String,
+        sub2api_url: String,
         sse_tx: broadcast::Sender<SseEvent>,
         notify_tx: broadcast::Sender<SseNotification>,
         agent_model: String,
@@ -84,7 +85,7 @@ impl AgentDispatcher {
                 .build()
                 .expect("无法创建 HTTP 客户端"),
             sub2api_key,
-            sub2api_url: "http://43.135.174.27:8080/v1/messages".to_string(),
+            sub2api_url,
             sse_tx,
             notify_tx,
             agent_model,

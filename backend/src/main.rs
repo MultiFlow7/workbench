@@ -72,11 +72,15 @@ async fn main() {
     let projects_dir = std::env::var("PROJECTS_DIR")
         .unwrap_or_else(|_| "projects".to_string());
 
+    let sub2api_url = std::env::var("SUB2API_URL")
+        .unwrap_or_else(|_| "https://api.anthropic.com/v1/messages".to_string());
+
     info!("数据库路径: {}", database_url);
     info!("Agent 模型: {}", agent_model);
     info!("Roles 目录: {}", roles_dir);
     info!("Workspace 根目录: {}", workspace_root);
     info!("Projects 目录: {}", projects_dir);
+    info!("LLM 端点: {}", sub2api_url);
 
     // Initialize DB
     let pool = db::init_db(&database_url).await;
@@ -102,6 +106,7 @@ async fn main() {
         state_machine.clone(),
         context_builder.clone(),
         sub2api_key.clone(),
+        sub2api_url,
         sse_tx.clone(),
         notify_tx.clone(),
         agent_model,
