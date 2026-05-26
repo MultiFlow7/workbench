@@ -7,6 +7,10 @@ use stream_state::StreamState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 加载 src-tauri/.env（dev 模式本地配置，文件不存在时静默跳过）
+    let env_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".env");
+    let _ = dotenvy::from_path(env_path);
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())

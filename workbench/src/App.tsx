@@ -21,6 +21,7 @@ import type { AgentInfo } from './components/AgentRegistry/AgentList'
 import { useBackendHealth } from './hooks/useBackendHealth'
 import { useBackendSSE } from './hooks/useBackendSSE'
 import { useNotifications } from './hooks/useNotifications'
+import { hydrateSettingsFromFile } from './store/settingsSlice'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
@@ -116,6 +117,8 @@ function App() {
   useNotifications()
 
   useEffect(() => {
+    // Fallback: re-run settings hydration after mount in case bootstrap() failed before IPC was ready
+    hydrateSettingsFromFile((partial) => useStore.setState(partial))
     loadAtoms().then(() => {
       const count = Object.keys(useStore.getState().atoms).length
       invoke('write_event_log', { event: { event: 'app_launch', timestamp: new Date().toISOString(), payload: { version: '0.6.0', qa_atom_count: count } } }).catch(() => {})

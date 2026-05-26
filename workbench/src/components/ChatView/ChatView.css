@@ -198,6 +198,7 @@
 .chat-model-row {
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .chat-model-select {
@@ -210,6 +211,8 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   outline: none;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .chat-model-select:focus {
@@ -358,26 +361,29 @@
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--color-border);
   background: transparent;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .chat-caching-btn--active {
-  background: var(--accent, #2563eb);
+  background: var(--color-accent);
   color: white;
-  border-color: var(--accent, #2563eb);
+  border-color: var(--color-accent);
 }
 
 .chat-expand-btn {
   padding: 4px 8px;
   border-radius: 6px;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--color-border);
   background: transparent;
   cursor: pointer;
   font-size: 14px;
-  color: var(--text-muted, #9ca3af);
+  color: var(--color-text-secondary);
   transition: background 0.15s, color 0.15s;
   flex-shrink: 0;
 }

@@ -117,5 +117,7 @@ export async function hydrateSettingsFromFile(
       localStorage.setItem('wb_caching_enabled', JSON.stringify(data.cachingEnabled))
       setState({ cachingEnabled: data.cachingEnabled })
     }
-  } catch {}
+  } catch (e) {
+    console.error('[settings] hydrateSettingsFromFile failed:', e)
+  }
 }
