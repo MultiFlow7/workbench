@@ -17,6 +17,8 @@ jobs:
       - name: Build release binary
         run: cargo build --release
         working-directory: backend
+        env:
+          RUSTFLAGS: ""
 
       - name: Determine target environment
         id: env
