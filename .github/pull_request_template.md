@@ -15,3 +15,7 @@ closes #<!-- GitHub Issue 编号 -->
 - [ ] 前端：`tsc --noEmit` 无报错
 - [ ] 后端：`cargo check` 通过
 - [ ] 无调试代码残留（`console.log`、`dbg!`、临时注释）
+
+## 版本归属
+
+<!-- 本 PR 属于哪个版本里程碑，例：v0.9 -->
