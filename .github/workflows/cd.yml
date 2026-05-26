@@ -18,6 +18,18 @@ jobs:
         run: cargo build --release
         working-directory: backend
 
+      - name: Determine target environment
+        id: env
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" == *"-beta"* ]]; then
+            echo "target=staging" >> $GITHUB_OUTPUT
+            echo "host=${{ secrets.STAGING_HOST || secrets.SERVER_HOST }}" >> $GITHUB_OUTPUT
+          else
+            echo "target=production" >> $GITHUB_OUTPUT
+            echo "host=${{ secrets.SERVER_HOST }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload binary to server
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
@@ -25,14 +37,17 @@ jobs:
           scp -i /tmp/deploy_key \
             -o StrictHostKeyChecking=no \
             backend/target/release/workbench-backend \
-            root@${{ secrets.SERVER_HOST }}:/data/workbench/workbench-backend.new
+            root@${{ steps.env.outputs.host }}:/data/workbench/workbench-backend.new
 
       - name: Swap binary and restart service
         run: |
           ssh -i /tmp/deploy_key \
             -o StrictHostKeyChecking=no \
-            root@${{ secrets.SERVER_HOST }} \
+            root@${{ steps.env.outputs.host }} \
             "mv /data/workbench/workbench-backend.new /data/workbench/workbench-backend \
              && systemctl restart workbench-backend \
              && systemctl status workbench-backend --no-pager | head -5"
           rm -f /tmp/deploy_key
+
+      - name: Summary
+        run: echo "Deployed ${{ github.ref_name }} to ${{ steps.env.outputs.target }}"
