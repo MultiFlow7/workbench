@@ -16,10 +16,10 @@
 ### Branch Naming
 
 ```
-feat/short-description     new feature
-fix/short-description      bug fix
-docs/short-description     documentation only
-refactor/short-description code refactor without behavior change
+feature/req-N-description   feature tied to a requirement (e.g. feature/req-029-llm-gateway)
+fix/req-N-description       bug fix tied to a requirement
+fix/description             hotfix not tied to a requirement
+chore/description           maintenance, refactor, docs
 ```
 
 ### Commit Style
@@ -58,10 +58,10 @@ Open a GitHub Issue with:
 ### 分支命名
 
 ```
-feat/简短描述     新功能
-fix/简短描述      Bug 修复
-docs/简短描述     仅文档改动
-refactor/简短描述 不改变行为的重构
+feature/req-N-描述   对应需求的功能开发（例：feature/req-029-llm-gateway）
+fix/req-N-描述       对应需求的 Bug 修复
+fix/描述             无关联需求的紧急修复
+chore/描述           维护性改动、重构、文档
 ```
 
 ### 提交信息
