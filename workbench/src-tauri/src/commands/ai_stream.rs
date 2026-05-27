@@ -103,6 +103,14 @@ fn is_tool_use_stop(line: &str) -> bool {
     false
 }
 
+macro_rules! remove_token {
+    ($app:expr, $atom_id:expr) => {{
+        let state = $app.state::<StreamState>();
+        let mut lock = state.tokens.lock().unwrap();
+        lock.remove($atom_id);
+    }};
+}
+
 #[command]
 pub async fn stream_ai(
     app: AppHandle,
@@ -117,8 +125,8 @@ pub async fn stream_ai(
     let cancel = CancellationToken::new();
     {
         let state = app.state::<StreamState>();
-        let mut lock = state.token.lock().unwrap();
-        *lock = Some(cancel.clone());
+        let mut lock = state.tokens.lock().unwrap();
+        lock.insert(atom_id.clone(), cancel.clone());
     }
 
     let mut request_body = serde_json::json!({
@@ -150,11 +158,10 @@ pub async fn stream_ai(
             req = req.header("x-provider-key", key.as_str());
         }
     }
-    let response = req
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| {
+
+    let response = match req.json(&request_body).send().await {
+        Ok(r) => r,
+        Err(e) => {
             let user_msg = if e.to_string().contains("Connection refused")
                 || e.to_string().contains("connection refused")
             {
@@ -162,14 +169,17 @@ pub async fn stream_ai(
             } else {
                 e.to_string()
             };
-            let _ = app.emit("ai-error", serde_json::json!({ "message": user_msg }));
-            user_msg
-        })?;
+            remove_token!(app, &atom_id);
+            let _ = app.emit("ai-error", serde_json::json!({ "atom_id": atom_id, "error": user_msg }));
+            return Err(user_msg);
+        }
+    };
 
     if !response.status().is_success() {
         let status = response.status().as_u16();
         let body = response.text().await.unwrap_or_default();
-        let _ = app.emit("ai-error", serde_json::json!({ "error": format!("HTTP {}: {}", status, body) }));
+        remove_token!(app, &atom_id);
+        let _ = app.emit("ai-error", serde_json::json!({ "atom_id": atom_id, "error": format!("HTTP {}: {}", status, body) }));
         return Err(format!("HTTP {}: {}", status, body));
     }
 
@@ -197,6 +207,7 @@ pub async fn stream_ai(
     loop {
         tokio::select! {
             _ = cancel.cancelled() => {
+                remove_token!(app, &atom_id);
                 let _ = app.emit("ai-cancelled", serde_json::json!({ "atom_id": atom_id }));
                 return Ok(());
             }
@@ -204,10 +215,12 @@ pub async fn stream_ai(
                 match chunk {
                     None => {
                         emit_done!();
+                        remove_token!(app, &atom_id);
                         return Ok(());
                     }
                     Some(Err(e)) => {
-                        let _ = app.emit("ai-error", serde_json::json!({ "error": e.to_string() }));
+                        remove_token!(app, &atom_id);
+                        let _ = app.emit("ai-error", serde_json::json!({ "atom_id": atom_id, "error": e.to_string() }));
                         return Err(e.to_string());
                     }
                     Some(Ok(bytes)) => {
@@ -224,7 +237,8 @@ pub async fn stream_ai(
                                 let _ = app.emit("ai-token", serde_json::json!({ "atom_id": atom_id, "text": delta }));
                             }
                             if let Some(err) = parse_sse_error(line) {
-                                let _ = app.emit("ai-error", serde_json::json!({ "error": err }));
+                                remove_token!(app, &atom_id);
+                                let _ = app.emit("ai-error", serde_json::json!({ "atom_id": atom_id, "error": err }));
                                 return Err(err);
                             }
                             if let Some((idx, id, name)) = parse_tool_use_start(line) {
@@ -252,10 +266,12 @@ pub async fn stream_ai(
                                         "tool_input": parsed_input,
                                     }));
                                 }
+                                remove_token!(app, &atom_id);
                                 return Ok(());
                             }
                             if is_message_stop(line) {
                                 emit_done!();
+                                remove_token!(app, &atom_id);
                                 return Ok(());
                             }
                         }
@@ -267,10 +283,15 @@ pub async fn stream_ai(
 }
 
 #[command]
-pub async fn cancel_stream(app: AppHandle) -> Result<(), String> {
+pub async fn cancel_stream(app: AppHandle, atom_id: String) -> Result<(), String> {
     let state = app.state::<StreamState>();
-    let mut lock = state.token.lock().unwrap();
-    if let Some(token) = lock.take() {
+    let mut lock = state.tokens.lock().unwrap();
+    if atom_id.is_empty() {
+        for (_, token) in lock.iter() {
+            token.cancel();
+        }
+        lock.clear();
+    } else if let Some(token) = lock.remove(&atom_id) {
         token.cancel();
     }
     Ok(())
