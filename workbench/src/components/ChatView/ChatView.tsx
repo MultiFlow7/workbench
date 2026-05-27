@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { exists } from '@tauri-apps/plugin-fs'
@@ -96,6 +96,27 @@ async function generateNewAtomId(parentId: string): Promise<string> {
   }
   throw new Error('ID space exhausted')
 }
+
+const MessageBubble = memo(function MessageBubble({ msg }: { msg: Message }) {
+  if (msg.content.startsWith('— 分支节点')) {
+    return <div className="chat-branch-marker">{msg.content}</div>
+  }
+  return (
+    <div className={`bubble-row bubble-row--${msg.role}`}>
+      <div className={`bubble bubble--${msg.role}`}>
+        {msg.role === 'ai' ? (
+          <div className="markdown-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+              {msg.content}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          msg.content
+        )}
+      </div>
+    </div>
+  )
+})
 
 export function ChatView() {
   const currentPath = useStore((s) => s.currentPath)
@@ -639,26 +660,7 @@ export function ChatView() {
         )}
 
         {messages.map((msg, i) => (
-          msg.content.startsWith('— 分支节点') ? (
-            <div key={i} className="chat-branch-marker">{msg.content}</div>
-          ) : (
-            <div key={i} className={`bubble-row bubble-row--${msg.role}`}>
-              <div className={`bubble bubble--${msg.role}`}>
-                {msg.role === 'ai' ? (
-                  <div className="markdown-body">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      rehypePlugins={[rehypeHighlight]}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  msg.content
-                )}
-              </div>
-            </div>
-          )
+          <MessageBubble key={i} msg={msg} />
         ))}
 
         {/* Node-F-051-B-12: streaming bubble reads from streamingTexts store */}
