@@ -579,13 +579,20 @@ export function ChatView() {
 
     // Step 8: update UI messages and unlock input immediately
     shouldScrollRef.current = true
-    setMessages((prev) => [...prev, { role: 'user', content: questionText }])
+    setMessages((prev) => [...prev, { role: 'user', content: questionText, atomId: newAtomId }])
     setExpandedInput('')
     setToolCallStatuses([])
 
     // Step 9: build history messages and system prompt
+    // Only include messages belonging to the current branch to prevent cross-branch contamination
+    // in concurrent sends (e.g. sending C while B is still streaming from the same parent A).
+    const currentPathIds = new Set(currentPath.map((a) => a.id))
     const historyMessages = messages
-      .filter((m) => m.role !== 'ai' || !m.content.startsWith('— 分支节点'))
+      .filter((m) => {
+        if (m.role === 'ai' && m.content.startsWith('— 分支节点')) return false
+        if (m.atomId !== undefined && !currentPathIds.has(m.atomId)) return false
+        return true
+      })
       .map((m) => ({
         role: m.role === 'user' ? 'user' : 'assistant',
         content: typeof m.content === 'string'
