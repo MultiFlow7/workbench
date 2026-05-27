@@ -221,7 +221,7 @@ pub async fn stream_ai(
                             }
                             if let Some(delta) = parse_delta(line) {
                                 full_content.push_str(&delta);
-                                let _ = app.emit("ai-token", serde_json::json!({ "text": delta }));
+                                let _ = app.emit("ai-token", serde_json::json!({ "atom_id": atom_id, "text": delta }));
                             }
                             if let Some(err) = parse_sse_error(line) {
                                 let _ = app.emit("ai-error", serde_json::json!({ "error": err }));

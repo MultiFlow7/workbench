@@ -132,6 +132,16 @@ export function ChatView() {
   const [model, setModel] = useState(MODELS[0])
   const [lastError, setLastError] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const isNearBottom = () => {
+    const c = messagesContainerRef.current
+    if (!c) return true
+    return c.scrollHeight - c.scrollTop - c.clientHeight < 80
+  }
+  const scrollToBottom = () => {
+    const c = messagesContainerRef.current
+    if (c) c.scrollTop = c.scrollHeight
+  }
   const streamStartRef = useRef<number>(0)
   // T-4: idle timeout ref — reset on every ai-token; fires only if no tokens for STREAM_TIMEOUT_MS
   const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -152,6 +162,8 @@ export function ChatView() {
   const pendingMessagesRef = useRef<Array<{ role: string; content: unknown }>>([])
   const systemPromptRef = useRef<string | undefined>(undefined)
   const streamingTextRef = useRef('')
+  // activeStreamAtomIdRef: tracks the atom_id of the current active stream (req-050 leak prevention)
+  const activeStreamAtomIdRef = useRef<string | null>(null)
   // True from the moment ai-tool-call fires (sync, before any await) until ai-done/error/cancel.
   // handleSend reads this to skip setting Timer A when a tool call has already started.
   const toolCallInProgressRef = useRef(false)
@@ -184,29 +196,24 @@ export function ChatView() {
     return () => { cancelled = true }
   }, [currentPath])
 
-  // Auto-scroll: only when a new message is appended or streaming begins,
-  // not on every token (which causes the page-jumping during tool calls).
   const shouldScrollRef = useRef(false)
   useEffect(() => {
     if (shouldScrollRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      scrollToBottom()
       shouldScrollRef.current = false
     }
   }, [messages])
-  useEffect(() => {
-    if (streamingState === 'streaming') {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [streamingState])
 
   // Register ai-token / ai-done / ai-error / ai-cancelled listeners
   useEffect(() => {
     const unlisteners: Array<() => void> = []
 
-    listen<{ text: string }>('ai-token', (e) => {
+    // Node-F-2: ai-token handler with atom_id filter to prevent content leaking across atoms
+    listen<{ atom_id: string; text: string }>('ai-token', (e) => {
+      if (activeStreamAtomIdRef.current && e.payload.atom_id !== activeStreamAtomIdRef.current) return
       streamingTextRef.current += e.payload.text
       setStreamingText((prev) => prev + e.payload.text)
-      // Reset idle timeout on every token — long tasks won't time out as long as tokens keep arriving
+      if (isNearBottom()) scrollToBottom()
       if (streamTimeoutCbRef.current && streamTimeoutRef.current) {
         clearTimeout(streamTimeoutRef.current)
         streamTimeoutRef.current = setTimeout(streamTimeoutCbRef.current, STREAM_TIMEOUT_MS)
@@ -384,8 +391,16 @@ export function ChatView() {
         streamTimeoutCbRef.current = null
       }
       setStreamingState('idle')
-      // 自动推进 currentPath 到最新节点，使对话保持线性
-      selectAtom(atom_id)
+
+      // Node-F-4: conditional navigation — only jump to new atom if user is still on the parent node
+      const _path = currentPathRef.current
+      const lastInPath = _path[_path.length - 1]
+      const prevId = pendingPrevWikilinkRef.current?.replace(/^\[\[|\]\]$/g, '') ?? null
+      if (lastInPath?.id === prevId) {
+        selectAtom(atom_id)
+      }
+      // Node-F-5: clear active stream ref after done
+      activeStreamAtomIdRef.current = null
 
       const duration_ms = Date.now() - streamStartRef.current
       const token_count = Math.round(full_content.length / 4)
@@ -405,6 +420,8 @@ export function ChatView() {
       setStreamingText('')
       streamingTextRef.current = ''
       setToolCallStatuses([])
+      // Node-F-5: clear active stream ref on error
+      activeStreamAtomIdRef.current = null
     }).then((u) => unlisteners.push(u))
 
     listen('ai-cancelled', () => {
@@ -419,6 +436,8 @@ export function ChatView() {
       setStreamingText('')
       streamingTextRef.current = ''
       setToolCallStatuses([])
+      // Node-F-5: clear active stream ref on cancel
+      activeStreamAtomIdRef.current = null
     }).then((u) => unlisteners.push(u))
 
     return () => unlisteners.forEach((u) => u())
@@ -484,6 +503,9 @@ export function ChatView() {
       pendingIsNewRootRef.current = true
       pendingPrevWikilinkRef.current = null
     }
+
+    // Node-F-3: record the active stream's atom_id before invoking (prevents token leaking)
+    activeStreamAtomIdRef.current = newAtomId
 
     // v0.2: clear pending events and user inputting flag before sending
     clearPendingEvents()
@@ -582,7 +604,7 @@ export function ChatView() {
         <div className="chat-breadcrumb">{breadcrumb}</div>
       )}
 
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesContainerRef}>
         {messages.length === 0 && streamingState === 'idle' && (
           <div className="chat-empty">选择节点或发送消息开始对话</div>
         )}
