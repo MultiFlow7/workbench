@@ -433,12 +433,14 @@ export function ChatView() {
       const errorMsg = e.payload.error ?? e.payload.message ?? '未知错误'
 
       if (atom_id) {
+        const prevId = pendingPrevMapRef.current.get(atom_id) ?? ''
         setAtomDone(atom_id)
         clearStreamingText(atom_id)
         pendingPrevMapRef.current.delete(atom_id)
         pendingQuestionsMapRef.current.delete(atom_id)
-        // Show error in chat only if user is viewing this atom
-        if (atom_id === selectedAtomIdRef.current) {
+        // Show error if: (a) user is viewing this atom, or (b) this atom is a child of the current atom
+        const cur = selectedAtomIdRef.current
+        if (atom_id === cur || prevId === cur) {
           setMessages((prev) => [
             ...prev,
             { role: 'ai', content: `AI 响应中断：${errorMsg}，请重试`, atomId: atom_id },
@@ -476,10 +478,10 @@ export function ChatView() {
   const buildSystemPrompt = useCallback(async (): Promise<string | undefined> => {
     try {
       const [pending, running, blocked, awaitingDecision] = await Promise.all([
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { filter: 'Pending' }),
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { filter: 'Running' }),
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { filter: 'Blocked' }),
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { filter: 'AwaitingDecision' }),
+        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Pending' }),
+        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Running' }),
+        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Blocked' }),
+        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'AwaitingDecision' }),
       ])
 
       const allTasks = [...pending, ...running, ...blocked, ...awaitingDecision]
@@ -628,6 +630,10 @@ export function ChatView() {
       clearStreamingText(newAtomId)
       pendingPrevMapRef.current.delete(newAtomId)
       pendingQuestionsMapRef.current.delete(newAtomId)
+      setMessages((prev) => [
+        ...prev,
+        { role: 'ai', content: `AI 响应中断：${msg}，请重试`, atomId: newAtomId },
+      ])
     })
 
     // T-4: idle timeout — only when no tool call has started
