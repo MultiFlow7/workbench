@@ -177,6 +177,24 @@
 .bt-token-model { font-size: 7.5px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bt-token-val--warn { color: #b45309; }
 
+/* ── Streaming pulse dot (Node-F-051-C-4) ──────────────────────────── */
+.bt-node__streaming-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563eb;
+  animation: bt-pulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes bt-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.75); }
+}
+
 /* ── Empty state ────────────────────────────────────────────────────── */
 .bt-empty {
   display: flex;

@@ -103,6 +103,14 @@ fn is_tool_use_stop(line: &str) -> bool {
     false
 }
 
+macro_rules! remove_token {
+    ($app:expr, $atom_id:expr) => {{
+        let state = $app.state::<StreamState>();
+        let mut lock = state.tokens.lock().unwrap();
+        lock.remove($atom_id);
+    }};
+}
+
 #[command]
 pub async fn stream_ai(
     app: AppHandle,
@@ -117,8 +125,8 @@ pub async fn stream_ai(
     let cancel = CancellationToken::new();
     {
         let state = app.state::<StreamState>();
-        let mut lock = state.token.lock().unwrap();
-        *lock = Some(cancel.clone());
+        let mut lock = state.tokens.lock().unwrap();
+        lock.insert(atom_id.clone(), cancel.clone());
     }
 
     let mut request_body = serde_json::json!({
@@ -150,11 +158,10 @@ pub async fn stream_ai(
             req = req.header("x-provider-key", key.as_str());
         }
     }
-    let response = req
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| {
+
+    let response = match req.json(&request_body).send().await {
+        Ok(r) => r,
+        Err(e) => {
             let user_msg = if e.to_string().contains("Connection refused")
                 || e.to_string().contains("connection refused")
             {
@@ -162,14 +169,17 @@ pub async fn stream_ai(
             } else {
                 e.to_string()
             };
-            let _ = app.emit("ai-error", serde_json::json!({ "message": user_msg }));
-            user_msg
-        })?;
+            remove_token!(app, &atom_id);
+            let _ = app.emit("ai-error", serde_json::json!({ "atom_id": atom_id, "error": user_msg }));
+            return Err(user_msg);
+        }
+    };
 
     if !response.status().is_success() {
         let status = response.status().as_u16();
         let body = response.text().await.unwrap_or_default();
-        let _ = app.emit("ai-error", serde_json::json!({ "error": format!("HTTP {}: {}", status, body) }));
+        remove_token!(app, &atom_id);
+        let _ = app.emit("ai-error", serde_json::json!({ "atom_id": atom_id, "error": format!("HTTP {}: {}", status, body) }));
         return Err(format!("HTTP {}: {}", status, body));
     }
 
@@ -197,6 +207,7 @@ pub async fn stream_ai(
     loop {
         tokio::select! {
             _ = cancel.cancelled() => {
+                remove_token!(app, &atom_id);
                 let _ = app.emit("ai-cancelled", serde_json::json!({ "atom_id": atom_id }));
                 return Ok(());
             }
@@ -204,10 +215,12 @@ pub async fn stream_ai(
                 match chunk {
                     None => {
                         emit_done!();
+                        remove_token!(app, &atom_id);
                         return Ok(());
                     }
                     Some(Err(e)) => {
-                        let _ = app.emit("ai-error", serde_json::json!({ "error": e.to_string() }));
+                        remove_token!(app, &atom_id);
+                        let _ = app.emit("ai-error", serde_json::json!({ "atom_id": atom_id, "error": e.to_string() }));
                         return Err(e.to_string());
                     }
                     Some(Ok(bytes)) => {
@@ -221,10 +234,11 @@ pub async fn stream_ai(
                             }
                             if let Some(delta) = parse_delta(line) {
                                 full_content.push_str(&delta);
-                                let _ = app.emit("ai-token", serde_json::json!({ "text": delta }));
+                                let _ = app.emit("ai-token", serde_json::json!({ "atom_id": atom_id, "text": delta }));
                             }
                             if let Some(err) = parse_sse_error(line) {
-                                let _ = app.emit("ai-error", serde_json::json!({ "error": err }));
+                                remove_token!(app, &atom_id);
+                                let _ = app.emit("ai-error", serde_json::json!({ "atom_id": atom_id, "error": err }));
                                 return Err(err);
                             }
                             if let Some((idx, id, name)) = parse_tool_use_start(line) {
@@ -252,10 +266,12 @@ pub async fn stream_ai(
                                         "tool_input": parsed_input,
                                     }));
                                 }
+                                remove_token!(app, &atom_id);
                                 return Ok(());
                             }
                             if is_message_stop(line) {
                                 emit_done!();
+                                remove_token!(app, &atom_id);
                                 return Ok(());
                             }
                         }
@@ -267,11 +283,193 @@ pub async fn stream_ai(
 }
 
 #[command]
-pub async fn cancel_stream(app: AppHandle) -> Result<(), String> {
+pub async fn cancel_stream(app: AppHandle, atom_id: String) -> Result<(), String> {
     let state = app.state::<StreamState>();
-    let mut lock = state.token.lock().unwrap();
-    if let Some(token) = lock.take() {
+    let mut lock = state.tokens.lock().unwrap();
+    if atom_id.is_empty() {
+        for (_, token) in lock.iter() {
+            token.cancel();
+        }
+        lock.clear();
+    } else if let Some(token) = lock.remove(&atom_id) {
         token.cancel();
     }
     Ok(())
+}
+
+// ── Unit tests ────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use tokio_util::sync::CancellationToken;
+
+    // ── SSE line parsers ──────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_delta_returns_text() {
+        let line = r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}"#;
+        assert_eq!(parse_delta(line), Some("Hello".to_string()));
+    }
+
+    #[test]
+    fn parse_delta_ignores_non_delta_type() {
+        let line = r#"data: {"type":"message_start","message":{"usage":{"input_tokens":10}}}"#;
+        assert_eq!(parse_delta(line), None);
+    }
+
+    #[test]
+    fn parse_delta_ignores_non_data_prefix() {
+        let line = "event: ping";
+        assert_eq!(parse_delta(line), None);
+    }
+
+    #[test]
+    fn parse_sse_error_extracts_error_field() {
+        let line = r#"data: {"error":"overloaded_error"}"#;
+        assert_eq!(parse_sse_error(line), Some("overloaded_error".to_string()));
+    }
+
+    #[test]
+    fn parse_sse_error_returns_none_when_absent() {
+        let line = r#"data: {"type":"content_block_delta"}"#;
+        assert_eq!(parse_sse_error(line), None);
+    }
+
+    #[test]
+    fn is_message_stop_true() {
+        let line = r#"data: {"type":"message_stop"}"#;
+        assert!(is_message_stop(line));
+    }
+
+    #[test]
+    fn is_message_stop_false_for_other_types() {
+        let line = r#"data: {"type":"message_delta"}"#;
+        assert!(!is_message_stop(line));
+    }
+
+    #[test]
+    fn parse_input_tokens_extracts_from_message_start() {
+        let line = r#"data: {"type":"message_start","message":{"usage":{"input_tokens":42}}}"#;
+        assert_eq!(parse_input_tokens(line), Some(42));
+    }
+
+    #[test]
+    fn parse_input_tokens_none_for_wrong_type() {
+        let line = r#"data: {"type":"message_delta","usage":{"output_tokens":10}}"#;
+        assert_eq!(parse_input_tokens(line), None);
+    }
+
+    #[test]
+    fn parse_output_tokens_extracts_from_message_delta() {
+        let line = r#"data: {"type":"message_delta","usage":{"output_tokens":77}}"#;
+        assert_eq!(parse_output_tokens(line), Some(77));
+    }
+
+    #[test]
+    fn parse_output_tokens_none_for_wrong_type() {
+        let line = r#"data: {"type":"message_start","message":{"usage":{"input_tokens":10}}}"#;
+        assert_eq!(parse_output_tokens(line), None);
+    }
+
+    #[test]
+    fn parse_tool_use_start_extracts_fields() {
+        let line = r#"data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"tid_abc","name":"read_file"}}"#;
+        assert_eq!(
+            parse_tool_use_start(line),
+            Some((1, "tid_abc".to_string(), "read_file".to_string()))
+        );
+    }
+
+    #[test]
+    fn parse_tool_use_start_ignores_text_block() {
+        let line = r#"data: {"type":"content_block_start","index":0,"content_block":{"type":"text"}}"#;
+        assert_eq!(parse_tool_use_start(line), None);
+    }
+
+    #[test]
+    fn parse_input_json_delta_matches_index() {
+        let line = r#"data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"file"}}"#;
+        assert_eq!(parse_input_json_delta(line, 1), Some("file".to_string()));
+    }
+
+    #[test]
+    fn parse_input_json_delta_rejects_wrong_index() {
+        let line = r#"data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"file"}}"#;
+        assert_eq!(parse_input_json_delta(line, 2), None);
+    }
+
+    #[test]
+    fn is_tool_use_stop_true() {
+        let line = r#"data: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}"#;
+        assert!(is_tool_use_stop(line));
+    }
+
+    #[test]
+    fn is_tool_use_stop_false_for_end_turn() {
+        let line = r#"data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}"#;
+        assert!(!is_tool_use_stop(line));
+    }
+
+    // ── StreamState cancel logic ──────────────────────────────────────────────
+
+    #[test]
+    fn cancel_specific_atom_leaves_others_running() {
+        let mut tokens = HashMap::new();
+        let t1 = CancellationToken::new();
+        let t2 = CancellationToken::new();
+        tokens.insert("a1".to_string(), t1.clone());
+        tokens.insert("a2".to_string(), t2.clone());
+
+        if let Some(tok) = tokens.remove("a1") {
+            tok.cancel();
+        }
+
+        assert!(t1.is_cancelled(), "a1 should be cancelled");
+        assert!(!t2.is_cancelled(), "a2 should still be running");
+        assert_eq!(tokens.len(), 1);
+    }
+
+    #[test]
+    fn cancel_all_cancels_every_token_and_clears_map() {
+        let mut tokens = HashMap::new();
+        let t1 = CancellationToken::new();
+        let t2 = CancellationToken::new();
+        tokens.insert("a1".to_string(), t1.clone());
+        tokens.insert("a2".to_string(), t2.clone());
+
+        for (_, tok) in tokens.iter() {
+            tok.cancel();
+        }
+        tokens.clear();
+
+        assert!(t1.is_cancelled());
+        assert!(t2.is_cancelled());
+        assert!(tokens.is_empty());
+    }
+
+    #[test]
+    fn cancel_nonexistent_atom_is_noop() {
+        let mut tokens: HashMap<String, CancellationToken> = HashMap::new();
+        let t1 = CancellationToken::new();
+        tokens.insert("a1".to_string(), t1.clone());
+
+        tokens.remove("nonexistent");
+
+        assert!(!t1.is_cancelled(), "unrelated token must not be affected");
+        assert_eq!(tokens.len(), 1);
+    }
+
+    #[test]
+    fn cancel_specific_removes_token_from_map() {
+        let mut tokens = HashMap::new();
+        let t1 = CancellationToken::new();
+        tokens.insert("a1".to_string(), t1.clone());
+
+        if let Some(tok) = tokens.remove("a1") {
+            tok.cancel();
+        }
+
+        assert!(tokens.is_empty(), "token must be removed after cancel");
+    }
 }

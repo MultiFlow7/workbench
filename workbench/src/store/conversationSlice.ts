@@ -44,6 +44,9 @@ export interface ConversationSlice {
   // v0.2 新增
   pendingBackendEvents: SseEvent[]
   isUserInputting: boolean
+  // v0.14 req-051: 并发流状态
+  streamingAtoms: Set<string>
+  streamingTexts: Map<string, string>
   loadAtoms: () => Promise<void>
   selectAtom: (id: string) => void
   appendAtom: (atom: QAAtomMeta) => void
@@ -58,6 +61,11 @@ export interface ConversationSlice {
   clearPendingEvents: () => void
   // v0.3 actions
   updateAtomTokens: (id: string, meta: { model?: string; usage?: TokenUsage; contextTokensUsed?: number; contextWindowLimit?: number }) => void
+  // v0.14 req-051 actions
+  setAtomStreaming: (atomId: string) => void
+  setAtomDone: (atomId: string) => void
+  appendStreamingText: (atomId: string, text: string) => void
+  clearStreamingText: (atomId: string) => void
 }
 
 export const createConversationSlice: StateCreator<ConversationSlice> = (set, get) => ({
@@ -70,6 +78,9 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
   // v0.2 初始值
   pendingBackendEvents: [],
   isUserInputting: false,
+  // v0.14 req-051 初始值
+  streamingAtoms: new Set<string>(),
+  streamingTexts: new Map<string, string>(),
 
   loadAtoms: async () => {
     const list = await invoke<QAAtomMeta[]>('list_qa_atoms', {
@@ -168,5 +179,28 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
           },
         },
       }
+    }),
+  // v0.14 req-051 actions
+  setAtomStreaming: (atomId) =>
+    set((state) => ({
+      streamingAtoms: new Set([...state.streamingAtoms, atomId]),
+    })),
+  setAtomDone: (atomId) =>
+    set((state) => {
+      const next = new Set(state.streamingAtoms)
+      next.delete(atomId)
+      return { streamingAtoms: next }
+    }),
+  appendStreamingText: (atomId, text) =>
+    set((state) => {
+      const next = new Map(state.streamingTexts)
+      next.set(atomId, (next.get(atomId) ?? '') + text)
+      return { streamingTexts: next }
+    }),
+  clearStreamingText: (atomId) =>
+    set((state) => {
+      const next = new Map(state.streamingTexts)
+      next.delete(atomId)
+      return { streamingTexts: next }
     }),
 })

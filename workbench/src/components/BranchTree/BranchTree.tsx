@@ -82,6 +82,8 @@ export function BranchTree() {
   const selectAtom = useStore((s) => s.selectAtom)
   const selectedProjectId = useStore((s) => s.selectedProjectId)
   const projects = useStore((s) => s.projects)
+  // Node-F-051-C-1: subscribe to streaming atoms for spinner display
+  const streamingAtoms = useStore((s) => s.streamingAtoms)
 
   // Project filtering
   const filteredAtoms = useMemo<Record<string, QAAtomMeta>>(() => {
@@ -290,6 +292,8 @@ export function BranchTree() {
         {/* Node cards */}
         {allNodes.map((node) => {
           const selected = node.atom.id === selectedAtomId
+          // Node-F-051-C-2: check if this node is currently streaming
+          const isStreaming = streamingAtoms.has(node.atom.id)
           const left = node.x - NODE_W / 2
           const top = node.y
           const shortId = node.atom.id.slice(-4)
@@ -319,6 +323,11 @@ export function BranchTree() {
                 <span className="bt-node__role">AI</span>
                 <div className="bt-node__text">{summary}</div>
               </div>
+
+              {/* Node-F-051-C-3: streaming pulse dot (top-right) */}
+              {isStreaming && (
+                <span className="bt-node__streaming-dot" aria-label="AI 生成中" />
+              )}
 
               {/* Token badge */}
               <div
