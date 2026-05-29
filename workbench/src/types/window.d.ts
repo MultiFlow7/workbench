@@ -1,9 +1,24 @@
 /**
- * window.api 类型声明（v0.15 节点 1.2）
+ * window.api 类型声明（v0.15 节点 1.3）
  *
  * 与 electron/preload/index.ts 中暴露的 api 对象保持同步。
- * 节点 1.3 起扩充 fs.* / dialog.* 等；节点 2.1 起扩充 agent.* 接口。
+ * 节点 1.3: 新增 fs.* 语义化文件系统 API。
+ * 节点 2.1 起扩充 agent.* 接口。
  */
+
+/** fs.* 语义化文件系统 API（节点 1.3） */
+interface WindowApiFs {
+  /** 读取文件内容（UTF-8） */
+  read(path: string): Promise<string>
+  /** 写入文件内容（原子写） */
+  write(path: string, content: string): Promise<null>
+  /** 列举目录内容（非递归，返回子项名称列表） */
+  list(path: string): Promise<string[]>
+  /** 检查路径是否存在 */
+  exists(path: string): Promise<boolean>
+  /** 创建目录（recursive） */
+  mkdir(path: string): Promise<null>
+}
 
 interface WindowApi {
   /** 通用 invoke（替代 Tauri invoke）*/
@@ -17,8 +32,11 @@ interface WindowApi {
     handler: (event: { payload: T }) => void
   ): Promise<() => void>
 
-  /** fs 存在性检查（替代 @tauri-apps/plugin-fs exists）*/
+  /** fs 存在性检查（保持旧签名兼容）*/
   fsExists(path: string): Promise<boolean>
+
+  /** fs.* 语义化文件系统 API（节点 1.3）*/
+  fs: WindowApiFs
 
   /** 占位字段 */
   readonly version: string

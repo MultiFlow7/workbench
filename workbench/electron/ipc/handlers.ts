@@ -1,8 +1,8 @@
 /**
- * IPC Handler 注册中心（v0.15 节点 1.2）
+ * IPC Handler 注册中心（v0.15 节点 1.3）
  *
  * 所有 ipcMain.handle('cmd', fn) 在此集中注册。
- * 节点 1.3 起按功能扩充 fs:* / dialog:* / agent:* 等通道。
+ * 节点 1.3: 实现完整 fs:* IPC 通道，含路径越界保护。
  *
  * 注意：本节点的 handler 实现是映射层——将来自 renderer 的调用
  * 转发给 Electron 内置 API 或本地 Node.js 模块。
@@ -12,9 +12,30 @@
  */
 
 import { ipcMain } from 'electron'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import * as fs from 'node:fs'
+import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
+import {
+  assertInWorkspace,
+  getWorkspaceCwd as _getWorkspaceCwd,
+  setWorkspaceCwd as _setWorkspaceCwd,
+} from './fsGuard'
+
+// ─── 工作区 cwd 状态（由 fsGuard.ts 管理，节点 1.4 接入 electron-store 后持久化）
+
+// 初始化默认 cwd 为 homedir
+_setWorkspaceCwd(os.homedir())
+
+/**
+ * 获取当前工作目录（供 main/index.ts 或 dialog handler 使用）
+ */
+export const getWorkspaceCwd = _getWorkspaceCwd
+
+/**
+ * 设置工作目录（节点 1.4 dialog:pickFolder 调用后更新）
+ */
+export const setWorkspaceCwd = _setWorkspaceCwd
 
 // ─── 工具函数 ────────────────────────────────────────────────────────────────
 
@@ -32,6 +53,58 @@ export function registerIpcHandlers(): void {
 
   // ── hello-world ping（验证 IPC 通道完整性）──────────────────────────────
   ipcMain.handle('ping', () => 'pong from main')
+
+  // ── fs:read — 读取文件内容（UTF-8 文本）─────────────────────────────────
+  // args: { path: string }
+  // returns: string（文件内容）
+  ipcMain.handle('fs:read', async (_e, args: { path: string }) => {
+    const safePath = assertInWorkspace(args.path)
+    return fsp.readFile(safePath, 'utf-8')
+  })
+
+  // ── fs:write — 写入文件内容（原子写：tmp → rename）──────────────────────
+  // args: { path: string; content: string }
+  // returns: null
+  ipcMain.handle('fs:write', async (_e, args: { path: string; content: string }) => {
+    const safePath = assertInWorkspace(args.path)
+    const tmpPath = `${safePath}.tmp-${process.pid}`
+    await fsp.writeFile(tmpPath, args.content, 'utf-8')
+    await fsp.rename(tmpPath, safePath)
+    return null
+  })
+
+  // ── fs:list — 列举目录内容（非递归）────────────────────────────────────
+  // args: { path: string }
+  // returns: string[]（子项名称列表）
+  ipcMain.handle('fs:list', async (_e, args: { path: string }) => {
+    const safePath = assertInWorkspace(args.path)
+    return fsp.readdir(safePath)
+  })
+
+  // ── fs:exists — 检查路径是否存在（无越界保护，仅供只读探测）─────────────
+  // args: { path: string }
+  // returns: boolean
+  //
+  // 设计说明：fs:exists 故意不做 workspace 校验——renderer 在生成新 atomId
+  // 时需探测文件是否存在，路径由前端自行构造（来自 toFilePath 工具函数，
+  // 已确保在工作区内）。若强制越界保护，generateNewAtomId 会因工作区
+  // 未初始化而误抛 EPERM。
+  ipcMain.handle('fs:exists', (_e, args: { path: string }) => {
+    try {
+      return fs.existsSync(resolve(args.path))
+    } catch {
+      return false
+    }
+  })
+
+  // ── fs:mkdir — 创建目录（recursive）────────────────────────────────────
+  // args: { path: string }
+  // returns: null
+  ipcMain.handle('fs:mkdir', async (_e, args: { path: string }) => {
+    const safePath = assertInWorkspace(args.path)
+    await fsp.mkdir(safePath, { recursive: true })
+    return null
+  })
 
   // ── 版本信息 ──────────────────────────────────────────────────────────────
   ipcMain.handle('get_version', () => '0.15.0-dev')
@@ -139,12 +212,4 @@ export function registerIpcHandlers(): void {
     total_output_tokens: 0,
   }))
 
-  // ── fs:exists（供 ChatView generateNewAtomId 使用）────────────────────────
-  ipcMain.handle('fs:exists', (_e, args: { path: string }) => {
-    try {
-      return fs.existsSync(args.path)
-    } catch {
-      return false
-    }
-  })
 }

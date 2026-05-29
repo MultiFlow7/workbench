@@ -1,5 +1,5 @@
 /**
- * Electron preload 脚本（v0.15 节点 1.2 — IPC 通道映射层）
+ * Electron preload 脚本（v0.15 节点 1.3 — fs IPC 扩展）
  *
  * 通过 contextBridge 暴露 `window.api` 命名空间，将 renderer 的
  * window.api.xxx(args) 调用映射到 ipcRenderer.invoke('xxx', args)，
@@ -7,6 +7,7 @@
  * 通过 window.api.on / window.api.off 转发给 renderer。
  *
  * 原则：renderer 不直接接触 ipcRenderer，所有 IPC 都经此文件中转。
+ * 文件系统操作全部通过语义化 window.api.fs.* 方法，不直接暴露 fs 模块。
  */
 
 import { contextBridge, ipcRenderer } from 'electron'
@@ -49,8 +50,34 @@ const api = {
   },
 
   // 文件系统存在性检查（替代 @tauri-apps/plugin-fs exists）
+  // 保留旧签名以兼容现有 ChatView 调用（window.api.fsExists）
   fsExists: (path: string): Promise<boolean> =>
     ipcRenderer.invoke('fs:exists', { path }) as Promise<boolean>,
+
+  // ── fs.* 语义化文件系统 API（节点 1.3）──────────────────────────────────
+  // 所有路径在 main process 经 path.resolve 规范化并做 workspace 越界校验。
+  // renderer 不直接接触 Node.js fs 模块。
+  fs: {
+    /** 读取文件内容（UTF-8） */
+    read: (path: string): Promise<string> =>
+      ipcRenderer.invoke('fs:read', { path }) as Promise<string>,
+
+    /** 写入文件内容（原子写：tmp → rename，避免写入中断产生损坏文件） */
+    write: (path: string, content: string): Promise<null> =>
+      ipcRenderer.invoke('fs:write', { path, content }) as Promise<null>,
+
+    /** 列举目录内容（非递归，返回子项名称列表） */
+    list: (path: string): Promise<string[]> =>
+      ipcRenderer.invoke('fs:list', { path }) as Promise<string[]>,
+
+    /** 检查路径是否存在 */
+    exists: (path: string): Promise<boolean> =>
+      ipcRenderer.invoke('fs:exists', { path }) as Promise<boolean>,
+
+    /** 创建目录（recursive，已存在不报错） */
+    mkdir: (path: string): Promise<null> =>
+      ipcRenderer.invoke('fs:mkdir', { path }) as Promise<null>,
+  },
 
   // 占位字段（hello-world 验证）
   version: '0.15.0-dev',
