@@ -26,6 +26,11 @@ workbench/*.local
 workbench/src-tauri/target/
 workbench/src-tauri/gen/schemas/
 
+# ── Electron（v0.15 起）─────────────────────────────────
+workbench/out/
+workbench/release/
+workbench/.vite/
+
 # ── 后端本地配置 ────────────────────────────────────────
 backend/.env
 backend/*.db

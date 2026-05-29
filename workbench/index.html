@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' http://localhost:5173; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: http://localhost:5173" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>工作台</title>
+    <title>工作台 v0.15</title>
   </head>
-
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- 节点 1.1 临时入口；节点 1.2 完成 IPC 替换后切回 /src/main.tsx -->
+    <script type="module" src="/src/main-v15.tsx"></script>
   </body>
 </html>
