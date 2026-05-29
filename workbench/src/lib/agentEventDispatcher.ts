@@ -43,6 +43,7 @@ type AgentEvent =
   | { type: 'result'; finalResult: unknown }
   | { type: 'error'; message: string }
   | { type: 'raw'; data: unknown }
+  | { type: 'paused'; toolUseId: string }  // 节点 5.1：agent 已暂停等待干预
 
 // ─── Session buffer（节点 4.8）─────────────────────────────────────────────
 
@@ -299,6 +300,11 @@ function _handleEvent(event: AgentEvent): void {
     }
     case 'raw': {
       // 调试用原始数据，忽略
+      break
+    }
+    case 'paused': {
+      // 节点 5.1：agent 已暂停，广播暂停状态到 store（供干预 UI 响应）
+      store.setStreamingState('paused')
       break
     }
   }

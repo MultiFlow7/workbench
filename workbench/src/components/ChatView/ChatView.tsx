@@ -5,6 +5,7 @@ import { findKeyForModel } from '../../store/settingsSlice'
 import { toFilePath, VAULT_PATH, BASE_PATH } from '../../utils/paths'
 import { getContextLimit } from '../../constants/modelLimits'
 import { ContextIndicator } from '../ContextIndicator/ContextIndicator'
+import { InterventionInline } from '../InterventionInline/InterventionInline'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -706,6 +707,9 @@ export function ChatView() {
           </div>
         )}
 
+        {/* 节点 5.2：暂停干预组件 */}
+        <InterventionInline />
+
         {streamingState === 'error' && (
           <div className="chat-error">
             请求失败：请检查网络或 API Key
@@ -762,6 +766,16 @@ export function ChatView() {
           >
             ⤢
           </button>
+          {/* 节点 5.2：streaming 时显示暂停按钮 */}
+          {streamingState === 'streaming' && (
+            <button
+              className="chat-pause-btn"
+              onClick={() => void window.api.agent.pause()}
+              title="暂停 Agent（下一个工具执行前生效）"
+            >
+              ⏸
+            </button>
+          )}
           {/* Node-F-051-B-14: stop button shows when current atom is streaming */}
           {isCurrentAtomStreaming ? (
             <button className="chat-stop-btn" onClick={handleStop}>停止</button>

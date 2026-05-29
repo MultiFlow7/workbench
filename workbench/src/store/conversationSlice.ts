@@ -37,7 +37,7 @@ export interface ConversationSlice {
   atoms: Record<string, QAAtomMeta>
   selectedAtomId: string | null
   currentPath: QAAtomMeta[]
-  streamingState: 'idle' | 'streaming' | 'cancelled' | 'error'
+  streamingState: 'idle' | 'streaming' | 'cancelled' | 'error' | 'paused'
   projects: ProjectMeta[]
   selectedProjectId: string | null
   // v0.2 新增
@@ -49,7 +49,7 @@ export interface ConversationSlice {
   loadAtoms: () => Promise<void>
   selectAtom: (id: string) => void
   appendAtom: (atom: QAAtomMeta) => void
-  setStreamingState: (s: 'idle' | 'streaming' | 'cancelled' | 'error') => void
+  setStreamingState: (s: 'idle' | 'streaming' | 'cancelled' | 'error' | 'paused') => void
   loadProjects: () => Promise<void>
   createProject: (name: string) => Promise<void>
   addAtomToProject: (projectName: string, atomId: string) => Promise<void>

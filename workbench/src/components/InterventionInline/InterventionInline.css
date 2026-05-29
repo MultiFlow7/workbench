@@ -1,0 +1,90 @@
+/* InterventionInline — v0.15 节点 5.2 */
+
+/* 整体容器 */
+.intervention-inline {
+  margin: var(--spacing-3) 0;
+  padding: var(--spacing-3);
+  border: 1px solid var(--state-warning-bd);
+  border-radius: var(--radius-md);
+  background: var(--state-warning-bg);
+  animation: slideInDown 200ms var(--motion-ease) both;
+}
+
+@keyframes slideInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* header */
+.intervention-inline__header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-2);
+}
+
+.intervention-inline__icon {
+  font-size: 1rem;
+}
+
+.intervention-inline__title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--state-warning-text);
+}
+
+/* textarea */
+.intervention-inline__textarea {
+  width: 100%;
+  padding: var(--spacing-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.intervention-inline__textarea:focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+/* 按钮区 */
+.intervention-inline__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+}
+
+.intervention-btn {
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--motion-speed) var(--motion-ease);
+}
+
+.intervention-btn--cancel {
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.intervention-btn--cancel:hover {
+  background: var(--surface-hover);
+}
+
+.intervention-btn--inject {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.intervention-btn--inject:hover {
+  opacity: 0.9;
+}

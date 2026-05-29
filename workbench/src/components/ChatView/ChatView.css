@@ -272,6 +272,23 @@
   color: var(--color-text-primary);
 }
 
+/* 节点 5.2：暂停按钮 */
+.chat-pause-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  white-space: nowrap;
+}
+
+.chat-pause-btn:hover {
+  background: var(--color-surface-hover, #f4f4f5);
+}
+
 /* Tool call status rows */
 .tool-status {
   display: flex;

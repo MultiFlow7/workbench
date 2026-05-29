@@ -44,6 +44,7 @@ type AgentEventPayload =
   | { type: 'result'; finalResult: unknown }
   | { type: 'error'; message: string }
   | { type: 'raw'; data: unknown }
+  | { type: 'paused'; toolUseId: string }  // 节点 5.1：agent 已暂停等待干预
 
 interface WindowApiAgent {
   /** 启动 agent，进度事件通过 onEvent 回调推送 */
@@ -52,6 +53,10 @@ interface WindowApiAgent {
   stop(): Promise<null>
   /** 订阅 agent 事件，返回 unlisten 函数 */
   onEvent(handler: (event: AgentEventPayload) => void): () => void
+  /** 暂停 agent（下一个工具执行前生效，节点 5.2）*/
+  pause(): Promise<null>
+  /** 恢复 agent 执行，可选注入补充指令（节点 5.2）*/
+  resume(text: string | null): Promise<null>
 }
 
 interface WindowApi {
