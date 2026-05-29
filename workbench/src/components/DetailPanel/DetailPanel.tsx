@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { useStore } from '../../store'
 import { toFilePath } from '../../utils/paths'
 import { formatTokens } from '../../utils/tokenFormat'
@@ -28,7 +27,7 @@ export function DetailPanel() {
 
   useEffect(() => {
     if (!selectedAtomId) return
-    invoke<QAAtom>('read_qa_atom', { filePath: toFilePath(selectedAtomId) })
+    window.api.invoke<QAAtom>('read_qa_atom', { filePath: toFilePath(selectedAtomId) })
       .then(setAtom)
       .catch(console.error)
   }, [selectedAtomId])

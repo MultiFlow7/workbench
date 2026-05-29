@@ -1,5 +1,4 @@
 import { StateCreator } from 'zustand'
-import { invoke } from '@tauri-apps/api/core'
 import { BASE_PATH, PROJECTS_PATH } from '../utils/paths'
 
 export interface TokenUsage {
@@ -83,7 +82,7 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
   streamingTexts: new Map<string, string>(),
 
   loadAtoms: async () => {
-    const list = await invoke<QAAtomMeta[]>('list_qa_atoms', {
+    const list = await window.api.invoke<QAAtomMeta[]>('list_qa_atoms', {
       conversationDir: BASE_PATH,
     })
     const atomMap: Record<string, QAAtomMeta> = {}
@@ -108,7 +107,7 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
     })
     const { currentPath, atoms } = get()
     const depth = Object.keys(atoms).indexOf(id)
-    invoke('write_event_log', { event: { event: 'node_selected', timestamp: new Date().toISOString(), payload: { atom_id: id, depth, path_length: currentPath.length } } }).catch(() => {})
+    window.api.invoke('write_event_log', { event: { event: 'node_selected', timestamp: new Date().toISOString(), payload: { atom_id: id, depth, path_length: currentPath.length } } }).catch(() => {})
   },
 
   appendAtom: (atom) =>
@@ -119,14 +118,14 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
   setStreamingState: (s) => set({ streamingState: s }),
 
   loadProjects: async () => {
-    const list = await invoke<ProjectMeta[]>('list_projects', {
+    const list = await window.api.invoke<ProjectMeta[]>('list_projects', {
       projectsDir: PROJECTS_PATH,
     })
     set({ projects: list })
   },
 
   createProject: async (name) => {
-    const newProject = await invoke<ProjectMeta>('create_project', {
+    const newProject = await window.api.invoke<ProjectMeta>('create_project', {
       projectsDir: PROJECTS_PATH,
       name,
     })
@@ -138,7 +137,7 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
   },
 
   addAtomToProject: async (projectName, atomId) => {
-    await invoke('add_atom_to_project', {
+    await window.api.invoke('add_atom_to_project', {
       projectsDir: PROJECTS_PATH,
       projectName,
       atomId,

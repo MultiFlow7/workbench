@@ -1,7 +1,4 @@
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
-import { exists } from '@tauri-apps/plugin-fs'
 import { useStore } from '../../store'
 import type { QAAtomMeta } from '../../store/conversationSlice'
 import { findKeyForModel } from '../../store/settingsSlice'
@@ -90,7 +87,7 @@ async function generateNewAtomId(parentId: string): Promise<string> {
     const date = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`
     const time = `${pad2(now.getHours())}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`
     const candidate = `${branchId}-${String(seqNum).padStart(3, '0')}-${date}-${time}`
-    const fileExists = await exists(toFilePath(candidate))
+    const fileExists = await window.api.fsExists(toFilePath(candidate))
     if (!fileExists) return candidate
     seqNum++
   }
@@ -208,7 +205,7 @@ export function ChatView() {
     let cancelled = false
     Promise.all(
       currentPath.map((m) =>
-        invoke<QAAtom>('read_qa_atom', { filePath: toFilePath(m.id) })
+        window.api.invoke<QAAtom>('read_qa_atom', { filePath: toFilePath(m.id) })
       )
     )
       .then((atoms) => {
@@ -233,7 +230,7 @@ export function ChatView() {
     const unlisteners: Array<() => void> = []
 
     // Node-F-051-B-9: all streams write to their own streamingTexts entry
-    listen<{ atom_id: string; text: string }>('ai-token', (e) => {
+    window.api.listen<{ atom_id: string; text: string }>('ai-token', (e) => {
       const { text, atom_id } = e.payload
       appendStreamingText(atom_id, text)
       if (atom_id === selectedAtomIdRef.current && isNearBottom()) {
@@ -248,7 +245,7 @@ export function ChatView() {
       }
     }).then((u) => unlisteners.push(u))
 
-    listen<{ atom_id: string; tool_use_id: string; tool_name: string; tool_input: Record<string, unknown> }>('ai-tool-call', async (e) => {
+    window.api.listen<{ atom_id: string; tool_use_id: string; tool_name: string; tool_input: Record<string, unknown> }>('ai-tool-call', async (e) => {
       toolCallInProgressRef.current = true
       const { atom_id, tool_use_id, tool_name, tool_input } = e.payload
       const startedAt = Date.now()
@@ -259,7 +256,7 @@ export function ChatView() {
 
       let toolResult: string
       try {
-        toolResult = await invoke<string>('execute_tool', {
+        toolResult = await window.api.invoke<string>('execute_tool', {
           toolName: tool_name,
           toolInput: tool_input,
         })
@@ -296,14 +293,14 @@ export function ChatView() {
       if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current)
       const toolContinuationTimeoutCb = () => {
         console.warn('[ChatView] tool continuation idle timeout (no tokens for 60s)')
-        invoke('cancel_stream', { atomId: atom_id }).catch(() => {})
+        window.api.invoke('cancel_stream', { atomId: atom_id }).catch(() => {})
         setStreamingState('error')
         setToolCallStatuses([])
       }
       streamTimeoutCbRef.current = toolContinuationTimeoutCb
       streamTimeoutRef.current = setTimeout(toolContinuationTimeoutCb, STREAM_TIMEOUT_MS)
 
-      invoke('stream_ai', {
+      window.api.invoke('stream_ai', {
         messages: continuationMessages,
         model: modelRef.current,
         atomId: atom_id,
@@ -328,7 +325,7 @@ export function ChatView() {
       })
     }).then((u) => unlisteners.push(u))
 
-    listen<{ atom_id: string; full_content: string; input_tokens?: number; output_tokens?: number }>('ai-done', async (e) => {
+    window.api.listen<{ atom_id: string; full_content: string; input_tokens?: number; output_tokens?: number }>('ai-done', async (e) => {
       if (streamTimeoutRef.current) {
         clearTimeout(streamTimeoutRef.current)
         streamTimeoutRef.current = null
@@ -354,7 +351,7 @@ export function ChatView() {
       } : undefined
 
       // Overwrite placeholder file with actual answer
-      await invoke('write_qa_atom', {
+      await window.api.invoke('write_qa_atom', {
         filePath: toFilePath(atom_id),
         atom: {
           meta: {
@@ -418,11 +415,11 @@ export function ChatView() {
 
       const duration_ms = Date.now() - streamStartRef.current
       const token_count = Math.round(full_content.length / 4)
-      invoke('write_event_log', { event: { event: 'streaming_complete', timestamp: new Date().toISOString(), payload: { duration_ms, token_count } } }).catch(() => {})
+      window.api.invoke('write_event_log', { event: { event: 'streaming_complete', timestamp: new Date().toISOString(), payload: { duration_ms, token_count } } }).catch(() => {})
     }).then((u) => unlisteners.push(u))
 
     // Node-F-051-B-18: per-atom error handling, no global lastError
-    listen<{ atom_id?: string; error?: string; message?: string }>('ai-error', (e) => {
+    window.api.listen<{ atom_id?: string; error?: string; message?: string }>('ai-error', (e) => {
       if (streamTimeoutRef.current) {
         clearTimeout(streamTimeoutRef.current)
         streamTimeoutRef.current = null
@@ -454,7 +451,7 @@ export function ChatView() {
     }).then((u) => unlisteners.push(u))
 
     // Node-F-051-B-17: per-atom cancel handling
-    listen<{ atom_id?: string }>('ai-cancelled', (e) => {
+    window.api.listen<{ atom_id?: string }>('ai-cancelled', (e) => {
       if (streamTimeoutRef.current) {
         clearTimeout(streamTimeoutRef.current)
         streamTimeoutRef.current = null
@@ -478,10 +475,10 @@ export function ChatView() {
   const buildSystemPrompt = useCallback(async (): Promise<string | undefined> => {
     try {
       const [pending, running, blocked, awaitingDecision] = await Promise.all([
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Pending' }),
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Running' }),
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Blocked' }),
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'AwaitingDecision' }),
+        window.api.invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Pending' }),
+        window.api.invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Running' }),
+        window.api.invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Blocked' }),
+        window.api.invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'AwaitingDecision' }),
       ])
 
       const allTasks = [...pending, ...running, ...blocked, ...awaitingDecision]
@@ -520,7 +517,7 @@ export function ChatView() {
     } else {
       if (!selectedProjectId) return
       if (!projects.find((p) => p.id === selectedProjectId)) return
-      const branchId = await invoke<string>('next_branch_id', { qaDir: BASE_PATH })
+      const branchId = await window.api.invoke<string>('next_branch_id', { qaDir: BASE_PATH })
       const now = new Date()
       const pad2 = (n: number) => String(n).padStart(2, '0')
       const dateStr = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`
@@ -543,7 +540,7 @@ export function ChatView() {
 
     // Step 4: Node-F-051-B-4 — write placeholder atom file (answer: '')
     const placeholderPrev = parentMeta ? `[[${parentMeta.id}]]` : null
-    await invoke('write_qa_atom', {
+    await window.api.invoke('write_qa_atom', {
       filePath: toFilePath(newAtomId),
       atom: {
         meta: {
@@ -604,7 +601,7 @@ export function ChatView() {
 
     const systemPrompt = await buildSystemPrompt()
 
-    invoke('write_event_log', { event: { event: 'message_sent', timestamp: new Date().toISOString(), payload: { path_length: currentPath.length, model } } }).catch(() => {})
+    window.api.invoke('write_event_log', { event: { event: 'message_sent', timestamp: new Date().toISOString(), payload: { path_length: currentPath.length, model } } }).catch(() => {})
     streamStartRef.current = Date.now()
 
     const outgoingMessages = [
@@ -615,7 +612,7 @@ export function ChatView() {
     systemPromptRef.current = systemPrompt
 
     // Step 10: Node-F-051-B-8 — fire-and-forget (no await, input stays unlocked)
-    invoke('stream_ai', {
+    window.api.invoke('stream_ai', {
       messages: outgoingMessages,
       model,
       atomId: newAtomId,
@@ -641,7 +638,7 @@ export function ChatView() {
       if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current)
       const idleTimeoutCb = () => {
         console.warn('[ChatView] idle timeout: no tokens for 60s')
-        invoke('cancel_stream', { atomId: activeStreamAtomIdRef.current ?? '' }).catch(() => {})
+        window.api.invoke('cancel_stream', { atomId: activeStreamAtomIdRef.current ?? '' }).catch(() => {})
         streamTimeoutCbRef.current = null
       }
       streamTimeoutCbRef.current = idleTimeoutCb
@@ -653,7 +650,7 @@ export function ChatView() {
 
   // Node-F-051-B-14: stop button cancels the currently viewed streaming atom
   const handleStop = useCallback(() => {
-    invoke('cancel_stream', { atomId: selectedAtomIdRef.current ?? '' }).catch(console.error)
+    window.api.invoke('cancel_stream', { atomId: selectedAtomIdRef.current ?? '' }).catch(console.error)
   }, [])
 
   // Breadcrumb: first + last 3 items

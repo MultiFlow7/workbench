@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { useStore } from '../../store'
 import { StoredApiKey } from '../../store/settingsSlice'
 import './NavIcons.css'
@@ -276,7 +275,7 @@ export function NavIcons() {
               if (!enabled) return
               const t0 = performance.now()
               setMode(id)
-              invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: id, latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
+              window.api.invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: id, latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
             }}
             disabled={!enabled}
             title={enabled ? label : undefined}
@@ -294,7 +293,7 @@ export function NavIcons() {
           onClick={() => {
             const t0 = performance.now()
             setMode('dashboard')
-            invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'dashboard', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
+            window.api.invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'dashboard', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
           }}
           title="Token 仪表盘"
           aria-label="Token 仪表盘"
@@ -308,7 +307,7 @@ export function NavIcons() {
           onClick={() => {
             const t0 = performance.now()
             setMode('analytics')
-            invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'analytics', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
+            window.api.invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'analytics', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
           }}
           title="Token 统计"
           aria-label="Token 统计"
@@ -323,7 +322,7 @@ export function NavIcons() {
             onClick={() => {
               const t0 = performance.now()
               setMode('decisions')
-              invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'decisions', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
+              window.api.invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'decisions', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
             }}
             title="决策收件箱"
             aria-label="决策收件箱"

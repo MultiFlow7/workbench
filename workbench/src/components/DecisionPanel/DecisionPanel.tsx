@@ -1,6 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
 import { useStore } from '../../store'
 import React from 'react'
 import type { DecisionRecord, DecisionOption } from '../../store/decisionsSlice'
@@ -58,25 +56,25 @@ function DecisionChat({ decision, onResolve }: DecisionChatProps) {
   useEffect(() => {
     const unlisteners: Array<() => void> = []
 
-    listen<{ text: string }>('ai-token', (e) => {
+    window.api.listen<{ text: string }>('ai-token', (e) => {
       setStreamingText((prev) => prev + e.payload.text)
     }).then((u) => unlisteners.push(u))
 
-    listen<{ atom_id: string; full_content: string }>('ai-done', (e) => {
+    window.api.listen<{ atom_id: string; full_content: string }>('ai-done', (e) => {
       setIsStreaming(false)
       const content = e.payload.full_content
       setMessages((prev) => [...prev, { role: 'ai', content }])
       setStreamingText('')
     }).then((u) => unlisteners.push(u))
 
-    listen<{ message?: string }>('ai-error', (e) => {
+    window.api.listen<{ message?: string }>('ai-error', (e) => {
       setIsStreaming(false)
       setStreamingText('')
       const errMsg = e.payload?.message ?? 'AI 服务异常，请检查 API 配置'
       setMessages((prev) => [...prev, { role: 'ai', content: `⚠️ ${errMsg}` }])
     }).then((u) => unlisteners.push(u))
 
-    listen('ai-cancelled', () => {
+    window.api.listen('ai-cancelled', () => {
       setIsStreaming(false)
       setStreamingText('')
     }).then((u) => unlisteners.push(u))
@@ -105,7 +103,7 @@ function DecisionChat({ decision, onResolve }: DecisionChatProps) {
       const dummyAtomId = `decision-chat-${decision.decision_id}-${Date.now()}`
 
       try {
-        await invoke('stream_ai', {
+        await window.api.invoke('stream_ai', {
           messages: apiMessages,
           model: 'claude-sonnet-4-6',
           atomId: dummyAtomId,
@@ -283,7 +281,7 @@ export function DecisionPanel() {
 
   const handleResolve = async (decisionId: string, resolution: string) => {
     try {
-      await invoke('resolve_decision', { decisionId, resolution })
+      await window.api.invoke('resolve_decision', { decisionId, resolution })
       // Remove from list
       const currentDecisions = useStore.getState().decisions
       const remaining = currentDecisions.filter((d) => d.decision_id !== decisionId)

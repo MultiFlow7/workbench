@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { useStore } from '../../store'
 import type { DecisionRecord } from '../../store/decisionsSlice'
 import { DecisionCard } from './DecisionCard'
@@ -46,7 +45,7 @@ function TokenStatusPanel({ taskId, lastTokenGrantedTs }: TokenStatusPanelProps)
   const loadTokenStatus = async (tid: string) => {
     setLoading(true)
     try {
-      const tokens = await invoke<CapabilityToken[]>(
+      const tokens = await window.api.invoke<CapabilityToken[]>(
         'list_capability_tokens',
         { filter: { task_id: tid, active_only: false } }
       )
@@ -172,7 +171,7 @@ export function DecisionInbox() {
 
   const handleResolve = async (decisionId: string, resolution: string) => {
     try {
-      await invoke('resolve_decision', { decisionId, resolution })
+      await window.api.invoke('resolve_decision', { decisionId, resolution })
       // Remove resolved decision from list and update count
       const currentDecisions = useStore.getState().decisions
       const remaining = currentDecisions.filter((d) => d.decision_id !== decisionId)

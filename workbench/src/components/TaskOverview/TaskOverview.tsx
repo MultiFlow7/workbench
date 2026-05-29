@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { useStore } from '../../store'
 import { TaskCard } from './TaskCard'
 import type { TaskRecord } from './TaskCard'
@@ -43,7 +42,7 @@ export function TaskOverview({ onTriggerTask }: TaskOverviewProps) {
   const loadTasks = async () => {
     setLoading(true)
     try {
-      const raw = await invoke<TaskRecord[]>('list_tasks', {
+      const raw = await window.api.invoke<TaskRecord[]>('list_tasks', {
         status: null,
         role: null,
         project: null,

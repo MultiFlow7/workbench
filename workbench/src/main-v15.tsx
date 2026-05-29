@@ -11,14 +11,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 
-declare global {
-  interface Window {
-    api?: {
-      version: string
-      ping: () => string
-    }
-  }
-}
+// 节点 1.2 完成后此文件已废弃；window.api 类型定义已移至 src/types/window.d.ts
 
 function Skeleton() {
   const api = typeof window !== 'undefined' ? window.api : undefined

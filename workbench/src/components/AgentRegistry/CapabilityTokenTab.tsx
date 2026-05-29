@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import './CapabilityTokenTab.css'
 
 interface CapabilityToken {
@@ -49,7 +48,7 @@ export function CapabilityTokenTab() {
   const loadTokens = async () => {
     setLoading(true)
     try {
-      const result = await invoke<CapabilityToken[]>(
+      const result = await window.api.invoke<CapabilityToken[]>(
         'list_capability_tokens',
         { filter }
       )
@@ -68,7 +67,7 @@ export function CapabilityTokenTab() {
 
   const handleGrant = async () => {
     try {
-      await invoke('create_capability_token', { req: grantForm })
+      await window.api.invoke('create_capability_token', { req: grantForm })
       setShowGrantModal(false)
       setGrantForm({
         project: '',
@@ -84,7 +83,7 @@ export function CapabilityTokenTab() {
 
   const handleRevoke = async (tokenId: string) => {
     try {
-      await invoke('revoke_capability_token', { tokenId })
+      await window.api.invoke('revoke_capability_token', { tokenId })
       setRevokeConfirmId(null)
       await loadTokens()
     } catch (e) {

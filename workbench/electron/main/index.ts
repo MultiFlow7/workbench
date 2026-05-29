@@ -1,14 +1,15 @@
 /**
- * Electron 主进程入口（v0.15 节点 1.1 骨架）
+ * Electron 主进程入口（v0.15 节点 1.2 — IPC 通道映射层已接入）
  *
  * 职责：
  *  - 创建主窗口
  *  - 加载 renderer（开发模式走 vite dev server，生产走静态产物）
- *  - 暴露最小生命周期 hook（节点 1.2 起注册 IPC handlers）
+ *  - 注册所有 ipcMain.handle 通道（via registerIpcHandlers）
  */
 
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
+import { registerIpcHandlers } from '../ipc/handlers'
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -50,6 +51,9 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  // 节点 1.2：集中注册所有 IPC 通道
+  registerIpcHandlers()
+
   createWindow()
 
   app.on('activate', () => {

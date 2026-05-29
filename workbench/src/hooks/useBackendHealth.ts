@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { useStore } from '../store'
 
 const POLL_INTERVAL_MS = 30_000
@@ -12,7 +11,7 @@ export function useBackendHealth() {
 
     const check = async () => {
       try {
-        const online = await invoke<boolean>('check_backend_health')
+        const online = await window.api.invoke<boolean>('check_backend_health')
         if (mounted) {
           setBackendOnline(online)
         }

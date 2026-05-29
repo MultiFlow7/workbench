@@ -1,5 +1,4 @@
 import { StateCreator } from 'zustand'
-import { invoke } from '@tauri-apps/api/core'
 
 export type P4Mode = 'detail' | 'text-input'
 
@@ -75,12 +74,12 @@ export const createLayoutSlice: StateCreator<LayoutSlice> = (set, get) => ({
   toggleP2: () => {
     const wasVisible = get().p2Visible
     set((state) => ({ p2Visible: !state.p2Visible }))
-    invoke('write_event_log', { event: { event: 'panel_toggle', timestamp: new Date().toISOString(), payload: { panel_id: 'p2', action: wasVisible ? 'collapse' : 'expand' } } }).catch(() => {})
+    window.api.invoke('write_event_log', { event: { event: 'panel_toggle', timestamp: new Date().toISOString(), payload: { panel_id: 'p2', action: wasVisible ? 'collapse' : 'expand' } } }).catch(() => {})
   },
   toggleP4: () => {
     const wasVisible = get().p4Visible
     set((state) => ({ p4Visible: !state.p4Visible }))
-    invoke('write_event_log', { event: { event: 'panel_toggle', timestamp: new Date().toISOString(), payload: { panel_id: 'p4', action: wasVisible ? 'collapse' : 'expand' } } }).catch(() => {})
+    window.api.invoke('write_event_log', { event: { event: 'panel_toggle', timestamp: new Date().toISOString(), payload: { panel_id: 'p4', action: wasVisible ? 'collapse' : 'expand' } } }).catch(() => {})
   },
   setMode: (mode) => set({ currentMode: mode }),
   // v0.2 actions

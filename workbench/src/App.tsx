@@ -1,5 +1,4 @@
 import React, { useEffect, useState, Component, ReactNode } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { useStore } from './store'
 import { Layout } from './components/Layout/Layout'
 import { TopBar } from './components/TopBar/TopBar'
@@ -121,7 +120,7 @@ function App() {
     hydrateSettingsFromFile((partial) => useStore.setState(partial))
     loadAtoms().then(() => {
       const count = Object.keys(useStore.getState().atoms).length
-      invoke('write_event_log', { event: { event: 'app_launch', timestamp: new Date().toISOString(), payload: { version: '0.6.0', qa_atom_count: count } } }).catch(() => {})
+      window.api.invoke('write_event_log', { event: { event: 'app_launch', timestamp: new Date().toISOString(), payload: { version: '0.6.0', qa_atom_count: count } } }).catch(() => {})
     }).catch(console.error)
     loadProjects().catch(console.error)
   }, [loadAtoms, loadProjects])
