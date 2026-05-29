@@ -98,6 +98,7 @@ const api = {
   agent: {
     /**
      * 启动 agent。prompt 为用户指令；options 为可选配置。
+     * location 选择本地（默认）或远程服务器执行；remote 时需提供 serverConfig。
      * 立即返回 null——进度事件通过 onEvent 回调推送。
      */
     start: (
@@ -107,9 +108,18 @@ const api = {
         permissionMode?: 'auto' | 'manual'
         allowedTools?: string[]
         baseUrl?: string
+        location?: 'local' | 'remote'
+        serverConfig?: { url: string; token: string }
       }
-    ): Promise<null> =>
-      ipcRenderer.invoke('agent:start', { prompt, options }) as Promise<null>,
+    ): Promise<null> => {
+      const { location, serverConfig, ...sdkOptions } = options ?? {}
+      return ipcRenderer.invoke('agent:start', {
+        prompt,
+        options: sdkOptions,
+        location,
+        serverConfig,
+      }) as Promise<null>
+    },
 
     /**
      * 取消当前正在执行的 agent。

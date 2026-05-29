@@ -31,6 +31,9 @@ import {
 } from '../sidecar/aiService'
 import { LocalRunner } from '../sdk/LocalRunner'
 import type { SDKOptions } from '../sdk/SDKBridge'
+import { createRunner } from '../sdk/runnerFactory'
+import type { ServerConfig } from '../sdk/RemoteRunner'
+import type { AgentRunner } from '../sdk/AgentRunner'
 
 // ─── 工作区 cwd 状态（节点 1.4 已接入 electron-store 持久化）─────────────────
 //
@@ -64,7 +67,7 @@ export const setWorkspaceCwd = _setWorkspaceCwd
 // 每个 BrowserWindow 对应一个活跃的 LocalRunner 实例。
 // 简化版：单窗口场景用 Map 管理（webContentsId → runner）。
 
-const _activeRunners = new Map<number, LocalRunner>()
+const _activeRunners = new Map<number, AgentRunner>()
 
 // ─── 工具函数 ────────────────────────────────────────────────────────────────
 
@@ -261,15 +264,20 @@ export function registerIpcHandlers(): void {
   stubOk('cancel_stream')
   stubOk('execute_tool', '')
 
-  // ── agent:start（节点 2.1 + 2.6）─────────────────────────────────────────
-  // 创建 LocalRunner 实例（包装 SDKBridge），启动 Claude Code SDK。
-  // args: { prompt: string; options?: SDKOptions }
+  // ── agent:start（节点 2.1 + 2.6 + 6.4）──────────────────────────────────
+  // 根据 location 选择 LocalRunner（本地）或 RemoteRunner（服务器）。
+  // args: { prompt, options?, location?, serverConfig? }
   // 启动为异步后台任务，立即返回 null；进度事件通过 'agent:event' IPC 推送。
   ipcMain.handle(
     'agent:start',
     async (
       event,
-      args: { prompt: string; options?: SDKOptions }
+      args: {
+        prompt: string
+        options?: SDKOptions
+        location?: 'local' | 'remote'
+        serverConfig?: ServerConfig
+      }
     ) => {
       const webContentsId = event.sender.id
       const win =
@@ -285,7 +293,11 @@ export function registerIpcHandlers(): void {
         _activeRunners.delete(webContentsId)
       }
 
-      const runner = new LocalRunner(win)
+      const runner = createRunner(
+        args.location ?? 'local',
+        win,
+        args.serverConfig
+      )
       _activeRunners.set(webContentsId, runner)
 
       // 异步启动，不 await（事件通过 IPC 推送到 renderer）
@@ -322,9 +334,10 @@ export function registerIpcHandlers(): void {
 
   // ── agent:pause（节点 5.3）───────────────────────────────────────────────
   // renderer 请求暂停：在下一个 tool_use 前暂停，等待 agent:resume。
+  // 仅 LocalRunner 支持 pause/resume；RemoteRunner 忽略。
   ipcMain.handle('agent:pause', (event) => {
     const runner = _activeRunners.get(event.sender.id)
-    if (runner) {
+    if (runner instanceof LocalRunner) {
       runner.pause()
     }
     return null
@@ -335,7 +348,7 @@ export function registerIpcHandlers(): void {
   // args: { interventionText: string | null }
   ipcMain.handle('agent:resume', (event, args: { interventionText: string | null }) => {
     const runner = _activeRunners.get(event.sender.id)
-    if (runner) {
+    if (runner instanceof LocalRunner) {
       runner.resume(args.interventionText)
     }
     return null

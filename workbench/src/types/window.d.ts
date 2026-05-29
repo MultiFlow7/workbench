@@ -26,13 +26,17 @@ interface WindowApiSidecar {
   status(): Promise<{ ready: boolean; baseUrl: string; port: number }>
 }
 
-/** agent.* Claude Code SDK 代理控制（节点 2.1 + 2.6） */
+/** agent.* Claude Code SDK 代理控制（节点 2.1 + 2.6 + 6.4） */
 interface WindowApiAgentOptions {
   maxTurns?: number
   permissionMode?: 'auto' | 'manual'
   allowedTools?: string[]
   /** 覆盖 Anthropic API Base URL（节点 2.2） */
   baseUrl?: string
+  /** 部署位置：local（默认）或 remote（节点 6.4） */
+  location?: 'local' | 'remote'
+  /** 远程服务器配置（location === 'remote' 时必填，节点 6.4） */
+  serverConfig?: { url: string; token: string }
 }
 
 /** agent:event IPC 事件联合类型 */
