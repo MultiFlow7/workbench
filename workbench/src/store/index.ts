@@ -6,6 +6,7 @@ import { createNotificationsSlice, NotificationsSlice } from './notificationsSli
 import { createSettingsSlice, SettingsSlice } from './settingsSlice'
 import { createAppearanceSlice, AppearanceSlice } from './appearanceSlice'
 import { createCanvasSlice, CanvasSlice } from './canvasSlice'
+import { createTraceSlice, TraceSlice } from './traceSlice'
 
 export type StoreState = LayoutSlice
   & ConversationSlice
@@ -14,6 +15,7 @@ export type StoreState = LayoutSlice
   & SettingsSlice
   & AppearanceSlice
   & CanvasSlice
+  & TraceSlice
 
 export const useStore = create<StoreState>()((...a) => ({
   ...createLayoutSlice(...a),
@@ -23,4 +25,5 @@ export const useStore = create<StoreState>()((...a) => ({
   ...createSettingsSlice(...a),
   ...createAppearanceSlice(...a),
   ...createCanvasSlice(...a),
+  ...createTraceSlice(...a),
 }))

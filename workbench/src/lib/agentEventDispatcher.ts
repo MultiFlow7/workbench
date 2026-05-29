@@ -1,19 +1,24 @@
 /**
- * agentEventDispatcher — renderer 侧 agent 事件分发器（v0.15 节点 2.3）
+ * agentEventDispatcher — renderer 侧 agent 事件分发器（v0.15 节点 2.3 / 4.6）
  *
  * 监听主进程通过 'agent:event' IPC 频道推送的事件，
  * 按事件类型映射到 Zustand conversationStore 的对应 action。
  *
  * 事件类型映射：
  *   text        → conversationStore.appendStreamingText(activeAtomId, content)
- *   thinking    → 暂存到内部缓冲区（UI 层可订阅 thinkingBuffer）
- *   tool_use    → conversationStore.setAtomStreaming(activeAtomId)（标记工具调用中）
- *   tool_result → conversationStore.setAtomDone(activeAtomId)（工具完成）
+ *   thinking    → traceSlice.appendLiveThinking({ roundIndex, content })
+ *   tool_use    → conversationStore.setAtomStreaming(activeAtomId)
+ *                 + traceSlice.appendLiveTool({ roundIndex, toolName, toolUseId, input })
+ *   tool_result → traceSlice.finishLiveTool({ toolUseId, result })
  *   result      → conversationStore.setAtomDone(activeAtomId) + clearStreamingText
+ *                 + traceSlice.finalizeLiveTrace()
  *   error       → conversationStore.setStreamingState('error')
  *
  * 保持与 v0.14 conversationSlice（appendStreamingText / setAtomStreaming / setAtomDone）
  * 签名完全兼容，无破坏性修改。
+ *
+ * 节点 4.6 新增：traceSlice 写入（liveRounds 实时追加）。
+ * roundIndex 由内部计数器 _currentRoundIndex 追踪（每次 tool_use 到来时按需递增）。
  */
 
 import { useStore } from '../store'
@@ -37,14 +42,26 @@ let _activeAtomId: string | null = null
 /** 已注册的 unlisten 函数（防止重复注册） */
 let _unlisten: (() => void) | null = null
 
+/**
+ * 当前 thinking 轮次索引（节点 4.6）。
+ * thinking 事件追加到当前轮次，tool_use 事件触发轮次递增（首次不递增）。
+ */
+let _currentRoundIndex = 0
+
+/** 是否已进入第一个轮次（用于首次 tool_use 不递增） */
+let _firstToolSeen = false
+
 // ─── 公开 API ─────────────────────────────────────────────────────────────────
 
 /**
  * 设置当前活跃的 atomId，agentEventDispatcher 将把事件关联到该 atom。
  * 应在调用 ipcAgent.start() 之前设置。
+ * 同时重置轮次计数器。
  */
 export function setActiveAtomId(atomId: string | null): void {
   _activeAtomId = atomId
+  _currentRoundIndex = 0
+  _firstToolSeen = false
 }
 
 /**
@@ -96,14 +113,27 @@ function _handleEvent(event: AgentEvent): void {
       break
     }
     case 'thinking': {
-      // thinking 内容不直接写入 atom 文本，仅推送到 store streaming 文本
-      // 前缀 [thinking] 便于 UI 层识别
+      // 节点 4.6：写入 traceSlice liveRounds（附加到当前轮次）
+      store.appendLiveThinking({ roundIndex: _currentRoundIndex, content: event.content })
+      // 保留原 streaming text 写入（向后兼容）
       if (atomId) {
         store.appendStreamingText(atomId, `[thinking] ${event.content}`)
       }
       break
     }
     case 'tool_use': {
+      // 节点 4.6：每次 tool_use 开启新轮次（首次不递增）
+      if (_firstToolSeen) {
+        _currentRoundIndex++
+      } else {
+        _firstToolSeen = true
+      }
+      store.appendLiveTool({
+        roundIndex: _currentRoundIndex,
+        toolName: event.toolName,
+        toolUseId: event.toolUseId,
+        input: event.input,
+      })
       if (atomId) {
         // 工具调用开始：标记 atom 为 streaming 状态
         store.setAtomStreaming(atomId)
@@ -112,6 +142,8 @@ function _handleEvent(event: AgentEvent): void {
       break
     }
     case 'tool_result': {
+      // 节点 4.6：填入工具结果
+      store.finishLiveTool({ toolUseId: event.toolUseId, result: event.result })
       // 工具结果返回：不结束 streaming（可能还有后续 text 或 tool_use）
       if (atomId) {
         store.appendStreamingText(atomId, `[/tool:${event.toolUseId}] `)
@@ -119,6 +151,8 @@ function _handleEvent(event: AgentEvent): void {
       break
     }
     case 'result': {
+      // 节点 4.6：清空流式缓冲
+      store.finalizeLiveTrace()
       // agent 最终完成
       if (atomId) {
         store.setAtomDone(atomId)
@@ -126,15 +160,21 @@ function _handleEvent(event: AgentEvent): void {
       }
       store.setStreamingState('idle')
       _activeAtomId = null
+      _currentRoundIndex = 0
+      _firstToolSeen = false
       break
     }
     case 'error': {
+      // 节点 4.6：出错时也清空流式缓冲
+      store.finalizeLiveTrace()
       if (atomId) {
         store.setAtomDone(atomId)
         store.clearStreamingText(atomId)
       }
       store.setStreamingState('error')
       _activeAtomId = null
+      _currentRoundIndex = 0
+      _firstToolSeen = false
       break
     }
     case 'raw': {
