@@ -20,6 +20,12 @@ interface WindowApiFs {
   mkdir(path: string): Promise<null>
 }
 
+/** sidecar.* Python ai-service 状态（节点 1.5） */
+interface WindowApiSidecar {
+  /** 查询 sidecar 是否 ready + base URL + 端口 */
+  status(): Promise<{ ready: boolean; baseUrl: string; port: number }>
+}
+
 interface WindowApi {
   /** 通用 invoke（替代 Tauri invoke）*/
   invoke<T = unknown>(channel: string, args?: unknown): Promise<T>
@@ -37,6 +43,9 @@ interface WindowApi {
 
   /** fs.* 语义化文件系统 API（节点 1.3）*/
   fs: WindowApiFs
+
+  /** sidecar.* Python ai-service 状态（节点 1.5）*/
+  sidecar: WindowApiSidecar
 
   /** 占位字段 */
   readonly version: string

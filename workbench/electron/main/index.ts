@@ -1,11 +1,13 @@
 /**
- * Electron 主进程入口（v0.15 节点 1.2 + 1.4 — IPC + workspace 持久化）
+ * Electron 主进程入口（v0.15 节点 1.2 + 1.4 + 1.5 + 1.6）
  *
  * 职责：
  *  - 创建主窗口
  *  - 加载 renderer（开发模式走 vite dev server，生产走静态产物）
  *  - 注册所有 ipcMain.handle 通道（via registerIpcHandlers）
  *  - 节点 1.4: 首次启动或 electron-store 为空时弹出工作目录选择对话框
+ *  - 节点 1.5: spawn Python ai-service sidecar + 健康探测 + service-ready 广播
+ *  - 节点 1.6: electron-updater 自动检测新版本
  */
 
 import { app, BrowserWindow, dialog, shell } from 'electron'
@@ -16,6 +18,8 @@ import {
   setWorkspaceCwd,
 } from '../ipc/handlers'
 import { setPersistedCwd } from '../store/workspaceStore'
+import { startAiService, stopAiService } from '../sidecar/aiService'
+import { initAutoUpdater } from '../updater/autoUpdater'
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -86,6 +90,14 @@ app.whenReady().then(() => {
     void ensureWorkspaceCwd(win)
   })
 
+  // 节点 1.5：启动 Python ai-service sidecar（不阻塞窗口创建）
+  void startAiService().catch((err) => {
+    console.error('[main] startAiService failed:', err)
+  })
+
+  // 节点 1.6：自动更新检测（仅生产模式生效，dev 模式跳过）
+  initAutoUpdater()
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
@@ -93,4 +105,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// 节点 1.5：应用退出前清理 sidecar
+app.on('before-quit', () => {
+  stopAiService()
 })

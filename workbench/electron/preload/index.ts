@@ -79,6 +79,19 @@ const api = {
       ipcRenderer.invoke('fs:mkdir', { path }) as Promise<null>,
   },
 
+  // ── sidecar.* Python ai-service 状态查询（节点 1.5）─────────────────────
+  // renderer 通过 listen('service-ready' | 'service-error' | 'service-exit', cb)
+  // 订阅事件；同步查询当前状态可调 sidecar.status()。
+  sidecar: {
+    /** 查询 sidecar 是否已 ready（首次 health probe 通过后为 true） */
+    status: (): Promise<{ ready: boolean; baseUrl: string; port: number }> =>
+      ipcRenderer.invoke('sidecar:status') as Promise<{
+        ready: boolean
+        baseUrl: string
+        port: number
+      }>,
+  },
+
   // 占位字段（hello-world 验证）
   version: '0.15.0-dev',
   ping: () => ipcRenderer.invoke('ping') as Promise<string>,

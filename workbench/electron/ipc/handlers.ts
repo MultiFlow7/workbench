@@ -1,9 +1,10 @@
 /**
- * IPC Handler 注册中心（v0.15 节点 1.3 + 1.4）
+ * IPC Handler 注册中心（v0.15 节点 1.3 + 1.4 + 1.5）
  *
  * 所有 ipcMain.handle('cmd', fn) 在此集中注册。
  * 节点 1.3: 实现完整 fs:* IPC 通道，含路径越界保护。
  * 节点 1.4: dialog:pickFolder + workspace:* + electron-store 持久化 cwd。
+ * 节点 1.5: sidecar:status 暴露 Python ai-service 健康状态。
  *
  * 注意：本节点的 handler 实现是映射层——将来自 renderer 的调用
  * 转发给 Electron 内置 API 或本地 Node.js 模块。
@@ -23,6 +24,11 @@ import {
   setWorkspaceCwd as _setWorkspaceCwd,
 } from './fsGuard'
 import { getPersistedCwd, setPersistedCwd } from '../store/workspaceStore'
+import {
+  AI_SERVICE_BASE_URL,
+  AI_SERVICE_PORT,
+  isAiServiceReady,
+} from '../sidecar/aiService'
 
 // ─── 工作区 cwd 状态（节点 1.4 已接入 electron-store 持久化）─────────────────
 //
@@ -67,6 +73,16 @@ export function registerIpcHandlers(): void {
 
   // ── hello-world ping（验证 IPC 通道完整性）──────────────────────────────
   ipcMain.handle('ping', () => 'pong from main')
+
+  // ── sidecar:status（节点 1.5）─────────────────────────────────────────
+  // renderer 查询 Python ai-service 是否就绪 + base URL + 端口。
+  // 事件订阅（service-ready / service-error / service-exit）由 sidecar 模块
+  // 在状态变更时自动广播；renderer 用 window.api.listen 订阅即可。
+  ipcMain.handle('sidecar:status', () => ({
+    ready: isAiServiceReady(),
+    baseUrl: AI_SERVICE_BASE_URL,
+    port: AI_SERVICE_PORT,
+  }))
 
   // ── workspace:getCwd / setCwd（节点 1.4）──────────────────────────────
   // renderer 不直接访问 electron-store；通过 IPC 拿到当前 cwd（首屏初始化）。
