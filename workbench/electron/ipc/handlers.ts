@@ -1,8 +1,9 @@
 /**
- * IPC Handler 注册中心（v0.15 节点 1.3）
+ * IPC Handler 注册中心（v0.15 节点 1.3 + 1.4）
  *
  * 所有 ipcMain.handle('cmd', fn) 在此集中注册。
  * 节点 1.3: 实现完整 fs:* IPC 通道，含路径越界保护。
+ * 节点 1.4: dialog:pickFolder + workspace:* + electron-store 持久化 cwd。
  *
  * 注意：本节点的 handler 实现是映射层——将来自 renderer 的调用
  * 转发给 Electron 内置 API 或本地 Node.js 模块。
@@ -11,7 +12,7 @@
  * 确保 renderer 可正常挂载而不崩溃。
  */
 
-import { ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { join, resolve } from 'node:path'
 import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
@@ -21,11 +22,24 @@ import {
   getWorkspaceCwd as _getWorkspaceCwd,
   setWorkspaceCwd as _setWorkspaceCwd,
 } from './fsGuard'
+import { getPersistedCwd, setPersistedCwd } from '../store/workspaceStore'
 
-// ─── 工作区 cwd 状态（由 fsGuard.ts 管理，节点 1.4 接入 electron-store 后持久化）
+// ─── 工作区 cwd 状态（节点 1.4 已接入 electron-store 持久化）─────────────────
+//
+// 启动时优先从 electron-store 恢复持久化的 cwd；store 为空时保留 homedir 作为
+// 安全占位（fsGuard 仍生效），由 main process 在 ready-to-show 后通过
+// ensureWorkspaceCwd() 触发首次 dialog 让用户选择。
 
-// 初始化默认 cwd 为 homedir
-_setWorkspaceCwd(os.homedir())
+const persistedCwd = getPersistedCwd()
+_setWorkspaceCwd(persistedCwd ?? os.homedir())
+
+/**
+ * 标记当前 cwd 是否来自持久化（vs 默认 homedir 占位）。
+ * main process 在 ready-to-show 后据此决定是否弹出首次 dialog。
+ */
+export function hasPersistedWorkspaceCwd(): boolean {
+  return persistedCwd !== null
+}
 
 /**
  * 获取当前工作目录（供 main/index.ts 或 dialog handler 使用）
@@ -53,6 +67,44 @@ export function registerIpcHandlers(): void {
 
   // ── hello-world ping（验证 IPC 通道完整性）──────────────────────────────
   ipcMain.handle('ping', () => 'pong from main')
+
+  // ── workspace:getCwd / setCwd（节点 1.4）──────────────────────────────
+  // renderer 不直接访问 electron-store；通过 IPC 拿到当前 cwd（首屏初始化）。
+  ipcMain.handle('workspace:getCwd', () => _getWorkspaceCwd())
+
+  // setCwd 用于用户在 P1 顶部 picker 选定目录后写入。
+  // 内部同时更新 fsGuard 内存值 + electron-store 持久化值。
+  // 写入后向所有 BrowserWindow 广播 `workspace:changed` 事件，
+  // 触发 renderer 重新加载工作区/对话列表（节点 4.2 P1 NavSection 订阅）。
+  ipcMain.handle('workspace:setCwd', (_e, args: { cwd: string }) => {
+    const normalized = resolve(args.cwd)
+    _setWorkspaceCwd(normalized)
+    setPersistedCwd(normalized)
+    BrowserWindow.getAllWindows().forEach((w) => {
+      w.webContents.send('workspace:changed', { cwd: normalized })
+    })
+    return normalized
+  })
+
+  // ── dialog:pickFolder（节点 1.4）──────────────────────────────────────
+  // 弹出系统目录选择对话框。用户取消时返回 null；选定时返回绝对路径。
+  // 注意：本 handler 不直接写入 cwd——renderer 拿到路径后再调
+  // `workspace:setCwd`，这样 picker 组件可以在写入前做额外校验
+  // （如目录是否包含 .obsidian、是否可读等）。
+  ipcMain.handle('dialog:pickFolder', async () => {
+    const focused = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const result = focused
+      ? await dialog.showOpenDialog(focused, {
+          properties: ['openDirectory'],
+          title: '选择工作目录',
+        })
+      : await dialog.showOpenDialog({
+          properties: ['openDirectory'],
+          title: '选择工作目录',
+        })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
 
   // ── fs:read — 读取文件内容（UTF-8 文本）─────────────────────────────────
   // args: { path: string }
