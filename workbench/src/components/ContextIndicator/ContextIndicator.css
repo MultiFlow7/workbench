@@ -8,6 +8,6 @@
   letter-spacing: 0.02em;
   cursor: default;
 }
-.ctx-badge--low  { background: #dcfce7; color: #16a34a; }
-.ctx-badge--mid  { background: #fef3c7; color: #d97706; }
-.ctx-badge--high { background: #fee2e2; color: #dc2626; }
+.ctx-badge--low  { background: var(--done-bg); color: var(--done); }
+.ctx-badge--mid  { background: var(--pause-bg); color: var(--pause); }
+.ctx-badge--high { background: var(--err-bg); color: var(--err); }

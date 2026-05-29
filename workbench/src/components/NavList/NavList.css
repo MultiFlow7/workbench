@@ -27,7 +27,7 @@
 }
 
 .nav-list__new-btn:hover {
-  background: #eff6ff;
+  background: var(--accent-bg);
   border-color: var(--color-accent);
 }
 
@@ -82,7 +82,7 @@
 }
 
 .nav-list__item.nav-list__item--active {
-  background: #eff6ff;
+  background: var(--accent-bg);
   color: var(--color-accent);
 }
 
@@ -95,7 +95,7 @@
 }
 
 .nav-list__pip--active {
-  background: #22c55e;
+  background: var(--done);
 }
 
 .nav-list__item-name {
@@ -124,9 +124,9 @@
 /* v0.10 req-033: 持久化失败提示 */
 .nav-list__error {
   font-size: 11px;
-  color: #b45309;
-  background: #fffbeb;
-  border: 1px solid #fbbf24;
+  color: var(--pause);
+  background: var(--pause-bg);
+  border: 1px solid var(--pause-bd);
   border-radius: 4px;
   padding: 4px 8px;
   margin: 4px 8px;
@@ -144,7 +144,7 @@
 
 .nav-list__section-add {
   font-size: 14px;
-  color: var(--color-muted, #6b7280);
+  color: var(--color-muted, var(--text-3));
   background: none;
   border: none;
   cursor: pointer;
@@ -154,7 +154,7 @@
 }
 
 .nav-list__section-add:hover {
-  color: var(--accent, #2563eb);
+  color: var(--accent, var(--accent));
   background: rgba(37, 99, 235, 0.08);
 }
 
@@ -165,7 +165,7 @@
 .nav-list__inline-field {
   width: 100%;
   font-size: 12px;
-  border: 1px solid var(--color-border, #e5e7eb);
+  border: 1px solid var(--color-border, var(--border));
   border-radius: 4px;
   padding: 4px 6px;
   outline: none;
@@ -173,5 +173,5 @@
 }
 
 .nav-list__inline-field:focus {
-  border-color: var(--accent, #2563eb);
+  border-color: var(--accent, var(--accent));
 }

@@ -68,8 +68,8 @@
 .detail-token-item {
   font-size: 11px;
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  color: #71717a;
-  background: #f4f4f5;
+  color: var(--text-3);
+  background: var(--surface-2);
   padding: 2px 6px;
   border-radius: 4px;
   font-variant-numeric: tabular-nums;
@@ -99,7 +99,7 @@
   resize: none;
   font-family: Inter, sans-serif;
   font-size: 14px;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--border, var(--border));
   border-radius: 4px;
   padding: 8px;
   outline: none;

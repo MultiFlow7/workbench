@@ -71,15 +71,15 @@
 }
 
 .topbar__pip--ok {
-  background: #22c55e;
+  background: var(--done);
 }
 
 .topbar__pip--warn {
-  background: #f59e0b;
+  background: var(--pause);
 }
 
 .topbar__pip--error {
-  background: #ef4444;
+  background: var(--err);
 }
 
 .topbar__service-name {
@@ -90,7 +90,7 @@
 
 /* v0.2: 后端离线红点 */
 .topbar__pip--backend-offline {
-  background: #dc2626;
+  background: var(--err);
   width: 8px;
   height: 8px;
 }
@@ -102,15 +102,15 @@
   justify-content: space-between;
   height: 36px;
   padding: 0 12px;
-  background: #fef2f2;
-  border-bottom: 1px solid #fecaca;
+  background: var(--err-bg);
+  border-bottom: 1px solid var(--err-bd);
   flex-shrink: 0;
   z-index: 49;
 }
 
 .topbar-offline-banner__text {
   font-size: 13px;
-  color: #b91c1c;
+  color: var(--err);
   flex: 1;
 }
 
@@ -119,7 +119,7 @@
   height: 24px;
   border: none;
   background: transparent;
-  color: #b91c1c;
+  color: var(--err);
   cursor: pointer;
   font-size: 16px;
   display: flex;
@@ -130,7 +130,7 @@
 }
 
 .topbar-offline-banner__close:hover {
-  background: #fee2e2;
+  background: var(--err-bg);
 }
 
 /* v0.7: 瞬态通知 Toast */
@@ -165,9 +165,9 @@
 }
 
 .topbar__toast--success {
-  background: #dcfce7;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+  background: var(--done-bg);
+  color: var(--done);
+  border: 1px solid var(--done-bd);
 }
 
 .topbar__toast--error {
@@ -177,9 +177,9 @@
 }
 
 .topbar__toast--info {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
+  background: var(--accent-bg);
+  color: var(--accent-h);
+  border: 1px solid var(--accent-bd);
 }
 
 .topbar__toast-msg {
@@ -222,7 +222,7 @@
   padding: 0 5px;
   border-radius: 999px;
   background: #f97316;
-  color: #ffffff;
+  color: var(--accent-fg);
   font-size: 10px;
   font-weight: 700;
   line-height: 1;

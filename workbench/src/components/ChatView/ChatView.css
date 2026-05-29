@@ -75,7 +75,7 @@
 
 .bubble--user {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--accent-fg);
   border-bottom-right-radius: 4px;
 }
 
@@ -167,18 +167,18 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #fef2f2;
-  border: 1px solid #fca5a5;
+  background: var(--err-bg);
+  border: 1px solid var(--err-bd);
   border-radius: 8px;
   font-size: 12px;
-  color: #dc2626;
+  color: var(--err);
 }
 
 .chat-error button {
   margin-left: auto;
   padding: 4px 10px;
-  background: #dc2626;
-  color: #fff;
+  background: var(--err);
+  color: var(--accent-fg);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -258,7 +258,7 @@
 
 .chat-send-btn {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--accent-fg);
 }
 
 .chat-send-btn:disabled {
@@ -286,7 +286,7 @@
 }
 
 .chat-pause-btn:hover {
-  background: var(--color-surface-hover, #f4f4f5);
+  background: var(--color-surface-hover, var(--surface-2));
 }
 
 /* Tool call status rows */
@@ -299,30 +299,30 @@
   border-radius: 6px;
   font-size: 12px;
   font-family: var(--font-ui);
-  background: #f0f4ff;
-  border: 1px solid #c7d4f8;
-  color: #1e40af;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bd);
+  color: var(--accent);
   transition: background 0.2s cubic-bezier(0.4,0,0.2,1), border-color 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
 .tool-status--done {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-  color: #15803d;
+  background: var(--done-bg);
+  border-color: var(--done-bd);
+  color: var(--done);
 }
 
 .tool-status--error {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #b91c1c;
+  background: var(--err-bg);
+  border-color: var(--err-bd);
+  color: var(--err);
 }
 
 .tool-status__spinner {
   display: inline-block;
   width: 12px;
   height: 12px;
-  border: 2px solid #bfdbfe;
-  border-top-color: #2563eb;
+  border: 2px solid var(--accent-bd);
+  border-top-color: var(--accent);
   border-radius: 50%;
   flex-shrink: 0;
   animation: tool-spin 0.7s linear infinite;
@@ -339,7 +339,7 @@
 }
 
 .tool-status__icon--error {
-  color: #b91c1c;
+  color: var(--err);
 }
 
 .tool-status__label {

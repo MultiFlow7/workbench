@@ -7,7 +7,7 @@
  * - 签名严格按节点 4.3 P2 任务说明定义，不引入额外 props。
  * - 视觉细节（token badge / streaming dot / Q/A 文本）由 BranchTree 在 NodeData
  *   之外通过 children 注入（未来如需扩展再加 props，避免一开始就过度抽象）。
- * - 选中态颜色统一走 `var(--accent)` 而非硬编码 #2563eb，配合 tokens.css 双主题。
+ * - 选中态颜色统一走 `var(--accent)` 而非硬编码 var(--accent)，配合 tokens.css 双主题。
  */
 
 import { ReactNode } from 'react'

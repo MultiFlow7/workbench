@@ -3,7 +3,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: var(--color-surface, #ffffff);
+  background: var(--color-surface, var(--surface));
 }
 
 .task-trigger-form__header {
@@ -11,14 +11,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px 10px;
-  border-bottom: 1px solid #e4e4e7;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .task-trigger-form__title {
   font-size: 14px;
   font-weight: 600;
-  color: #18181b;
+  color: var(--text);
   margin: 0;
 }
 
@@ -27,7 +27,7 @@
   height: 24px;
   border: none;
   background: transparent;
-  color: #71717a;
+  color: var(--text-3);
   cursor: pointer;
   font-size: 16px;
   display: flex;
@@ -38,8 +38,8 @@
 }
 
 .task-trigger-form__close-btn:hover {
-  background: #f4f4f5;
-  color: #18181b;
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 .task-trigger-form__body {
@@ -61,12 +61,12 @@
 .task-trigger-form__label {
   font-size: 12px;
   font-weight: 500;
-  color: #3f3f46;
+  color: var(--text-2);
 }
 
 .task-trigger-form__label--required::after {
   content: ' *';
-  color: #dc2626;
+  color: var(--err);
 }
 
 .task-trigger-form__select,
@@ -74,12 +74,12 @@
 .task-trigger-form__textarea {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 7px 10px;
   font-size: 13px;
-  color: #18181b;
-  background: #fafafa;
+  color: var(--text);
+  background: var(--surface-2);
   transition: border-color 0.1s ease, box-shadow 0.1s ease;
   font-family: inherit;
   outline: none;
@@ -88,9 +88,9 @@
 .task-trigger-form__select:focus,
 .task-trigger-form__input:focus,
 .task-trigger-form__textarea:focus {
-  border-color: #2563eb;
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .task-trigger-form__textarea {
@@ -106,7 +106,7 @@
   max-height: 140px;
   font-family: 'JetBrains Mono', 'Fira Mono', 'Menlo', monospace;
   font-size: 12px;
-  color: #3f3f46;
+  color: var(--text-2);
 }
 
 /* Radio group */
@@ -121,18 +121,18 @@
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   border-radius: 5px;
   cursor: pointer;
   font-size: 12px;
-  color: #3f3f46;
+  color: var(--text-2);
   transition: border-color 0.1s ease, background 0.1s ease;
 }
 
 .task-trigger-form__radio-label:has(input:checked) {
-  border-color: #2563eb;
-  background: #eff6ff;
-  color: #2563eb;
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
   font-weight: 500;
 }
 
@@ -143,14 +143,14 @@
 /* Hint */
 .task-trigger-form__hint {
   font-size: 11px;
-  color: #a1a1aa;
+  color: var(--text-4);
   line-height: 1.4;
 }
 
 /* Footer */
 .task-trigger-form__footer {
   padding: 12px 16px;
-  border-top: 1px solid #e4e4e7;
+  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -162,8 +162,8 @@
   padding: 8px 16px;
   border-radius: 6px;
   border: none;
-  background: #2563eb;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--accent-fg);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -171,7 +171,7 @@
 }
 
 .task-trigger-form__submit-btn:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--accent-h);
 }
 
 .task-trigger-form__submit-btn:disabled {
@@ -181,10 +181,10 @@
 
 .task-trigger-form__success {
   font-size: 12px;
-  color: #16a34a;
+  color: var(--done);
   text-align: center;
   padding: 4px 0;
-  background: #dcfce7;
+  background: var(--done-bg);
   border-radius: 5px;
   padding: 6px 10px;
 }

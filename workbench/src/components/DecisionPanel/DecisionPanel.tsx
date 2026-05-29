@@ -302,7 +302,7 @@ export function DecisionPanel() {
           justifyContent: 'center',
           height: '100%',
           fontSize: 13,
-          color: '#a1a1aa',
+          color: 'var(--text-4)',
         }}
       >
         选择决策查看详情
