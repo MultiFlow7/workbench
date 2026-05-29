@@ -29,6 +29,8 @@ import {
   AI_SERVICE_PORT,
   isAiServiceReady,
 } from '../sidecar/aiService'
+import { LocalRunner } from '../sdk/LocalRunner'
+import type { SDKOptions } from '../sdk/SDKBridge'
 
 // ─── 工作区 cwd 状态（节点 1.4 已接入 electron-store 持久化）─────────────────
 //
@@ -56,6 +58,13 @@ export const getWorkspaceCwd = _getWorkspaceCwd
  * 设置工作目录（节点 1.4 dialog:pickFolder 调用后更新）
  */
 export const setWorkspaceCwd = _setWorkspaceCwd
+
+// ─── Agent Runner 状态（节点 2.1 / 2.6）──────────────────────────────────────
+//
+// 每个 BrowserWindow 对应一个活跃的 LocalRunner 实例。
+// 简化版：单窗口场景用 Map 管理（webContentsId → runner）。
+
+const _activeRunners = new Map<number, LocalRunner>()
 
 // ─── 工具函数 ────────────────────────────────────────────────────────────────
 
@@ -247,10 +256,69 @@ export function registerIpcHandlers(): void {
     return String(Date.now()).slice(-4)
   })
 
-  // ── AI 流式对话（stub，Phase 2 接入 Claude Code SDK）────────────────────
+  // ── AI 流式对话（原 stub 保留兼容，Phase 2 通过 agent:start/stop 接入）────
   stubOk('stream_ai')
   stubOk('cancel_stream')
   stubOk('execute_tool', '')
+
+  // ── agent:start（节点 2.1 + 2.6）─────────────────────────────────────────
+  // 创建 LocalRunner 实例（包装 SDKBridge），启动 Claude Code SDK。
+  // args: { prompt: string; options?: SDKOptions }
+  // 启动为异步后台任务，立即返回 null；进度事件通过 'agent:event' IPC 推送。
+  ipcMain.handle(
+    'agent:start',
+    async (
+      event,
+      args: { prompt: string; options?: SDKOptions }
+    ) => {
+      const webContentsId = event.sender.id
+      const win =
+        BrowserWindow.fromWebContents(event.sender) ??
+        BrowserWindow.getAllWindows()[0]
+
+      if (!win) return { error: 'no BrowserWindow available' }
+
+      // 若已有 runner，先停止
+      const existing = _activeRunners.get(webContentsId)
+      if (existing) {
+        existing.stop()
+        _activeRunners.delete(webContentsId)
+      }
+
+      const runner = new LocalRunner(win)
+      _activeRunners.set(webContentsId, runner)
+
+      // 异步启动，不 await（事件通过 IPC 推送到 renderer）
+      runner
+        .start(args.prompt, args.options ?? {})
+        .catch((err: unknown) => {
+          const errMsg = err instanceof Error ? err.message : String(err)
+          if (!win.isDestroyed()) {
+            win.webContents.send('agent:event', {
+              type: 'error',
+              message: errMsg,
+            })
+          }
+        })
+        .finally(() => {
+          _activeRunners.delete(webContentsId)
+        })
+
+      return null
+    }
+  )
+
+  // ── agent:stop（节点 2.1）────────────────────────────────────────────────
+  // 取消当前正在执行的 agent。
+  ipcMain.handle('agent:stop', (event) => {
+    const webContentsId = event.sender.id
+    const runner = _activeRunners.get(webContentsId)
+    if (runner) {
+      runner.stop()
+      _activeRunners.delete(webContentsId)
+    }
+    return null
+  })
 
   // ── 后端健康检查（stub）──────────────────────────────────────────────────
   ipcMain.handle('check_backend_health', () => false)

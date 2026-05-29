@@ -92,6 +92,44 @@ const api = {
       }>,
   },
 
+  // ── agent.* Claude Code SDK 代理控制（节点 2.1 / 2.6）────────────────────
+  // renderer 通过 window.api.agent.start() 启动 agent，
+  // 通过 window.api.agent.onEvent(cb) 订阅流式事件。
+  agent: {
+    /**
+     * 启动 agent。prompt 为用户指令；options 为可选配置。
+     * 立即返回 null——进度事件通过 onEvent 回调推送。
+     */
+    start: (
+      prompt: string,
+      options?: {
+        maxTurns?: number
+        permissionMode?: 'auto' | 'manual'
+        allowedTools?: string[]
+        baseUrl?: string
+      }
+    ): Promise<null> =>
+      ipcRenderer.invoke('agent:start', { prompt, options }) as Promise<null>,
+
+    /**
+     * 取消当前正在执行的 agent。
+     */
+    stop: (): Promise<null> =>
+      ipcRenderer.invoke('agent:stop') as Promise<null>,
+
+    /**
+     * 订阅 agent 事件（text / thinking / tool_use / tool_result / result / error）。
+     * 返回 unlisten 函数，在 useEffect cleanup 中调用以避免内存泄漏。
+     */
+    onEvent: <T = unknown>(
+      handler: (event: T) => void
+    ): (() => void) => {
+      const listener: IpcListener = (payload) => handler(payload as T)
+      addIpcListener('agent:event', listener)
+      return () => removeIpcListener('agent:event', listener)
+    },
+  },
+
   // 占位字段（hello-world 验证）
   version: '0.15.0-dev',
   ping: () => ipcRenderer.invoke('ping') as Promise<string>,

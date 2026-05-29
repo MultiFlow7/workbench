@@ -26,6 +26,34 @@ interface WindowApiSidecar {
   status(): Promise<{ ready: boolean; baseUrl: string; port: number }>
 }
 
+/** agent.* Claude Code SDK 代理控制（节点 2.1 + 2.6） */
+interface WindowApiAgentOptions {
+  maxTurns?: number
+  permissionMode?: 'auto' | 'manual'
+  allowedTools?: string[]
+  /** 覆盖 Anthropic API Base URL（节点 2.2） */
+  baseUrl?: string
+}
+
+/** agent:event IPC 事件联合类型 */
+type AgentEventPayload =
+  | { type: 'text'; content: string }
+  | { type: 'thinking'; content: string }
+  | { type: 'tool_use'; toolName: string; input: unknown; toolUseId: string }
+  | { type: 'tool_result'; toolUseId: string; result: unknown }
+  | { type: 'result'; finalResult: unknown }
+  | { type: 'error'; message: string }
+  | { type: 'raw'; data: unknown }
+
+interface WindowApiAgent {
+  /** 启动 agent，进度事件通过 onEvent 回调推送 */
+  start(prompt: string, options?: WindowApiAgentOptions): Promise<null>
+  /** 取消当前 agent 执行 */
+  stop(): Promise<null>
+  /** 订阅 agent 事件，返回 unlisten 函数 */
+  onEvent(handler: (event: AgentEventPayload) => void): () => void
+}
+
 interface WindowApi {
   /** 通用 invoke（替代 Tauri invoke）*/
   invoke<T = unknown>(channel: string, args?: unknown): Promise<T>
@@ -46,6 +74,9 @@ interface WindowApi {
 
   /** sidecar.* Python ai-service 状态（节点 1.5）*/
   sidecar: WindowApiSidecar
+
+  /** agent.* Claude Code SDK 代理控制（节点 2.1 + 2.6）*/
+  agent: WindowApiAgent
 
   /** 占位字段 */
   readonly version: string
