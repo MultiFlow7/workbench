@@ -1,111 +1,202 @@
-.workspace-root {
+/* ═══════════════════════════════════════════════════════════════════
+   AppShell — 四面板布局 (v0.15 节点 4.1)
+   使用 tokens.css 中的 CSS 变量，不硬编码颜色/间距/圆角
+   =================================================================== */
+
+/* ── Root shell ─────────────────────────────────────────── */
+
+.app-shell {
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  background: var(--color-bg);
-  font-family: var(--font-ui);
+  background: var(--bg);
+  font-family: var(--font);
 }
 
-.workspace {
+.app-shell__topbar {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.app-shell__body {
   display: flex;
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 
+/* ── Left region (ActivityBar + P1 List) ───────────────── */
+
+.app-shell__left {
+  display: flex;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+  transition: width var(--dur) var(--ease);
+}
+
+/* Collapsed: 12px gradient strip with centre indicator dot */
+.app-shell__left--collapsed {
+  width: var(--collapsed-w);
+  border-right: none;
+  cursor: pointer;
+  background: linear-gradient(
+    to right,
+    var(--surface-3),
+    var(--surface-2)
+  );
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-shell__left--collapsed:hover {
+  width: var(--collapsed-w-hover);
+}
+
+/* ── Panel base ─────────────────────────────────────────── */
+
 .panel {
   flex-shrink: 0;
   overflow: hidden;
-  transition: width var(--duration-normal) var(--ease-panel);
+  transition: width var(--dur) var(--ease);
   position: relative;
 }
 
-/* p1-icons: 固定宽度图标栏，collapsed 时收为 20px strip */
+/* ── P1 ActivityBar ─────────────────────────────────────── */
+
 .panel--p1-icons {
   width: 52px;
-  border-right: 1px solid var(--color-border);
-  background: var(--color-surface);
+  background: var(--surface);
   display: flex;
   flex-direction: column;
-  transition: width 0.18s ease;
+  border-right: 1px solid var(--border);
 }
 
 .panel--p1-icons.panel--collapsed {
-  width: 20px !important;
-  border-right-width: 0;
+  width: var(--collapsed-w);
+  border-right: none;
 }
 
-/* p1-list: 可折叠列表栏 */
+/* ── P1 List ────────────────────────────────────────────── */
+
 .panel--p1-list {
   width: 200px;
-  border-right: 1px solid var(--color-border);
-  background: var(--color-surface);
-  transition: width 0.18s ease;
+  background: var(--surface);
+  transition: width var(--dur) var(--ease);
   overflow: hidden;
 }
 
 .panel--p1-list-collapsed {
-  width: 0 !important;
-  border-right-width: 0;
+  width: 0;
 }
 
+/* ── P2 Structure ───────────────────────────────────────── */
+
 .panel--p2 {
-  width: 260px; /* overridden by inline style when visible */
-  border-right: 1px solid var(--color-border);
-  background: var(--color-surface);
+  /* default width overridden by inline style when visible */
+  width: 260px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .panel--p2.panel--collapsed {
-  width: 20px !important;
+  width: var(--collapsed-w);
   cursor: pointer;
+  background: linear-gradient(
+    to right,
+    var(--surface-3),
+    var(--surface-2)
+  );
 }
+
+.panel--p2.panel--collapsed:hover {
+  width: var(--collapsed-w-hover);
+}
+
+/* ── P3 Main workspace ──────────────────────────────────── */
 
 .panel--p3 {
   flex: 1;
   min-width: 0;
   overflow: auto;
-  background: var(--color-bg);
+  background: var(--bg);
 }
+
+/* ── P4 Detail ──────────────────────────────────────────── */
 
 .panel--p4 {
   width: 320px;
-  border-left: 1px solid var(--color-border);
-  background: var(--color-surface);
+  border-left: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .panel--p4.panel--collapsed {
-  width: 20px !important;
+  width: var(--collapsed-w);
   cursor: pointer;
+  background: linear-gradient(
+    to left,
+    var(--surface-3),
+    var(--surface-2)
+  );
 }
+
+.panel--p4.panel--collapsed:hover {
+  width: var(--collapsed-w-hover);
+}
+
+/* ── Panel inner scroll container ──────────────────────── */
 
 .panel-inner {
   height: 100%;
   overflow: auto;
 }
 
-.panel-strip {
+/* ── Collapsed state: centre indicator ─────────────────── */
+
+.panel-strip-indicator {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-secondary);
-  font-size: 11px;
   pointer-events: none;
 }
+
+.panel-strip-dot {
+  display: block;
+  width: var(--collapsed-indicator-w);
+  height: var(--collapsed-indicator-h);
+  border-radius: var(--r-full);
+  background: var(--border-2);
+  transition: background var(--dur) var(--ease);
+}
+
+/* On hover show the dot as accent chevron hint */
+.panel--p2.panel--collapsed:hover .panel-strip-dot,
+.panel--p4.panel--collapsed:hover .panel-strip-dot,
+.app-shell__left--collapsed:hover .panel-strip-dot {
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+/* ── Toggle buttons (expand/collapse handle on panel edge) */
 
 .panel-toggle-btn {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   width: 16px;
   height: 36px;
   cursor: pointer;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   z-index: 20;
   display: flex;
   align-items: center;
@@ -113,10 +204,23 @@
   padding: 0;
   font-size: 10px;
   line-height: 1;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 
-.panel--p2 .panel-toggle-btn { right: -8px; }
-.panel--p4 .panel-toggle-btn { left: -8px; }
+.panel-toggle-btn:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.panel-toggle-btn--p2 {
+  right: -8px;
+}
+
+.panel-toggle-btn--p4 {
+  left: -8px;
+}
+
+/* ── Resize handle ──────────────────────────────────────── */
 
 .panel-resize-handle {
   position: absolute;
@@ -129,5 +233,5 @@
 }
 
 .panel-resize-handle:hover {
-  background: rgba(37, 99, 235, 0.15);
+  background: var(--accent-bg);
 }

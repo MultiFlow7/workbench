@@ -12,88 +12,147 @@ interface LayoutProps {
 }
 
 export function Layout({ topBar, p1Icons, p1List, p2, p3, p4 }: LayoutProps) {
-  const { p1ListVisible, p2Visible, p4Visible, toggleP2, toggleP4, p1IconsVisible, toggleP1, p2Width, setP2Width } = useStore()
+  const {
+    p1ListVisible,
+    p2Visible,
+    p4Visible,
+    toggleP2,
+    toggleP4,
+    p1IconsVisible,
+    toggleP1,
+    p2Width,
+    setP2Width,
+  } = useStore()
+
+  // Left region is fully collapsed when both p1Icons and p1List are hidden
+  const leftCollapsed = !p1IconsVisible && !p1ListVisible
 
   const dragStartX = useRef(0)
   const dragStartW = useRef(0)
 
-  const onResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    dragStartX.current = e.clientX
-    dragStartW.current = p2Width
-    const onMove = (me: MouseEvent) => {
-      setP2Width(dragStartW.current + me.clientX - dragStartX.current)
-    }
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }, [p2Width, setP2Width])
+  const onResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      dragStartX.current = e.clientX
+      dragStartW.current = p2Width
+      const onMove = (me: MouseEvent) => {
+        setP2Width(dragStartW.current + me.clientX - dragStartX.current)
+      }
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove)
+        document.removeEventListener('mouseup', onUp)
+      }
+      document.addEventListener('mousemove', onMove)
+      document.addEventListener('mouseup', onUp)
+    },
+    [p2Width, setP2Width]
+  )
 
   return (
-    <div className="workspace-root">
-      {topBar}
+    <div className="app-shell">
+      {/* TopBar */}
+      <div className="app-shell__topbar">{topBar}</div>
 
-      <div className="workspace">
-        {/* p1-icons: 固定 52px，p1IconsVisible=false 时收起为 20px strip */}
+      {/* Main content row */}
+      <div className="app-shell__body">
+
+        {/* Left region: ActivityBar (p1Icons) + P1 Nav (p1List) — collapses together */}
         <div
-          className={`panel panel--p1-icons${p1IconsVisible ? '' : ' panel--collapsed'}`}
-          style={p1IconsVisible ? undefined : { cursor: 'pointer' }}
-          onClick={p1IconsVisible ? undefined : toggleP1}
+          className={`app-shell__left${leftCollapsed ? ' app-shell__left--collapsed' : ''}`}
+          onClick={leftCollapsed ? toggleP1 : undefined}
         >
-          <div style={{ visibility: p1IconsVisible ? 'visible' : 'hidden', height: '100%' }}>
-            {p1Icons}
-          </div>
-          {!p1IconsVisible && <span className="panel-strip">›</span>}
+          {leftCollapsed ? (
+            <div className="panel-strip-indicator">
+              <span className="panel-strip-dot" />
+            </div>
+          ) : (
+            <>
+              {/* ActivityBar */}
+              <div
+                className={`panel panel--p1-icons${p1IconsVisible ? '' : ' panel--collapsed'}`}
+              >
+                <div
+                  className="panel-inner"
+                  style={{ visibility: p1IconsVisible ? 'visible' : 'hidden' }}
+                >
+                  {p1Icons}
+                </div>
+              </div>
+
+              {/* P1 List */}
+              <div
+                className={`panel panel--p1-list${p1ListVisible ? '' : ' panel--p1-list-collapsed'}`}
+              >
+                <div className="panel-inner">{p1List}</div>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* p1-list: 可折叠 200px */}
-        <div className={`panel panel--p1-list${p1ListVisible ? '' : ' panel--p1-list-collapsed'}`}>
-          <div className="panel-inner">
-            {p1List}
-          </div>
-        </div>
-
+        {/* P2 */}
         <div
           className={`panel panel--p2${p2Visible ? '' : ' panel--collapsed'}`}
           style={p2Visible ? { width: p2Width } : undefined}
           onClick={p2Visible ? undefined : toggleP2}
         >
-          <div className="panel-inner" style={{ visibility: p2Visible ? 'visible' : 'hidden' }}>
+          <div
+            className="panel-inner"
+            style={{ visibility: p2Visible ? 'visible' : 'hidden' }}
+          >
             {p2}
           </div>
-          {!p2Visible && <span className="panel-strip">›</span>}
+          {!p2Visible && (
+            <div className="panel-strip-indicator">
+              <span className="panel-strip-dot" />
+            </div>
+          )}
           {p2Visible && (
             <>
               <button
-                className="panel-toggle-btn"
-                onClick={(e) => { e.stopPropagation(); toggleP2() }}
-                title="折叠"
-              >‹</button>
+                className="panel-toggle-btn panel-toggle-btn--p2"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleP2()
+                }}
+                title="折叠 P2"
+              >
+                ‹
+              </button>
               <div className="panel-resize-handle" onMouseDown={onResizeStart} />
             </>
           )}
         </div>
 
+        {/* P3 — main workspace */}
         <div className="panel panel--p3">{p3}</div>
 
+        {/* P4 */}
         <div
           className={`panel panel--p4${p4Visible ? '' : ' panel--collapsed'}`}
           onClick={p4Visible ? undefined : toggleP4}
         >
-          {/* 始终保留 DOM，collapsed 时 visibility:hidden 保留 state */}
-          <div className="panel-inner" style={{ visibility: p4Visible ? 'visible' : 'hidden' }}>
+          <div
+            className="panel-inner"
+            style={{ visibility: p4Visible ? 'visible' : 'hidden' }}
+          >
             {p4}
           </div>
-          {!p4Visible && <span className="panel-strip">‹</span>}
+          {!p4Visible && (
+            <div className="panel-strip-indicator">
+              <span className="panel-strip-dot" />
+            </div>
+          )}
           {p4Visible && (
             <button
-              className="panel-toggle-btn"
-              onClick={(e) => { e.stopPropagation(); toggleP4() }}
-              title="折叠"
-            >›</button>
+              className="panel-toggle-btn panel-toggle-btn--p4"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleP4()
+              }}
+              title="折叠 P4"
+            >
+              ›
+            </button>
           )}
         </div>
       </div>
