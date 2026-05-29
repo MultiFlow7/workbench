@@ -39,6 +39,16 @@ export class LocalRunner implements AgentRunner {
     this._emit('stopped')
   }
 
+  /** 节点 5.1：请求在下一个 tool_use 前暂停 */
+  pause(): void {
+    this.bridge.pause()
+  }
+
+  /** 节点 5.3：提交干预文本并恢复 agent loop */
+  resume(interventionText: string | null): void {
+    this.bridge.resume(interventionText)
+  }
+
   on(event: string, handler: EventHandler): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set())

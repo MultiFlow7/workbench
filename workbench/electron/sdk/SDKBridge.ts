@@ -1,18 +1,32 @@
 /**
- * SDKBridge — Electron 主进程侧 Claude Code SDK 集成（v0.15 节点 2.1 + 2.2）
+ * SDKBridge — Electron 主进程侧 Claude Code SDK 集成（v0.15 节点 5.1）
  *
- * 通过子进程调用 @anthropic-ai/claude-code CLI（--output-format stream-json），
- * 将结构化 JSON 事件流转发给 renderer（webContents.send('agent:event', event)）。
+ * 切换为 programmatic query() 模式（@anthropic-ai/claude-agent-sdk）。
+ * 注册 hooks.PreToolUse 实现暂停/干预机制。
  *
  * 节点 2.2：启动前从 electron-store 读取 anthropicBaseUrl，
- * 通过 process.env.ANTHROPIC_BASE_URL 注入到子进程环境变量。
+ * 通过 process.env.ANTHROPIC_BASE_URL 注入。
+ *
+ * 节点 5.1：PreToolUse hook 暂停机制（pause/resume）。
  */
 
 import { BrowserWindow } from 'electron'
-import { spawn, ChildProcess } from 'node:child_process'
 import { createRequire } from 'node:module'
-import * as path from 'node:path'
 import Store from 'electron-store'
+
+// ─── SDK 动态导入（ESM .mjs，避免 electron-vite CJS 转换问题）──────────────────
+// 使用 createRequire 动态 require，规避 top-level await 约束
+
+type SDKModule = typeof import('@anthropic-ai/claude-agent-sdk')
+let _sdkModule: SDKModule | null = null
+
+async function getSdk(): Promise<SDKModule> {
+  if (_sdkModule) return _sdkModule
+  const req = createRequire(import.meta.url)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  _sdkModule = req('@anthropic-ai/claude-agent-sdk') as SDKModule
+  return _sdkModule
+}
 
 // ─── 类型定义 ────────────────────────────────────────────────────────────────
 
@@ -33,6 +47,7 @@ export type AgentEvent =
   | { type: 'result'; finalResult: unknown }
   | { type: 'error'; message: string }
   | { type: 'raw'; data: unknown }
+  | { type: 'paused'; toolUseId: string }  // 节点 5.1：agent 已暂停等待干预
 
 // ─── electron-store 设置读取 ─────────────────────────────────────────────────
 
@@ -57,182 +72,186 @@ function getAnthropicBaseUrl(explicitBaseUrl?: string): string | null {
   return stored && stored.length > 0 ? stored : null
 }
 
-// ─── claude CLI 路径解析 ──────────────────────────────────────────────────────
-
-function getCliBinPath(): string {
-  try {
-    const req = createRequire(import.meta.url)
-    const pkgPath = req.resolve('@anthropic-ai/claude-code/package.json')
-    const pkgDir = path.dirname(pkgPath)
-    // bin/claude.exe is the native binary (cross-platform name)
-    return path.join(pkgDir, 'bin', 'claude.exe')
-  } catch {
-    return 'claude'
-  }
-}
-
 // ─── SDKBridge ────────────────────────────────────────────────────────────────
 
 export class SDKBridge {
-  private proc: ChildProcess | null = null
-  private aborted = false
+  private _query: import('@anthropic-ai/claude-agent-sdk').Query | null = null
+  private _aborted = false
+  private _pauseRequested = false
+  private _resumeResolve: ((interventionText: string | null) => void) | null = null
 
   constructor(private win: BrowserWindow) {}
 
   /**
-   * 启动 Claude Code SDK，将事件流转发到 renderer。
-   * 节点 2.2：启动前注入 ANTHROPIC_BASE_URL 到子进程环境。
+   * 启动 Claude Code SDK（programmatic query() 模式）。
+   * 注册 PreToolUse hook 实现暂停/干预机制。
    */
   async start(prompt: string, options: SDKOptions = {}): Promise<void> {
-    this.aborted = false
+    this._aborted = false
+    this._pauseRequested = false
+    this._resumeResolve = null
 
-    // 节点 2.2：优先用 options.baseUrl，其次读 electron-store
     const baseUrl = getAnthropicBaseUrl(options.baseUrl)
-
-    const childEnv: NodeJS.ProcessEnv = { ...process.env }
-    if (baseUrl) {
-      childEnv['ANTHROPIC_BASE_URL'] = baseUrl
+    const env: Record<string, string> = {}
+    for (const [k, v] of Object.entries(process.env)) {
+      if (v !== undefined) env[k] = v
     }
+    if (baseUrl) env['ANTHROPIC_BASE_URL'] = baseUrl
 
-    // 构建 CLI 参数
-    const args: string[] = [
-      '--print',
-      '--output-format', 'stream-json',
-      '--max-turns', String(options.maxTurns ?? 10),
-    ]
+    const sdk = await getSdk()
 
-    if (options.permissionMode === 'manual') {
-      // 手动模式下不传 --dangerously-skip-permissions
-    } else {
-      args.push('--dangerously-skip-permissions')
-    }
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this
 
-    if (options.allowedTools && options.allowedTools.length > 0) {
-      args.push('--allowedTools', options.allowedTools.join(','))
-    }
+    this._query = sdk.query({
+      prompt,
+      options: {
+        maxTurns: options.maxTurns ?? 10,
+        // permissionMode 映射：'auto' → bypassPermissions，'manual' → default
+        permissionMode: options.permissionMode === 'manual' ? 'default' : 'bypassPermissions',
+        allowedTools: options.allowedTools,
+        env,
+        hooks: {
+          PreToolUse: [
+            {
+              hooks: [
+                async (input: import('@anthropic-ai/claude-agent-sdk').HookInput) => {
+                  // 类型收窄：仅处理 PreToolUse 事件
+                  if (input.hook_event_name !== 'PreToolUse') {
+                    return {}
+                  }
+                  const preInput = input as import('@anthropic-ai/claude-agent-sdk').PreToolUseHookInput
 
-    // 最后追加 prompt（通过 stdin 传递更安全，此处用参数简化实现）
-    args.push('--', prompt)
+                  // 广播 tool_use 事件到 renderer
+                  self._send({
+                    type: 'tool_use',
+                    toolName: preInput.tool_name,
+                    input: preInput.tool_input,
+                    toolUseId: preInput.tool_use_id,
+                  })
 
-    const cliBin = getCliBinPath()
+                  // 如果被请求暂停，等待 resume
+                  if (self._pauseRequested) {
+                    self._pauseRequested = false
+                    self._send({ type: 'paused', toolUseId: preInput.tool_use_id })
+                    const interventionText = await new Promise<string | null>((resolve) => {
+                      self._resumeResolve = resolve
+                    })
+                    return {
+                      hookSpecificOutput: {
+                        hookEventName: 'PreToolUse' as const,
+                        additionalContext: interventionText ?? undefined,
+                      },
+                    }
+                  }
 
-    return new Promise<void>((resolve, reject) => {
-      this.proc = spawn(cliBin, args, {
-        env: childEnv,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-
-      let buffer = ''
-
-      this.proc.stdout?.on('data', (chunk: Buffer) => {
-        buffer += chunk.toString('utf-8')
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed) continue
-          this._dispatchLine(trimmed)
-        }
-      })
-
-      this.proc.stderr?.on('data', (chunk: Buffer) => {
-        const msg = chunk.toString('utf-8').trim()
-        if (msg) {
-          const event: AgentEvent = { type: 'error', message: msg }
-          this._send(event)
-        }
-      })
-
-      this.proc.on('close', (code) => {
-        if (buffer.trim()) this._dispatchLine(buffer.trim())
-        this.proc = null
-        if (this.aborted) {
-          resolve()
-        } else if (code === 0 || code === null) {
-          resolve()
-        } else {
-          reject(new Error(`claude-code exited with code ${code}`))
-        }
-      })
-
-      this.proc.on('error', (err) => {
-        this.proc = null
-        reject(err)
-      })
+                  return {
+                    hookSpecificOutput: {
+                      hookEventName: 'PreToolUse' as const,
+                    },
+                  }
+                },
+              ],
+            },
+          ],
+        },
+      },
     })
+
+    try {
+      for await (const msg of this._query) {
+        if (this._aborted) break
+        this._dispatchMessage(msg)
+      }
+    } finally {
+      this._query = null
+    }
+  }
+
+  /** 请求在下一个 tool_use 前暂停 */
+  pause(): void {
+    this._pauseRequested = true
+  }
+
+  /** 提交干预文本并恢复 agent loop */
+  resume(interventionText: string | null): void {
+    if (this._resumeResolve) {
+      this._resumeResolve(interventionText)
+      this._resumeResolve = null
+    }
   }
 
   /** 取消当前执行 */
   stop(): void {
-    this.aborted = true
-    if (this.proc) {
-      this.proc.kill('SIGTERM')
-      this.proc = null
+    this._aborted = true
+    // interrupt() 是异步的，fire-and-forget
+    if (this._query) {
+      this._query.interrupt().catch(() => {})
+      this._query = null
+    }
+    // 如果挂在 pause，也 resolve 一下
+    if (this._resumeResolve) {
+      this._resumeResolve(null)
+      this._resumeResolve = null
     }
   }
 
   // ─── 私有方法 ──────────────────────────────────────────────────────────────
 
-  private _dispatchLine(line: string): void {
-    let raw: unknown
-    try {
-      raw = JSON.parse(line)
-    } catch {
-      // 非 JSON 行（调试输出等），包装为 raw 事件
-      this._send({ type: 'raw', data: line })
-      return
-    }
-
-    const event = this._mapToAgentEvent(raw)
-    this._send(event)
-  }
-
   /**
-   * 将 claude-code stream-json 输出行映射到 AgentEvent。
-   * stream-json 格式参考：https://docs.anthropic.com/claude-code/sdk
+   * 将 SDKMessage 映射到 AgentEvent 并发送。
+   *
+   * SDKMessage 包含多种子类型；关键类型：
+   *   SDKAssistantMessage: { type: 'assistant', message: BetaMessage }
+   *   SDKUserMessage:      { type: 'user', message: MessageParam }（含 tool_result）
+   *   SDKResultMessage:    { type: 'result', ... }
+   *
+   * 注意：tool_use 由 PreToolUse hook 已广播，此处 assistant 消息中
+   * 的 tool_use block 不重复发送。
    */
-  private _mapToAgentEvent(raw: unknown): AgentEvent {
-    if (!raw || typeof raw !== 'object') return { type: 'raw', data: raw }
-
-    const obj = raw as Record<string, unknown>
+  private _dispatchMessage(msg: import('@anthropic-ai/claude-agent-sdk').SDKMessage): void {
+    const obj = msg as Record<string, unknown>
     const type = obj['type']
 
     switch (type) {
       case 'assistant': {
-        // content 是 ContentBlock 数组
-        const contentBlocks = obj['message'] as Record<string, unknown> | undefined
-        const blocks = (contentBlocks?.['content'] ?? []) as Array<Record<string, unknown>>
+        // BetaMessage.content: BetaContentBlock[]
+        const message = obj['message'] as Record<string, unknown> | undefined
+        const blocks = (message?.['content'] ?? []) as Array<Record<string, unknown>>
         for (const block of blocks) {
           if (block['type'] === 'text') {
-            return { type: 'text', content: String(block['text'] ?? '') }
+            this._send({ type: 'text', content: String(block['text'] ?? '') })
+          } else if (block['type'] === 'thinking') {
+            this._send({ type: 'thinking', content: String(block['thinking'] ?? '') })
           }
-          if (block['type'] === 'thinking') {
-            return { type: 'thinking', content: String(block['thinking'] ?? '') }
-          }
-          if (block['type'] === 'tool_use') {
-            return {
-              type: 'tool_use',
-              toolName: String(block['name'] ?? ''),
-              input: block['input'],
-              toolUseId: String(block['id'] ?? ''),
+          // tool_use block 已由 PreToolUse hook 广播，跳过
+        }
+        break
+      }
+      case 'user': {
+        // SDKUserMessage: MessageParam 可能含 tool_result content
+        const message = obj['message'] as Record<string, unknown> | undefined
+        const content = message?.['content']
+        if (Array.isArray(content)) {
+          for (const block of content as Array<Record<string, unknown>>) {
+            if (block['type'] === 'tool_result') {
+              this._send({
+                type: 'tool_result',
+                toolUseId: String(block['tool_use_id'] ?? ''),
+                result: block['content'],
+              })
             }
           }
         }
-        return { type: 'raw', data: raw }
-      }
-      case 'tool_result': {
-        return {
-          type: 'tool_result',
-          toolUseId: String(obj['tool_use_id'] ?? ''),
-          result: obj['content'],
-        }
+        break
       }
       case 'result': {
-        return { type: 'result', finalResult: obj['result'] }
+        this._send({ type: 'result', finalResult: obj['result'] })
+        break
       }
+      // 其他 SDKMessage 子类型（status、hook_started 等）忽略
       default:
-        return { type: 'raw', data: raw }
+        break
     }
   }
 

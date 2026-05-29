@@ -118,7 +118,21 @@ const api = {
       ipcRenderer.invoke('agent:stop') as Promise<null>,
 
     /**
-     * 订阅 agent 事件（text / thinking / tool_use / tool_result / result / error）。
+     * 请求在下一个 tool_use 前暂停（节点 5.3）。
+     * 主进程收到后设置 pauseRequested 标志；下一次 PreToolUse hook 触发时暂停。
+     */
+    pause: (): Promise<null> =>
+      ipcRenderer.invoke('agent:pause') as Promise<null>,
+
+    /**
+     * 提交干预文本并恢复 agent loop（节点 5.3）。
+     * interventionText 为 null 时表示无干预，直接恢复。
+     */
+    resume: (interventionText: string | null): Promise<null> =>
+      ipcRenderer.invoke('agent:resume', { interventionText }) as Promise<null>,
+
+    /**
+     * 订阅 agent 事件（text / thinking / tool_use / tool_result / result / error / paused）。
      * 返回 unlisten 函数，在 useEffect cleanup 中调用以避免内存泄漏。
      */
     onEvent: <T = unknown>(

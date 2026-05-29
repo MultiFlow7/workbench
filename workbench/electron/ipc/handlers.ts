@@ -320,6 +320,27 @@ export function registerIpcHandlers(): void {
     return null
   })
 
+  // ── agent:pause（节点 5.3）───────────────────────────────────────────────
+  // renderer 请求暂停：在下一个 tool_use 前暂停，等待 agent:resume。
+  ipcMain.handle('agent:pause', (event) => {
+    const runner = _activeRunners.get(event.sender.id)
+    if (runner) {
+      runner.pause()
+    }
+    return null
+  })
+
+  // ── agent:resume（节点 5.3）──────────────────────────────────────────────
+  // renderer 提交干预文本并恢复 agent loop。
+  // args: { interventionText: string | null }
+  ipcMain.handle('agent:resume', (event, args: { interventionText: string | null }) => {
+    const runner = _activeRunners.get(event.sender.id)
+    if (runner) {
+      runner.resume(args.interventionText)
+    }
+    return null
+  })
+
   // ── 后端健康检查（stub）──────────────────────────────────────────────────
   ipcMain.handle('check_backend_health', () => false)
 
