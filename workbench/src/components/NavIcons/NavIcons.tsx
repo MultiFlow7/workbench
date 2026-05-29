@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../../store'
 import { StoredApiKey } from '../../store/settingsSlice'
+import { ServerConfig } from '../ServerConfig/ServerConfig'
 import './NavIcons.css'
 
 const MODES = [
@@ -251,6 +252,10 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
                 每个 Key 的模型会合并到对话选择器<br/>
                 发送时自动匹配对应 Key
               </div>
+            </div>
+
+            <div className="settings-panel__section">
+              <ServerConfig />
             </div>
           </>
         )}
