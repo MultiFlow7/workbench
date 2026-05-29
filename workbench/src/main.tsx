@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+// 节点 3.1：tokens.css 先于 reset.css 加载，确保 reset 能引用 var(--font) 等
 import "./styles/tokens.css";
+import "./styles/reset.css";
 import App from "./App";
 import { useStore } from "./store";
 import { hydrateSettingsFromFile } from "./store/settingsSlice";
