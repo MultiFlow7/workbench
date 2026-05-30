@@ -654,15 +654,40 @@ export function ChatView() {
     window.api.invoke('cancel_stream', { atomId: selectedAtomIdRef.current ?? '' }).catch(console.error)
   }, [])
 
-  // Breadcrumb: first + last 3 items
-  const breadcrumb = currentPath.length <= 3
-    ? currentPath.map((n) => n.summary || n.id).join(' › ')
-    : [currentPath[0].summary || currentPath[0].id, '…', ...currentPath.slice(-2).map((n) => n.summary || n.id)].join(' › ')
-
   return (
     <div className="chat-view">
-      {currentPath.length > 0 && (
-        <div className="chat-breadcrumb">{breadcrumb}</div>
+      {/* P3 Header */}
+      {(currentPath.length > 0 || streamingState === 'streaming' || streamingState === 'paused') && (
+        <div className="chat-header">
+          <div className="chat-node-info">
+            <div className="chat-node-title">
+              {currentPath[currentPath.length - 1]?.summary || currentPath[currentPath.length - 1]?.id || ''}
+            </div>
+            {currentPath.length > 0 && (
+              <div className="chat-node-meta">
+                <span className="chat-node-meta-id">{currentPath[currentPath.length - 1].id}</span>
+              </div>
+            )}
+          </div>
+          {streamingState === 'streaming' && (
+            <span className="chat-status-badge chat-status-badge--running">
+              <span className="chat-spinner" />
+              运行中
+            </span>
+          )}
+          {streamingState === 'paused' && (
+            <span className="chat-status-badge chat-status-badge--paused">暂停</span>
+          )}
+          {streamingState === 'streaming' && (
+            <button
+              className="chat-pause-btn-header"
+              onClick={() => void window.api.agent.pause()}
+              title="暂停 Agent"
+            >
+              ⏸
+            </button>
+          )}
+        </div>
       )}
 
       <div className="chat-messages" ref={messagesContainerRef}>
@@ -720,74 +745,68 @@ export function ChatView() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="chat-input-area">
+      <div className="chat-footer">
         <ContextIndicator />
-        <div className="chat-model-row">
-          <select
-            className="chat-model-select"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            disabled={streamingAtoms.size > 0}
-          >
-            {MODELS.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-          <button
-            className={`chat-caching-btn${cachingEnabled ? ' chat-caching-btn--active' : ''}`}
-            onClick={() => setCachingEnabled(!cachingEnabled)}
-            title={cachingEnabled ? '关闭 Prompt Caching' : '开启 Prompt Caching'}
-          >
-            Caching
-          </button>
-        </div>
-        <div className="chat-input-row">
-          <textarea
-            className="chat-input"
-            value={expandedInput}
-            onChange={(e) => {
-              setExpandedInput(e.target.value)
-              if (e.target.value.trim()) { setIsUserInputting(true) } else { setIsUserInputting(false) }
-            }}
-            placeholder={currentPath.length ? '输入消息…' : selectedProjectId ? '输入消息，自动开始新对话…' : '请先在左侧选择项目'}
-            disabled={!currentPath.length && !selectedProjectId}
-            rows={1}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSend()
-              }
-            }}
-          />
-          <button
-            className="chat-expand-btn"
-            onClick={() => setP4Mode('text-input')}
-            title="展开到 P4 编辑 (⤢)"
-          >
-            ⤢
-          </button>
-          {/* 节点 5.2：streaming 时显示暂停按钮 */}
-          {streamingState === 'streaming' && (
-            <button
-              className="chat-pause-btn"
-              onClick={() => void window.api.agent.pause()}
-              title="暂停 Agent（下一个工具执行前生效）"
+        <div className="chat-input-wrap">
+          <div className="chat-input-row">
+            <textarea
+              className="chat-input"
+              value={expandedInput}
+              onChange={(e) => {
+                setExpandedInput(e.target.value)
+                if (e.target.value.trim()) { setIsUserInputting(true) } else { setIsUserInputting(false) }
+              }}
+              placeholder={currentPath.length ? '输入消息…' : selectedProjectId ? '输入消息，自动开始新对话…' : '请先在左侧选择项目'}
+              disabled={!currentPath.length && !selectedProjectId}
+              rows={1}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+            />
+            {/* Node-F-051-B-14: stop button shows when current atom is streaming */}
+            {isCurrentAtomStreaming ? (
+              <button className="chat-stop-btn" onClick={handleStop}>■</button>
+            ) : (
+              <button
+                className="chat-send-btn"
+                onClick={handleSend}
+                disabled={!expandedInput.trim() || (!currentPath.length && !selectedProjectId)}
+              >
+                ↑
+              </button>
+            )}
+          </div>
+          <div className="chat-input-meta">
+            <select
+              className="meta-chip chat-model-select"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              disabled={streamingAtoms.size > 0}
             >
-              ⏸
-            </button>
-          )}
-          {/* Node-F-051-B-14: stop button shows when current atom is streaming */}
-          {isCurrentAtomStreaming ? (
-            <button className="chat-stop-btn" onClick={handleStop}>停止</button>
-          ) : (
+              {MODELS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
             <button
-              className="chat-send-btn"
-              onClick={handleSend}
-              disabled={!expandedInput.trim() || (!currentPath.length && !selectedProjectId)}
+              className={`meta-chip${cachingEnabled ? ' meta-chip--on' : ''}`}
+              onClick={() => setCachingEnabled(!cachingEnabled)}
+              title={cachingEnabled ? '关闭 Prompt Caching' : '开启 Prompt Caching'}
             >
-              发送
+              Caching
             </button>
-          )}
+            <button
+              className="meta-chip"
+              onClick={() => setP4Mode('text-input')}
+              title="展开到 P4 编辑 (⤢)"
+            >
+              ⤢
+            </button>
+            <span className="chat-meta-spacer" />
+            <span className="chat-shortcut-hint">⌘↵ 发送 · ⌘K 新节点</span>
+          </div>
         </div>
       </div>
     </div>

@@ -335,14 +335,16 @@ export function NavIcons() {
             <InboxIcon />
           </button>
           {pendingDecisionCount > 0 && (
-            <span className="decision-badge" aria-label={`${pendingDecisionCount} 个待决策`}>
-              {pendingDecisionCount > 99 ? '99+' : pendingDecisionCount}
-            </span>
+            <span className="decision-badge" aria-label={`${pendingDecisionCount} 个待决策`} />
           )}
         </div>
       </div>
 
       <div className="nav-icons__bottom">
+        <div className="status-pill server">
+          <span className="dot" />
+          在线
+        </div>
         <button
           className="nav-icon-btn"
           title="设置"

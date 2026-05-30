@@ -5,9 +5,9 @@ import { formatTokens } from '../../utils/tokenFormat'
 import { CanvasCard, type NodeData } from './CanvasCard'
 import './BranchTree.css'
 
-const NODE_W = 140
-const NODE_H = 60   // layout spacing baseline (card height is fluid)
-const GAP_X = 20
+const NODE_W = 260
+const NODE_H = 110  // layout spacing baseline (cc-head+cc-qa+cc-meta ≈ 100px)
+const GAP_X = 40
 const GAP_Y = 100   // gap between levels
 
 const SCALE_MIN = 0.3
@@ -100,7 +100,7 @@ function toNodeData(
     time: atom.timestamp,
     status: isStreaming ? 'running' : 'done',
     q: atom.summary || atom.id,
-    aPreview: atom.summary || atom.id,
+    aPreview: atom.aPreview || '…',
     pos: { x, y },
     tokens: totalTokens,
   }

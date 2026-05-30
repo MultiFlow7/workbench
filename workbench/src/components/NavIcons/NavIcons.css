@@ -29,7 +29,7 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -37,18 +37,18 @@
   justify-content: center;
   font-size: 18px;
   position: relative;
-  transition: background var(--duration-fast) var(--ease-panel);
+  transition: all var(--dur) var(--ease);
   padding: 0;
 }
 
 .nav-icon-btn:hover:not(:disabled) {
-  background: var(--color-bg);
-  color: var(--color-text-primary);
+  background: var(--hover);
+  color: var(--text);
 }
 
 .nav-icon-btn.nav-icon-btn--active {
-  background: var(--color-bg);
-  color: var(--color-accent);
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .nav-icon-btn:disabled {
@@ -65,7 +65,7 @@
   left: 44px;
   top: 50%;
   transform: translateY(-50%);
-  background: var(--color-text-primary);
+  background: var(--text);
   color: var(--accent-fg);
   font-size: 11px;
   padding: 4px 8px;
@@ -73,7 +73,7 @@
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transition: opacity var(--duration-fast);
+  transition: opacity var(--dur);
   z-index: 100;
 }
 
@@ -88,19 +88,40 @@
 
 .decision-badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: 7px;
-  background: var(--err);
-  color: var(--accent-fg);
-  font-size: 9px;
-  font-weight: 600;
-  line-height: 14px;
-  text-align: center;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pause);
+  border: 2px solid var(--surface);
   pointer-events: none;
+}
+
+/* Status pill */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--r-full);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-pill.server {
+  background: var(--done-bg);
+  color: var(--done);
+  border: 1px solid var(--done-bd);
+}
+
+.status-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
 /* Settings overlay */

@@ -221,9 +221,70 @@ export function registerIpcHandlers(): void {
     return '{}'
   })
 
-  // ── QA Atom 读写（stub，Phase 1.3 接入真实 fs IPC）─────────────────────
-  // list_qa_atoms: returns QAAtomMeta[]
-  stubEmpty('list_qa_atoms', [])
+  // ── QA Atom 读写 ─────────────────────────────────────────────────────────
+  // list_qa_atoms: 扫描 conversationDir，atom ID = 文件名（无 .md 后缀）
+  ipcMain.handle('list_qa_atoms', async (_e, args: { conversationDir: string }) => {
+    const dir = args?.conversationDir
+    if (!dir) return []
+    try {
+      const files = await fsp.readdir(dir).catch(() => [] as string[])
+      const atoms: unknown[] = []
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue
+        try {
+          const raw = await fsp.readFile(join(dir, file), 'utf-8')
+          const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+          if (!fmMatch) continue
+          const fm = fmMatch[1]
+
+          // atom ID = 完整文件名（无后缀），与 children/prev 的 [[xxx]] 引用保持一致
+          const atomId = file.replace(/\.md$/, '')
+
+          // 单行字段读取（去引号）
+          const scalar = (key: string) => {
+            const m = fm.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'))
+            return m ? m[1].trim().replace(/^['"]|['"]$/g, '') : undefined
+          }
+
+          const timestamp = scalar('timestamp') ?? ''
+          const model = scalar('model')
+
+          // prev：YAML null → null；Obsidian link 保留原始字符串（selectAtom 会 strip [[]]）
+          const prevRaw = scalar('prev')
+          const prev = (!prevRaw || prevRaw === 'null') ? null : prevRaw
+
+          // children：支持多行列表和单行 [] 两种格式
+          const childrenMulti = [...fm.matchAll(/^\s+-\s+"?(\[\[[^\]]+\]\])"?/gm)].map((m) => m[1])
+          let children: string[] = childrenMulti
+          if (children.length === 0) {
+            const inlinePart = fm.match(/^children:\s*\[([^\]]*)\]/m)
+            if (inlinePart) {
+              children = inlinePart[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean)
+            }
+          }
+          // 只保留 children 中真正属于 children: 块的条目（排除 projects: 块）
+          const childrenBlock = fm.match(/^children:\s*\n((?:\s+-\s+.+\n?)*)/m)
+          if (childrenBlock) {
+            children = [...childrenBlock[1].matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => `[[${m[1]}]]`)
+          }
+
+          // summary from ## Q, aPreview from ## A
+          const fileSections = ('\n' + raw).split(/\n## /)
+          const qPart = fileSections.find((p) => /^Q[\s\r\n]/.test(p))
+          const aPart = fileSections.find((p) => /^A[\s\r\n]/.test(p))
+          const summary = qPart
+            ? qPart.split('\n').slice(1).map((l) => l.trim()).find((l) => l.length > 0)?.slice(0, 80) ?? ''
+            : ''
+          const aPreview = aPart
+            ? aPart.split('\n').slice(1).map((l) => l.trim()).find((l) => l.length > 0)?.slice(0, 80) ?? ''
+            : ''
+
+          atoms.push({ id: atomId, prev, children, summary, aPreview, timestamp, model })
+        } catch { /* skip bad file */ }
+      }
+      return atoms
+    } catch { return [] }
+  })
 
   // read_qa_atom: returns QAAtom object
   ipcMain.handle('read_qa_atom', (_e, args: { filePath: string }) => {
@@ -243,8 +304,45 @@ export function registerIpcHandlers(): void {
     return null
   })
 
-  // ── 项目管理（stubs）─────────────────────────────────────────────────────
-  stubEmpty('list_projects', [])
+  // ── 项目管理 ──────────────────────────────────────────────────────────────
+  // list_projects: 扫描 projectsDir 下 .md 文件，atomIds 从 ## 对话索引 提取
+  ipcMain.handle('list_projects', async (_e, args: { projectsDir: string }) => {
+    const dir = args?.projectsDir
+    if (!dir) return []
+    try {
+      const files = await fsp.readdir(dir).catch(() => [] as string[])
+      const projects: unknown[] = []
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue
+        try {
+          const raw = await fsp.readFile(join(dir, file), 'utf-8')
+          const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+          if (!fmMatch) continue
+          const fm = fmMatch[1]
+
+          const scalar = (key: string) => {
+            const m = fm.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'))
+            return m ? m[1].trim().replace(/^['"]|['"]$/g, '') : undefined
+          }
+          const id = scalar('id')
+          if (!id) continue
+          const name = scalar('name') ?? file.replace(/\.md$/, '')
+          const rootBranchId = scalar('rootBranchId') ?? ''
+          const createdAt = scalar('createdAt') ?? ''
+
+          // atomIds: split by ## and find 对话索引 section, extract [[xxx]] refs
+          const sectionParts = ('\n' + raw).split(/\n## /)
+          const dialogPart = sectionParts.find((p) => p.startsWith('\u5bf9\u8bdd\u7d22\u5f15'))
+          const atomIds = dialogPart
+            ? [...dialogPart.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1].trim())
+            : []
+
+          projects.push({ id, name, rootBranchId, createdAt, atomIds })
+        } catch { /* skip bad file */ }
+      }
+      return projects
+    } catch { return [] }
+  })
   ipcMain.handle('create_project', (_e, _args) => ({
     id: crypto.randomUUID(),
     name: '',
@@ -354,8 +452,16 @@ export function registerIpcHandlers(): void {
     return null
   })
 
-  // ── 后端健康检查（stub）──────────────────────────────────────────────────
-  ipcMain.handle('check_backend_health', () => false)
+  // ── 后端健康检查：尝试 ping Python ai-service(:8765)，不可达时也返回 true
+  // v0.15 主路径是 Claude Code SDK，Python service 可选
+  ipcMain.handle('check_backend_health', async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8765/health', { signal: AbortSignal.timeout(2000) })
+      return res.ok
+    } catch {
+      return true  // SDK 路径不依赖 Python service，不显示离线 banner
+    }
+  })
 
   // ── 后台 SSE 订阅（stub）─────────────────────────────────────────────────
   stubOk('start_backend_sse')

@@ -11,6 +11,7 @@ export interface QAAtomMeta {
   prev: string | null
   children: string[]
   summary: string
+  aPreview?: string
   timestamp: string
   // v0.3: token tracking (absent on older atoms)
   model?: string

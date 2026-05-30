@@ -7,40 +7,37 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useStore } from '../../store'
 import './WorkspacePicker.css'
 
 export function WorkspacePicker() {
   const [cwd, setCwd] = useState<string>('')
   const [picking, setPicking] = useState(false)
+  const loadAtoms = useStore((s) => s.loadAtoms)
+  const loadProjects = useStore((s) => s.loadProjects)
 
-  // Read initial cwd from electron main process on mount
   useEffect(() => {
     window.api
-      .invoke<string | null>('dialog:getCwd')
-      .then((path) => {
-        if (path) setCwd(path)
-      })
-      .catch(() => {/* handler may not exist yet — silent */ })
+      .invoke<string | null>('workspace:getCwd')
+      .then((path) => { if (path) setCwd(path) })
+      .catch(() => {})
   }, [])
 
   const handlePick = async () => {
     if (picking) return
     setPicking(true)
     try {
-      const selected = await window.api.invoke<string | null>(
-        'dialog:pickFolder'
-      )
-      if (selected) setCwd(selected)
+      const selected = await window.api.invoke<string | null>('dialog:pickFolder')
+      if (selected) {
+        setCwd(selected)
+        await Promise.all([loadProjects(), loadAtoms()])
+      }
     } catch (e) {
       console.error('[WorkspacePicker] dialog:pickFolder error:', e)
     } finally {
       setPicking(false)
     }
   }
-
-  const displayPath = cwd
-    ? cwd.replace(/^.*[\\/]([^\\/]+)[\\/]?$/, '$1') || cwd
-    : '选择工作目录'
 
   return (
     <button
@@ -49,8 +46,12 @@ export function WorkspacePicker() {
       title={cwd || '点击选择工作目录'}
       disabled={picking}
     >
-      <span className="workspace-picker__icon">◫</span>
-      <span className="workspace-picker__label">{displayPath}</span>
+      <span className="workspace-icon">◫</span>
+      <div className="workspace-info">
+        <div className="workspace-label">WORKSPACE</div>
+        <div className="workspace-path">{cwd || '未选择目录'}</div>
+      </div>
+      <span className="workspace-arrow">›</span>
     </button>
   )
 }

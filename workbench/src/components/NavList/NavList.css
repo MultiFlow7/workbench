@@ -14,10 +14,10 @@
 .nav-list__new-btn {
   width: 100%;
   padding: 6px 10px;
-  border: 1px dashed var(--color-border);
+  border: 1px dashed var(--border);
   border-radius: 6px;
   background: transparent;
-  color: var(--color-accent);
+  color: var(--accent);
   font-size: 12px;
   font-family: var(--font-ui);
   cursor: pointer;
@@ -28,7 +28,7 @@
 
 .nav-list__new-btn:hover {
   background: var(--accent-bg);
-  border-color: var(--color-accent);
+  border-color: var(--accent);
 }
 
 .nav-list__section {
@@ -40,7 +40,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   padding: 8px 12px 4px;
   margin: 0;
   line-height: 1.4;
@@ -48,7 +48,7 @@
 
 .nav-list__empty {
   font-size: 11px;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   padding: 4px 12px 8px;
   margin: 0;
 }
@@ -67,7 +67,7 @@
   padding: 5px 12px;
   border: none;
   background: transparent;
-  color: var(--color-text-primary);
+  color: var(--text);
   font-size: 12px;
   font-family: var(--font-ui);
   cursor: pointer;
@@ -78,19 +78,19 @@
 }
 
 .nav-list__item:hover {
-  background: var(--color-bg);
+  background: var(--bg);
 }
 
 .nav-list__item.nav-list__item--active {
   background: var(--accent-bg);
-  color: var(--color-accent);
+  color: var(--accent);
 }
 
 .nav-list__pip {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--color-border);
+  background: var(--border);
   flex-shrink: 0;
 }
 
@@ -107,9 +107,9 @@
 
 .nav-list__item-count {
   font-size: 10px;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   flex-shrink: 0;
-  background: var(--color-bg);
+  background: var(--bg);
   border-radius: 10px;
   padding: 1px 5px;
   line-height: 1.6;
@@ -118,7 +118,7 @@
 .nav-list__folder-icon {
   font-size: 13px;
   flex-shrink: 0;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
 }
 
 /* v0.10 req-033: 持久化失败提示 */
