@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useStore } from '../../store'
 import { StoredApiKey } from '../../store/settingsSlice'
 import { ServerConfig } from '../ServerConfig/ServerConfig'
+import { ServerStatusButton } from './ServerStatusButton'
+import { ServerDetailPanel } from './ServerDetailPanel'
+import { ThemeToggleButton } from './ThemeToggleButton'
 import './NavIcons.css'
 
 const MODES = [
@@ -267,10 +270,17 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
 export function NavIcons() {
   const { currentMode, setMode, pendingDecisionCount } = useStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // v0.15.1 节点 3.2: 服务器详情弹窗开关
+  const [serverDetailOpen, setServerDetailOpen] = useState(false)
 
   return (
     <nav className="nav-icons">
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {serverDetailOpen && <ServerDetailPanel onClose={() => setServerDetailOpen(false)} />}
+
+      {/* v0.15.1 节点 3.1: ActivityBar 顶部独立服务器状态按钮（在 nav-icons__modes 之前） */}
+      <ServerStatusButton onClick={() => setServerDetailOpen(true)} />
+
       <div className="nav-icons__modes">
         {MODES.map(({ id, icon, label, enabled }) => (
           <button
@@ -341,10 +351,9 @@ export function NavIcons() {
       </div>
 
       <div className="nav-icons__bottom">
-        <div className="status-pill server">
-          <span className="dot" />
-          在线
-        </div>
+        {/* v0.15.1 节点 3.1: 移除原 .status-pill.server（硬编码"在线"文案，与状态脱钩），改由顶部 ServerStatusButton 承载 */}
+        {/* v0.15.1 节点 3.3: 底部 theme + settings 两个独立按钮（theme 在上、settings 在下） */}
+        <ThemeToggleButton />
         <button
           className="nav-icon-btn"
           title="设置"

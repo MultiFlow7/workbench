@@ -98,7 +98,7 @@
   pointer-events: none;
 }
 
-/* Status pill */
+/* Status pill（v0.15.1 节点 3.1 起不再使用；保留 class 以防外部引用，类下方所有 .nav-icons 不再渲染该结构） */
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -122,6 +122,77 @@
   border-radius: 50%;
   background: currentColor;
   flex-shrink: 0;
+}
+
+/* v0.15.1 节点 3.1: ActivityBar 顶部服务器状态按钮（四态彩点） */
+.server-status-btn {
+  margin-bottom: 6px;
+}
+
+.server-status-btn__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background var(--dur) var(--ease);
+}
+
+.server-status-btn__dot--online {
+  background: var(--done);
+}
+
+.server-status-btn__dot--offline {
+  background: var(--err);
+}
+
+.server-status-btn__dot--connecting {
+  background: var(--pause);
+  animation: server-status-pulse 1.4s ease-in-out infinite;
+}
+
+.server-status-btn__dot--unconfigured {
+  background: var(--text-3);
+}
+
+@keyframes server-status-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.82); }
+}
+
+/* v0.15.1 节点 3.2: 服务器详情弹窗（复用 settings-panel 壳） */
+.server-detail-panel__url {
+  font-size: 12px;
+  color: var(--text-2);
+  font-family: 'JetBrains Mono', monospace;
+  word-break: break-all;
+  line-height: 1.45;
+}
+
+.server-detail-panel__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.server-detail-panel__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.server-detail-panel__latency {
+  font-size: 12px;
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* v0.15.1 节点 3.3: 底部 theme 按钮 — 复用 .nav-icon-btn 基类，单独留 hook 调字号 */
+.theme-toggle-btn {
+  font-size: 16px;
+  line-height: 1;
 }
 
 /* Settings overlay */
