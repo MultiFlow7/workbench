@@ -96,9 +96,15 @@ export function ChatViewV2() {
 
   return (
     <div className="chat-view">
-      {/* 节点 2.3 — P3 Header 移除独立 ⏸ 按钮（保留节点信息与状态徽章） */}
+      {/*
+       * 节点 2.3 — P3 Header 不再渲染独立 ⏸ 按钮（暂停入口统一迁移到 ChatInputV2）
+       * 对应 ChatView.tsx 第 681-689 行 `chat-pause-btn-header` 段落不迁移；
+       * T-V151-B4 验证：DOM query `.chat-pause-btn-header` 在 ChatViewV2 子树为 null
+       * 保留：节点信息（chat-node-title / chat-node-meta-id）+ 运行 / 暂停 状态徽章
+       *      （chat-status-badge--running / chat-status-badge--paused）— 信息密度需要
+       */}
       {(currentPath.length > 0 || streamingState === 'streaming' || streamingState === 'paused') && (
-        <div className="chat-header">
+        <div className="chat-header" data-v151-node="2.3">
           <div className="chat-node-info">
             <div className="chat-node-title">
               {currentPath[currentPath.length - 1]?.summary || currentPath[currentPath.length - 1]?.id || ''}
