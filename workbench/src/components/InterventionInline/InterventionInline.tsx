@@ -36,17 +36,26 @@ export function InterventionInline() {
   if (streamingState !== 'paused') return null
 
   const handleInject = async () => {
+    // 节点 4.0：埋点（intervention_submitted）— 在副作用前打点，失败静默
+    const trimmedText = text.trim()
+    window.api.invoke('write_event_log', {
+      event: {
+        event: 'intervention_submitted',
+        timestamp: new Date().toISOString(),
+        payload: { text_length: trimmedText.length },
+      },
+    }).catch(() => {})
     // 节点 5.4：如果有文本，记录干预到 session buffer
-    if (text.trim()) {
+    if (trimmedText) {
       const currentRoundIndex = liveRounds.length
       const intervention: Intervention = {
         afterRound: currentRoundIndex,
-        text: text.trim(),
+        text: trimmedText,
         timestamp: new Date().toISOString(),
       }
       addIntervention(intervention)
     }
-    await window.api.agent.resume(text.trim() || null)
+    await window.api.agent.resume(trimmedText || null)
     setText('')
   }
 
