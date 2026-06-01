@@ -17,6 +17,7 @@ import './InterventionInline.css'
 
 export function InterventionInline() {
   const streamingState = useStore((s) => s.streamingState)
+  const setStreamingState = useStore((s) => s.setStreamingState)
   const liveRounds = useStore((s) => s.liveRounds)
   const [text, setText] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -50,7 +51,11 @@ export function InterventionInline() {
   }
 
   const handleCancel = async () => {
+    // v0.15.1 节点 2.4 — 取消干预 = 状态机回退到空闲（product.md 状态机契约）
+    // 通常 backend ai-cancelled 事件会回写 streamingState，但本处兜底确保即使
+    // 后端事件丢失，UI 也能立即恢复到 idle（发送按钮回到 ▶、输入框 disabled 解除）
     await window.api.agent.resume(null)
+    setStreamingState('idle')
     setText('')
   }
 
