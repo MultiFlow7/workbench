@@ -157,11 +157,16 @@ describe('T-V151-B4 · P3 header 无独立 ⏸ 按钮', () => {
   })
 })
 
-describe('T-V151-B5 · Header 状态徽章保留', () => {
-  it('ChatViewV2.tsx 保留 chat-status-badge--running / chat-status-badge--paused 渲染', () => {
+describe('T-V151-B5 · v0.15.1 P2 验收修订：chat-header 整块移除', () => {
+  // 原 T-V151-B5 期望 chat-status-badge 留在 P3 header；
+  // v0.15.1 P2 验收修订（2026-06-02）：chat-header 整块删除，
+  // 运行 / 暂停 指示由 TopBar AgentRunPill 与 ChatInputV2 三态机分担。
+  it('ChatViewV2.tsx 不再渲染 chat-header / chat-status-badge / chat-node-info', () => {
     const src = readSource('src/components/ChatViewV2/ChatViewV2.tsx')
-    expect(src.includes('chat-status-badge--running')).toBe(true)
-    expect(src.includes('chat-status-badge--paused')).toBe(true)
+    expect(src.includes('chat-status-badge--running')).toBe(false)
+    expect(src.includes('chat-status-badge--paused')).toBe(false)
+    expect(src.includes('"chat-header"')).toBe(false)
+    expect(src.includes('chat-node-info')).toBe(false)
   })
 })
 
@@ -242,13 +247,13 @@ describe('T-V151-R3 · ServerConfig 在 SettingsPanel 内复用（v0.15.1 后续
     expect(src.includes('<ServerConfig')).toBe(true)
   })
 
-  it('ServerStatusButton onClick 直接打开 settings（不再独立弹窗）', () => {
+  it('ActivityBar 顶部不再渲染 ServerStatusButton（v0.15.1 P2 验收修订 2026-06-02）', () => {
     const src = readSource('src/components/NavIcons/NavIcons.tsx')
-    // 按钮 onClick 指向 setSettingsOpen(true)
-    expect(src).toMatch(/<ServerStatusButton\s+onClick=\{[^}]*setSettingsOpen\(true\)/)
-    // ServerDetailPanel 不再被 import（注释里允许出现作为历史说明）
+    // 顶部独立服务器状态按钮被删除（顶部识别噪音 → 入口下沉到底部 settings）
+    expect(src).not.toMatch(/^\s*import\s+\{[^}]*ServerStatusButton/m)
+    expect(src).not.toMatch(/<ServerStatusButton/)
+    // ServerDetailPanel 同样不再被引用
     expect(src).not.toMatch(/^\s*import\s+\{[^}]*ServerDetailPanel/m)
-    // ServerDetailPanel 不再作为 JSX 渲染
     expect(src).not.toMatch(/<ServerDetailPanel/)
   })
 })

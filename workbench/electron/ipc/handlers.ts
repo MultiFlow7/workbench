@@ -299,8 +299,42 @@ export function registerIpcHandlers(): void {
   })
 
   // write_qa_atom: args = { filePath: string, atom: object }
-  ipcMain.handle('write_qa_atom', (_e, args: { filePath: string; atom: unknown }) => {
-    void args
+  // v0.15.1 P2 验收修订（2026-06-02）：原 noop stub 导致新对话不落盘 → 重新打开看不到历史。
+  // 实现与 src-tauri/src/commands/qa_atoms.rs::write_qa_atom 等效的原子写入。
+  ipcMain.handle('write_qa_atom', async (_e, args: { filePath: string; atom: {
+    meta: {
+      id: string
+      prev: string | null
+      children: string[]
+      summary?: string
+      timestamp: string
+      model?: string
+      usage?: { input_tokens: number; output_tokens: number }
+      context_tokens_used?: number
+      context_window_limit?: number
+    }
+    question: string
+    answer: string
+  } }) => {
+    const { filePath, atom } = args
+    if (!filePath || !atom?.meta?.id) return null
+    const prevYaml = atom.meta.prev ? `"${atom.meta.prev}"` : 'null'
+    const childrenStr = atom.meta.children && atom.meta.children.length > 0
+      ? `children:\n${atom.meta.children.map((c) => `  - "${c}"`).join('\n')}`
+      : 'children: []'
+    const tokenYaml = atom.meta.usage
+      ? `model: "${atom.meta.model ?? ''}"\ninput_tokens: ${atom.meta.usage.input_tokens}\noutput_tokens: ${atom.meta.usage.output_tokens}\ncontext_tokens_used: ${atom.meta.context_tokens_used ?? 0}\ncontext_window_limit: ${atom.meta.context_window_limit ?? 0}\n`
+      : ''
+    const content = `---\nid: ${atom.meta.id}\nprev: ${prevYaml}\n${childrenStr}\ntimestamp: "${atom.meta.timestamp}"\n${tokenYaml}status: done\n---\n\n## Q\n\n${atom.question}\n\n## A\n\n${atom.answer}\n`
+    // 原子写入：tmp → rename
+    const tmpPath = `${filePath}.tmp`
+    try {
+      await fsp.writeFile(tmpPath, content, 'utf-8')
+      await fsp.rename(tmpPath, filePath)
+    } catch (e) {
+      await fsp.unlink(tmpPath).catch(() => {})
+      throw e
+    }
     return null
   })
 

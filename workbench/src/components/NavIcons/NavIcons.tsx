@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useStore } from '../../store'
 import { StoredApiKey } from '../../store/settingsSlice'
 import { ServerConfig } from '../ServerConfig/ServerConfig'
-import { ServerStatusButton } from './ServerStatusButton'
 import { ThemeToggleButton } from './ThemeToggleButton'
 import './NavIcons.css'
 
@@ -274,10 +273,10 @@ export function NavIcons() {
     <nav className="nav-icons">
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
 
-      {/* v0.15.1 节点 3.1: ActivityBar 顶部独立服务器状态按钮（在 nav-icons__modes 之前）
-          v0.15.1 后续修订（2026-06-01）: 人工验收后废弃独立 ServerDetailPanel，
-          点击直接打开 SettingsPanel，内部已含 <ServerConfig /> 完整配置 UI */}
-      <ServerStatusButton onClick={() => setSettingsOpen(true)} />
+      {/* v0.15.1 P2 验收修订（2026-06-02）：移除顶部 ServerStatusButton
+          - 服务器状态信息密度低，按钮和模式组并排造成识别噪音
+          - 服务器配置入口由底部 settings 按钮承担（SettingsPanel 内嵌 <ServerConfig />）
+          - ServerStatusButton.tsx 文件保留（避免破坏现有测试，无外部引用） */}
 
       <div className="nav-icons__modes">
         {MODES.map(({ id, icon, label, enabled }) => (

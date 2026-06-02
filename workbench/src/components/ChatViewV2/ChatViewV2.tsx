@@ -39,7 +39,6 @@ function buildTokenUsage(meta: QAAtomMeta): QABlockTokenUsage | undefined {
 }
 
 export function ChatViewV2() {
-  const currentPath = useStore((s) => s.currentPath)
   const selectedAtomId = useStore((s) => s.selectedAtomId)
   const streamingState = useStore((s) => s.streamingState)
   const setStreamingState = useStore((s) => s.setStreamingState)
@@ -97,35 +96,12 @@ export function ChatViewV2() {
   return (
     <div className="chat-view">
       {/*
-       * 节点 2.3 — P3 Header 不再渲染独立 ⏸ 按钮（暂停入口统一迁移到 ChatInputV2）
-       * 对应 ChatView.tsx 第 681-689 行 `chat-pause-btn-header` 段落不迁移；
-       * T-V151-B4 验证：DOM query `.chat-pause-btn-header` 在 ChatViewV2 子树为 null
-       * 保留：节点信息（chat-node-title / chat-node-meta-id）+ 运行 / 暂停 状态徽章
-       *      （chat-status-badge--running / chat-status-badge--paused）— 信息密度需要
+       * v0.15.1 P2 验收修订（2026-06-02）：移除 chat-header 整块
+       *   - 运行 / 暂停 状态指示由 TopBar AgentRunPill 承担（节点 3.4）
+       *   - 暂停态按钮指示由 ChatInputV2 三态机承担（节点 2.1）
+       *   - 节点 ID / summary 信息密度通过 QABlock 内嵌 node-id 行已覆盖
+       * 验证：DOM 内 .chat-header 在 ChatViewV2 子树为 null；ChatViewV2 顶部直接是 .chat-messages
        */}
-      {(currentPath.length > 0 || streamingState === 'streaming' || streamingState === 'paused') && (
-        <div className="chat-header" data-v151-node="2.3">
-          <div className="chat-node-info">
-            <div className="chat-node-title">
-              {currentPath[currentPath.length - 1]?.summary || currentPath[currentPath.length - 1]?.id || ''}
-            </div>
-            {currentPath.length > 0 && (
-              <div className="chat-node-meta">
-                <span className="chat-node-meta-id">{currentPath[currentPath.length - 1].id}</span>
-              </div>
-            )}
-          </div>
-          {streamingState === 'streaming' && (
-            <span className="chat-status-badge chat-status-badge--running">
-              <span className="chat-spinner" />
-              运行中
-            </span>
-          )}
-          {streamingState === 'paused' && (
-            <span className="chat-status-badge chat-status-badge--paused">暂停</span>
-          )}
-        </div>
-      )}
 
       <div className="chat-messages" ref={messagesContainerRef}>
         {atomEntries.length === 0 && streamingAtoms.size === 0 && (
@@ -149,18 +125,24 @@ export function ChatViewV2() {
           }
 
           return (
-            <QABlock
-              key={atomId}
-              atomId={atomId}
-              question={entry.parsed.q}
-              finalAnswer={finalAnswer}
-              rounds={rounds}
-              interventions={entry.parsed.interventions}
-              tokenUsage={buildTokenUsage(entry.meta)}
-              isStreaming={isStreaming}
-              isLast={isLast}
-              timestamp={entry.meta.timestamp}
-            />
+            <div key={atomId}>
+              {/* v0.15.1 P2 验收修订：第二个及以后的 QABlock 之前插入 branch-marker
+                  与 v0.14 ChatView 的 `— 分支节点 {atomId} —` 文案保持一致 */}
+              {idx > 0 && (
+                <div className="chat-branch-marker">— 分支节点 {atomId} —</div>
+              )}
+              <QABlock
+                atomId={atomId}
+                question={entry.parsed.q}
+                finalAnswer={finalAnswer}
+                rounds={rounds}
+                interventions={entry.parsed.interventions}
+                tokenUsage={buildTokenUsage(entry.meta)}
+                isStreaming={isStreaming}
+                isLast={isLast}
+                timestamp={entry.meta.timestamp}
+              />
+            </div>
           )
         })}
 
