@@ -93,14 +93,18 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
     set({ atoms: atomMap })
   },
 
+  // v0.15.1 P3 验收修订（2026-06-03，r10）：先 trim 再 strip [[]]，避免「[[id]]  」尾随空白
+  // 导致 `]]$` 不匹配（strip 后剩 `id]]`）；同时加 visited Set 兜底 prev 链路成环不死循环。
   selectAtom: (id) => {
     set((state) => {
       const path: QAAtomMeta[] = []
+      const visited = new Set<string>()
       let cur: QAAtomMeta | undefined = state.atoms[id]
-      while (cur) {
+      while (cur && !visited.has(cur.id)) {
+        visited.add(cur.id)
         path.unshift(cur)
         const prevId: string | null = cur.prev
-          ? cur.prev.replace(/^\[\[|\]\]$/g, '')
+          ? cur.prev.trim().replace(/^\[\[|\]\]$/g, '') || null
           : null
         cur = prevId ? state.atoms[prevId] : undefined
       }

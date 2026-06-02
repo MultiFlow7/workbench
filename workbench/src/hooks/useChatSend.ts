@@ -166,10 +166,14 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
     let cancelled = false
     Promise.all(
       currentPath.map(async (m) => {
-        const raw = await window.api.invoke<{ answer: string }>('read_qa_atom', {
+        const resp = await window.api.invoke<{ answer: string; raw?: string }>('read_qa_atom', {
           filePath: toFilePath(m.id),
         })
-        const parsed = parseAtom(raw.answer ?? '')
+        // v0.15.1 P3 r10：read_qa_atom 已结构化（解析 meta/question/answer），但 parseAtom 需要
+        // 完整 markdown 文本以提取 ## Steps / ## Intervention，故优先用 resp.raw；
+        // 老版本 IPC 返回 answer=整文件，回退兼容
+        const source = resp.raw ?? resp.answer ?? ''
+        const parsed = parseAtom(source)
         return { meta: m, parsed } satisfies AtomEntry
       }),
     )

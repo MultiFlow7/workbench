@@ -286,16 +286,98 @@ export function registerIpcHandlers(): void {
     } catch { return [] }
   })
 
-  // read_qa_atom: returns QAAtom object
+  // read_qa_atom: returns QAAtom object（meta + question + answer 全字段解析）
+  // v0.15.1 P3 验收修订（2026-06-03，r10）：原 stub 把整文件塞进 answer、meta 全空，
+  // 导致 DetailPanel 渲染空 id / Invalid Date / 整 markdown 作为 answer；
+  // ChatViewV2 仅"巧合"工作（因为 parseAtom 能处理带 frontmatter 的整文件）。
+  // 改为镜像 src-tauri/src/commands/qa_atoms.rs::read_qa_atom：
+  //   - frontmatter 提取 id / prev / children / timestamp / summary / model / usage / context_*
+  //   - body 提取 ## Q / ## A 内容（## Steps / ## Intervention 由 renderer 端 parseAtom 处理）
   ipcMain.handle('read_qa_atom', (_e, args: { filePath: string }) => {
+    const emptyResp = () => ({
+      meta: { id: '', prev: null, children: [], summary: '', timestamp: new Date().toISOString() },
+      question: '',
+      answer: '',
+      raw: '',
+    })
     try {
-      if (fs.existsSync(args.filePath)) {
-        const raw = fs.readFileSync(args.filePath, 'utf-8')
-        // minimal parse: return raw content as answer
-        return { meta: { id: '', prev: null, children: [], summary: '', timestamp: '' }, question: '', answer: raw }
+      if (!fs.existsSync(args.filePath)) return emptyResp()
+      const raw = fs.readFileSync(args.filePath, 'utf-8')
+      const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+      if (!fmMatch) return { ...emptyResp(), answer: raw, raw }
+      const fm = fmMatch[1]
+
+      const fileId = args.filePath.replace(/^.*[\\/]/, '').replace(/\.md$/, '')
+      const scalar = (key: string): string | undefined => {
+        const m = fm.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'))
+        return m ? m[1].trim().replace(/^['"]|['"]$/g, '') : undefined
+      }
+      const num = (key: string): number | undefined => {
+        const v = scalar(key)
+        if (v === undefined) return undefined
+        const n = parseInt(v, 10)
+        return Number.isFinite(n) ? n : undefined
+      }
+      const id = scalar('id') ?? fileId
+      const timestamp = scalar('timestamp') ?? ''
+      const prevRaw = scalar('prev')
+      const prev = (!prevRaw || prevRaw === 'null') ? null : prevRaw
+      const model = scalar('model')
+      const inputTokens = num('input_tokens')
+      const outputTokens = num('output_tokens')
+      const contextTokensUsed = num('context_tokens_used')
+      const contextWindowLimit = num('context_window_limit')
+
+      // children：与 list_qa_atoms 同款解析（多行 - "[[xxx]]" 块优先，回退 inline []）
+      let children: string[] = []
+      const childrenBlock = fm.match(/^children:\s*\n((?:\s+-\s+.+\n?)*)/m)
+      if (childrenBlock) {
+        children = [...childrenBlock[1].matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => `[[${m[1]}]]`)
+      } else {
+        const inlinePart = fm.match(/^children:\s*\[([^\]]*)\]/m)
+        if (inlinePart) {
+          children = inlinePart[1]
+            .split(',')
+            .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
+            .filter(Boolean)
+        }
+      }
+
+      // body：按 ## 顶层切片提取 Q / A
+      const bodyStart = fmMatch[0].length
+      const body = raw.slice(bodyStart).replace(/^\s*\n/, '')
+      const extractSection = (header: 'Q' | 'A'): string => {
+        const re = new RegExp(`(?:^|\\n)## ${header}\\s*\\n([\\s\\S]*?)(?=\\n## [A-Za-z\\u4e00-\\u9fa5]|$)`)
+        const m = body.match(re)
+        return m ? m[1].trim() : ''
+      }
+      const question = extractSection('Q')
+      const answer = extractSection('A')
+      const summary = scalar('summary') ?? question.slice(0, 50)
+
+      const usage = (inputTokens !== undefined && outputTokens !== undefined)
+        ? { input_tokens: inputTokens, output_tokens: outputTokens }
+        : undefined
+
+      return {
+        meta: {
+          id,
+          prev,
+          children,
+          summary,
+          timestamp,
+          ...(model ? { model } : {}),
+          ...(usage ? { usage } : {}),
+          ...(contextTokensUsed !== undefined ? { context_tokens_used: contextTokensUsed } : {}),
+          ...(contextWindowLimit !== undefined ? { context_window_limit: contextWindowLimit } : {}),
+        },
+        question,
+        answer,
+        // raw: 完整文件内容（含 frontmatter），供 renderer 端 parseAtom 解析 ## Steps / ## Intervention
+        raw,
       }
     } catch { /* ignore */ }
-    return { meta: { id: '', prev: null, children: [], summary: '', timestamp: new Date().toISOString() }, question: '', answer: '' }
+    return emptyResp()
   })
 
   // write_qa_atom: args = { filePath: string, atom: object }

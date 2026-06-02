@@ -313,6 +313,90 @@ describe('T-V151-R5 · 埋点四事件接入', () => {
   })
 })
 
+// ─── T-V151-P3 · r10 验收修复 ────────────────────────────────────────
+// 覆盖：① BranchTree 孤儿原子作为根渲染；② selectAtom prev strip + trim + 防环；③ read_qa_atom 结构化解析
+
+describe('T-V151-P3-1 · BranchTree 孤儿原子（父不存在）作为根渲染', () => {
+  it('buildLayoutTree 对 prev 指向缺失父节点的 atom 视为根', async () => {
+    const { buildLayoutTree } = await import('../components/BranchTree/BranchTree')
+    const atoms = {
+      'r1': { id: 'r1', prev: null, children: [], summary: 'Root', timestamp: '' },
+      'orphan': { id: 'orphan', prev: '[[missing-parent]]', children: [], summary: 'Orphan', timestamp: '' },
+    } as const
+    const roots = buildLayoutTree(atoms as never)
+    const rootIds = roots.map((n) => n.atom.id).sort()
+    expect(rootIds).toEqual(['orphan', 'r1'])
+  })
+
+  it('buildLayoutTree 正常父子链路（父在 atoms 集合内）仍以单根呈现', async () => {
+    const { buildLayoutTree } = await import('../components/BranchTree/BranchTree')
+    const atoms = {
+      'r1': { id: 'r1', prev: null, children: [], summary: 'R', timestamp: '' },
+      'c1': { id: 'c1', prev: '[[r1]]', children: [], summary: 'C', timestamp: '' },
+    } as const
+    const roots = buildLayoutTree(atoms as never)
+    expect(roots.length).toBe(1)
+    expect(roots[0].atom.id).toBe('r1')
+    expect(roots[0].children.length).toBe(1)
+    expect(roots[0].children[0].atom.id).toBe('c1')
+  })
+})
+
+describe('T-V151-P3-2 · selectAtom prev strip + trim + 防环', () => {
+  it('prev 字符串尾部空白不破坏父节点查找', async () => {
+    const { createStore } = await import('zustand/vanilla')
+    const { createConversationSlice } = await import('../store/conversationSlice')
+    const store = createStore<ReturnType<typeof createConversationSlice> extends (...args: never[]) => infer R ? R : never>(createConversationSlice as never)
+    // 手动塞 atoms
+    ;(store as { setState: (s: object) => void }).setState({
+      atoms: {
+        'r1': { id: 'r1', prev: null, children: [], summary: 'R', timestamp: '' },
+        'c1': { id: 'c1', prev: '[[r1]]  ', children: [], summary: 'C', timestamp: '' },
+      },
+    })
+    ;(store.getState() as { selectAtom: (id: string) => void }).selectAtom('c1')
+    const path = (store.getState() as { currentPath: Array<{ id: string }> }).currentPath
+    expect(path.map((p) => p.id)).toEqual(['r1', 'c1'])
+  })
+
+  it('prev 链路成环时不死循环（visited 兜底）', async () => {
+    const { createStore } = await import('zustand/vanilla')
+    const { createConversationSlice } = await import('../store/conversationSlice')
+    const store = createStore(createConversationSlice as never)
+    ;(store as { setState: (s: object) => void }).setState({
+      atoms: {
+        'a': { id: 'a', prev: '[[b]]', children: [], summary: 'A', timestamp: '' },
+        'b': { id: 'b', prev: '[[a]]', children: [], summary: 'B', timestamp: '' },
+      },
+    })
+    ;(store.getState() as { selectAtom: (id: string) => void }).selectAtom('a')
+    const path = (store.getState() as { currentPath: Array<{ id: string }> }).currentPath
+    // a → b → (a again, visited) ⇒ 路径长度有限
+    expect(path.length).toBe(2)
+  })
+})
+
+describe('T-V151-P3-3 · read_qa_atom IPC 结构化解析', () => {
+  it('handlers.ts 的 read_qa_atom 不再是「整文件塞 answer」stub', () => {
+    const src = readSource('electron/ipc/handlers.ts')
+    // 关键反断言：不再有「return raw content as answer」注释
+    expect(src.includes("return raw content as answer")).toBe(false)
+    // 正向断言：必须从 frontmatter 抽 id / prev / timestamp，从 body 抽 question / answer
+    expect(src).toMatch(/scalar\(['"]id['"]\)/)
+    expect(src).toMatch(/scalar\(['"]prev['"]\)/)
+    expect(src).toMatch(/scalar\(['"]timestamp['"]\)/)
+    expect(src).toMatch(/extractSection\(['"]Q['"]\)/)
+    expect(src).toMatch(/extractSection\(['"]A['"]\)/)
+    // raw 字段必须返回以兼容 parseAtom（renderer 端解析 ## Steps / ## Intervention）
+    expect(src).toMatch(/raw,?\s*$/m)
+  })
+
+  it('useChatSend.ts 使用 resp.raw 优先（回退 resp.answer）', () => {
+    const src = readSource('src/hooks/useChatSend.ts')
+    expect(src).toMatch(/resp\.raw\s*\?\?\s*resp\.answer/)
+  })
+})
+
 // ─── 引导静默：用 vi 标识本文件不依赖额外 mock ────────────────────────
 // （避免 vi 未使用警告，已通过 .catch 静默策略覆盖）
 void vi
