@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 10px 0;
   gap: 0;
   height: 100%;
@@ -21,6 +21,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-top: auto;
 }
 
 .nav-icon-btn {
@@ -159,35 +160,8 @@
   50%      { opacity: 0.45; transform: scale(0.82); }
 }
 
-/* v0.15.1 节点 3.2: 服务器详情弹窗（复用 settings-panel 壳） */
-.server-detail-panel__url {
-  font-size: 12px;
-  color: var(--text-2);
-  font-family: 'JetBrains Mono', monospace;
-  word-break: break-all;
-  line-height: 1.45;
-}
-
-.server-detail-panel__status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.server-detail-panel__status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.server-detail-panel__latency {
-  font-size: 12px;
-  color: var(--text-3);
-  font-family: 'JetBrains Mono', monospace;
-}
+/* v0.15.1 节点 3.2 后续修订（2026-06-01）: 废弃独立 ServerDetailPanel，
+   服务器详情合并到 SettingsPanel，相关 .server-detail-panel__* 样式已移除 */
 
 /* v0.15.1 节点 3.3: 底部 theme 按钮 — 复用 .nav-icon-btn 基类，单独留 hook 调字号 */
 .theme-toggle-btn {

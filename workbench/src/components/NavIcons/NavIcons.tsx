@@ -3,7 +3,6 @@ import { useStore } from '../../store'
 import { StoredApiKey } from '../../store/settingsSlice'
 import { ServerConfig } from '../ServerConfig/ServerConfig'
 import { ServerStatusButton } from './ServerStatusButton'
-import { ServerDetailPanel } from './ServerDetailPanel'
 import { ThemeToggleButton } from './ThemeToggleButton'
 import './NavIcons.css'
 
@@ -270,16 +269,15 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
 export function NavIcons() {
   const { currentMode, setMode, pendingDecisionCount } = useStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
-  // v0.15.1 节点 3.2: 服务器详情弹窗开关
-  const [serverDetailOpen, setServerDetailOpen] = useState(false)
 
   return (
     <nav className="nav-icons">
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
-      {serverDetailOpen && <ServerDetailPanel onClose={() => setServerDetailOpen(false)} />}
 
-      {/* v0.15.1 节点 3.1: ActivityBar 顶部独立服务器状态按钮（在 nav-icons__modes 之前） */}
-      <ServerStatusButton onClick={() => setServerDetailOpen(true)} />
+      {/* v0.15.1 节点 3.1: ActivityBar 顶部独立服务器状态按钮（在 nav-icons__modes 之前）
+          v0.15.1 后续修订（2026-06-01）: 人工验收后废弃独立 ServerDetailPanel，
+          点击直接打开 SettingsPanel，内部已含 <ServerConfig /> 完整配置 UI */}
+      <ServerStatusButton onClick={() => setSettingsOpen(true)} />
 
       <div className="nav-icons__modes">
         {MODES.map(({ id, icon, label, enabled }) => (
