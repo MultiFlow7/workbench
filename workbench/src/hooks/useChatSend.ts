@@ -178,7 +178,20 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
       }),
     )
       .then((entries) => {
-        if (!cancelled) setAtomEntries(entries)
+        if (!cancelled) {
+          setAtomEntries(entries)
+          // v0.15.1 P3 r11 debug：原 atomParser 会把答案内 `## 二级标题` 误识为顶层 section，
+          // 导致 response 截断。若仍出现 P3 不显示，先看这行确认 q/response 长度。
+          if (typeof console !== 'undefined') {
+            const summary = entries.map((e) => ({
+              id: e.meta.id,
+              qLen: e.parsed.q.length,
+              respLen: e.parsed.response.length,
+              steps: e.parsed.steps?.length ?? null,
+            }))
+            console.log('[v0.15.1-p3-debug] atomEntries loaded:', summary)
+          }
+        }
       })
       .catch((e) => console.error('[useChatSend] load atoms error:', e))
     return () => { cancelled = true }

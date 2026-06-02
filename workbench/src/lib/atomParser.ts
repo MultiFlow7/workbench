@@ -119,8 +119,19 @@ export function parseAtom(raw: string): ParsedAtom {
 
 /**
  * 按 `## <Name>` 切分 body，返回 name → 内容（去掉标题行）的 Map。
- * 关键规则：在代码块围栏（``` 或 ~~~）内的 `##` 不视为 section 边界。
+ *
+ * 关键规则（v0.15.1 P3 r11 修订）：
+ *   1. 仅识别 4 个 KNOWN 顶层 section 名：Q / A / Steps / Intervention
+ *      ——答案体（## A 之后）的 `## XX` markdown 二级标题（例如 ## 项目现状总结、
+ *      ## REQ-004 待确认项）不再被误判为新顶层 section 边界，保留为 section 内部内容。
+ *   2. 代码块围栏（``` 或 ~~~）内的 `##` 不视为 section 边界。
+ *
+ * 历史 bug：原实现 `^##\s+(.+?)\s*$` 把任意二级标题都当成新顶层 section，
+ *   导致答案被截断（例如 0013-001-* 的 ## A 实际内容 1000+ 字，但被截到 109 字），
+ *   外部表现是「点击节点后 P3 几乎不显示内容」。
  */
+const KNOWN_TOP_SECTIONS = new Set(['Q', 'A', 'Steps', 'Intervention'])
+
 function splitTopSections(body: string): Map<string, string> {
   const lines = body.split('\n')
   const sections = new Map<string, string>()
@@ -153,11 +164,15 @@ function splitTopSections(body: string): Map<string, string> {
     if (!fenceOpen) {
       const match = /^##\s+(.+?)\s*$/.exec(line)
       if (match && !line.startsWith('###')) {
-        // 遇到新顶层 section
-        flush()
-        currentName = match[1].trim()
-        currentBuf = []
-        continue
+        const name = match[1].trim()
+        if (KNOWN_TOP_SECTIONS.has(name)) {
+          // 仅 known 顶层 section 才视为新分段边界
+          flush()
+          currentName = name
+          currentBuf = []
+          continue
+        }
+        // 否则当作 section 内部的 markdown 二级标题，落入下方 push
       }
     }
 

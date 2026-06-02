@@ -277,6 +277,58 @@ describe('parseAtom', () => {
     expect(r.steps![2].tools[0].name).toBe('write_file')
   })
 
+  // ─── fixture 7: 答案体内含 markdown 二级标题（v0.15.1 P3 r11 回归用例）─────
+  // 真实场景：v0.14 老 atom 大量出现 `## A` 段落里继续用 `## 项目现状总结` 等
+  // 二级标题做结构化输出。修复前 splitTopSections 把这些当成新顶层 section，
+  // 导致 response 在第一个二级标题处被截断，外部表现是「点击节点 P3 几乎不显示」。
+  it('7. 答案体内 markdown 二级标题不应被误识别为 section 边界（P3 r11 回归）', () => {
+    const FIXTURE = `---
+id: atom-007
+prev: null
+children: []
+timestamp: '2026-05-29T15:00:00Z'
+---
+
+## Q
+查看一下这个项目
+
+## A
+让我先看看项目内容。
+
+---
+
+## 项目现状总结
+
+这是一个 React + Tauri 项目，核心结构如下：
+
+- 组件 A
+- 组件 B
+
+## 可以深度探讨的方向
+
+### 方向 A：核心操作流打磨
+
+最直接提升使用效率。
+
+### 方向 B：思维空间强化
+
+提升信息密度。
+
+## 总结
+
+你想从哪个方向开始？
+`
+    const r = parseAtom(FIXTURE)
+    expect(r.q).toBe('查看一下这个项目')
+    // response 必须包含答案体全部小节标题及内容（不被首个 ## 二级标题截断）
+    expect(r.response).toContain('项目现状总结')
+    expect(r.response).toContain('可以深度探讨的方向')
+    expect(r.response).toContain('总结')
+    expect(r.response).toContain('你想从哪个方向开始')
+    // response 长度应远超首个二级标题之前的导语长度（防回归量化保护）
+    expect(r.response.length).toBeGreaterThan(150)
+  })
+
   it('6. Steps 内嵌套代码块：代码块内 ## / ### 不被误解析', () => {
     const r = parseAtom(FIXTURE_NESTED_CODE_BLOCK)
     // 仍然只识别到 1 轮（### Round 99 在代码块内，不算 round 边界）
