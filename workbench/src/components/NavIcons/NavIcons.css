@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 10px 0;
   gap: 0;
   height: 100%;
@@ -21,6 +21,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-top: auto;
 }
 
 .nav-icon-btn {
@@ -29,7 +30,7 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -37,18 +38,18 @@
   justify-content: center;
   font-size: 18px;
   position: relative;
-  transition: background var(--duration-fast) var(--ease-panel);
+  transition: all var(--dur) var(--ease);
   padding: 0;
 }
 
 .nav-icon-btn:hover:not(:disabled) {
-  background: var(--color-bg);
-  color: var(--color-text-primary);
+  background: var(--hover);
+  color: var(--text);
 }
 
 .nav-icon-btn.nav-icon-btn--active {
-  background: var(--color-bg);
-  color: var(--color-accent);
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .nav-icon-btn:disabled {
@@ -65,15 +66,15 @@
   left: 44px;
   top: 50%;
   transform: translateY(-50%);
-  background: var(--color-text-primary);
-  color: #fff;
+  background: var(--text);
+  color: var(--accent-fg);
   font-size: 11px;
   padding: 4px 8px;
   border-radius: 4px;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transition: opacity var(--duration-fast);
+  transition: opacity var(--dur);
   z-index: 100;
 }
 
@@ -88,19 +89,84 @@
 
 .decision-badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: 7px;
-  background: #dc2626;
-  color: #fff;
-  font-size: 9px;
-  font-weight: 600;
-  line-height: 14px;
-  text-align: center;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pause);
+  border: 2px solid var(--surface);
   pointer-events: none;
+}
+
+/* Status pill（v0.15.1 节点 3.1 起不再使用；保留 class 以防外部引用，类下方所有 .nav-icons 不再渲染该结构） */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--r-full);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-pill.server {
+  background: var(--done-bg);
+  color: var(--done);
+  border: 1px solid var(--done-bd);
+}
+
+.status-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* v0.15.1 节点 3.1: ActivityBar 顶部服务器状态按钮（四态彩点） */
+.server-status-btn {
+  margin-bottom: 6px;
+}
+
+.server-status-btn__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background var(--dur) var(--ease);
+}
+
+.server-status-btn__dot--online {
+  background: var(--done);
+}
+
+.server-status-btn__dot--offline {
+  background: var(--err);
+}
+
+.server-status-btn__dot--connecting {
+  background: var(--pause);
+  animation: server-status-pulse 1.4s ease-in-out infinite;
+}
+
+.server-status-btn__dot--unconfigured {
+  background: var(--text-3);
+}
+
+@keyframes server-status-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.82); }
+}
+
+/* v0.15.1 节点 3.2 后续修订（2026-06-01）: 废弃独立 ServerDetailPanel，
+   服务器详情合并到 SettingsPanel，相关 .server-detail-panel__* 样式已移除 */
+
+/* v0.15.1 节点 3.3: 底部 theme 按钮 — 复用 .nav-icon-btn 基类，单独留 hook 调字号 */
+.theme-toggle-btn {
+  font-size: 16px;
+  line-height: 1;
 }
 
 /* Settings overlay */
@@ -116,8 +182,8 @@
 }
 
 .settings-panel {
-  background: #ffffff;
-  border: 1px solid #e4e4e7;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.14);
   width: 280px;
@@ -129,43 +195,43 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px 10px;
-  border-bottom: 1px solid #f4f4f5;
+  border-bottom: 1px solid var(--surface-2);
 }
 
 .settings-panel__title {
   font-size: 13px;
   font-weight: 600;
-  color: #18181b;
+  color: var(--text);
 }
 
 .settings-panel__close {
   background: none;
   border: none;
   font-size: 16px;
-  color: #a1a1aa;
+  color: var(--text-4);
   cursor: pointer;
   line-height: 1;
   padding: 0 2px;
 }
 
 .settings-panel__close:hover {
-  color: #52525b;
+  color: var(--text-2);
 }
 
 .settings-panel__section {
   padding: 10px 14px;
-  border-bottom: 1px solid #f4f4f5;
+  border-bottom: 1px solid var(--surface-2);
 }
 
 .settings-panel__section--muted {
-  background: #fafafa;
+  background: var(--surface-2);
   border-bottom: none;
 }
 
 .settings-panel__label {
   font-size: 11px;
   font-weight: 600;
-  color: #71717a;
+  color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 4px;
@@ -173,13 +239,13 @@
 
 .settings-panel__value {
   font-size: 12px;
-  color: #3f3f46;
+  color: var(--text-2);
   font-family: 'JetBrains Mono', monospace;
 }
 
 .settings-panel__hint {
   font-size: 12px;
-  color: #a1a1aa;
+  color: var(--text-4);
   line-height: 1.4;
 }
 
@@ -188,9 +254,9 @@
   margin: 3px 3px 0 0;
   padding: 2px 7px;
   border-radius: 4px;
-  background: #f4f4f5;
+  background: var(--surface-2);
   font-size: 11px;
-  color: #52525b;
+  color: var(--text-2);
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -206,17 +272,17 @@
   width: 100%;
   padding: 7px 10px;
   font-size: 12px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   border-radius: 6px;
   outline: none;
   font-family: 'JetBrains Mono', monospace;
-  color: #18181b;
-  background: #fff;
+  color: var(--text);
+  background: var(--surface);
   transition: border-color 0.12s;
 }
 
 .settings-panel__input:focus {
-  border-color: #2563eb;
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(37,99,235,0.12);
 }
 
@@ -235,12 +301,12 @@
 .settings-panel__key-status {
   margin-top: 5px;
   font-size: 11px;
-  color: #16a34a;
+  color: var(--done);
 }
 
 .settings-panel__optional {
   font-weight: 400;
-  color: #a1a1aa;
+  color: var(--text-4);
   font-size: 10px;
 }
 
@@ -249,34 +315,34 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 10px 14px;
-  border-top: 1px solid #f4f4f5;
+  border-top: 1px solid var(--surface-2);
 }
 
 .settings-panel__btn--clear {
   padding: 6px 12px;
   font-size: 12px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
-  color: #71717a;
+  background: var(--surface);
+  color: var(--text-3);
   cursor: pointer;
 }
 
-.settings-panel__btn--clear:hover { color: #dc2626; border-color: #dc2626; }
+.settings-panel__btn--clear:hover { color: var(--err); border-color: var(--err); }
 
 .settings-panel__btn--save {
   padding: 6px 16px;
   font-size: 12px;
   border: none;
   border-radius: 6px;
-  background: #2563eb;
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-fg);
   cursor: pointer;
   font-weight: 500;
   transition: background 0.12s;
 }
 
-.settings-panel__btn--save:hover:not(:disabled) { background: #1d4ed8; }
+.settings-panel__btn--save:hover:not(:disabled) { background: var(--accent-h); }
 .settings-panel__btn--save:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Back button in settings panel header */
@@ -284,7 +350,7 @@
   background: none;
   border: none;
   font-size: 12px;
-  color: #2563eb;
+  color: var(--accent);
   cursor: pointer;
   padding: 0;
   font-weight: 500;
@@ -311,25 +377,25 @@
 }
 
 .key-list__row:hover {
-  background: #f4f4f5;
+  background: var(--surface-2);
 }
 
 .key-list__row--active {
-  background: #eff6ff;
-  border-color: #bfdbfe;
+  background: var(--accent-bg);
+  border-color: var(--accent-bd);
 }
 
 .key-list__dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #d4d4d8;
+  background: var(--border-2);
   flex-shrink: 0;
   transition: background 0.1s;
 }
 
 .key-list__row--active .key-list__dot {
-  background: #2563eb;
+  background: var(--accent);
 }
 
 .key-list__info {
@@ -343,7 +409,7 @@
 .key-list__label {
   font-size: 12px;
   font-weight: 500;
-  color: #18181b;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -351,7 +417,7 @@
 
 .key-list__preview {
   font-size: 11px;
-  color: #a1a1aa;
+  color: var(--text-4);
   font-family: 'JetBrains Mono', monospace;
   white-space: nowrap;
   overflow: hidden;
@@ -359,7 +425,7 @@
 }
 
 .key-list__url {
-  color: #a1a1aa;
+  color: var(--text-4);
 }
 
 .key-list__actions {
@@ -381,21 +447,21 @@
   font-size: 12px;
   padding: 2px 5px;
   border-radius: 4px;
-  color: #71717a;
+  color: var(--text-3);
   line-height: 1;
 }
 
-.key-list__btn:hover { background: #e4e4e7; color: #18181b; }
+.key-list__btn:hover { background: var(--border); color: var(--text); }
 
-.key-list__btn--danger:hover { background: #fee2e2; color: #dc2626; }
+.key-list__btn--danger:hover { background: var(--err-bg); color: var(--err); }
 
 .key-list__add-btn {
   width: 100%;
   padding: 6px 0;
   font-size: 12px;
-  color: #2563eb;
+  color: var(--accent);
   background: none;
-  border: 1px dashed #bfdbfe;
+  border: 1px dashed var(--accent-bd);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.1s;
@@ -403,7 +469,7 @@
 }
 
 .key-list__add-btn:hover {
-  background: #eff6ff;
+  background: var(--accent-bg);
 }
 
 /* Model tags in key form */
@@ -419,11 +485,11 @@
   align-items: center;
   gap: 3px;
   padding: 2px 6px 2px 8px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bd);
   border-radius: 4px;
   font-size: 11px;
-  color: #1d4ed8;
+  color: var(--accent-h);
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -440,5 +506,5 @@
 }
 
 .model-tag__remove:hover {
-  color: #dc2626;
+  color: var(--err);
 }

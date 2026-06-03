@@ -3,8 +3,8 @@
   align-items: center;
   height: 36px;
   flex-shrink: 0;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   padding: 0 8px;
   gap: 8px;
   z-index: 50;
@@ -26,15 +26,15 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-panel);
   padding: 0;
 }
 
 .topbar__sidebar-toggle:hover {
-  background: var(--color-bg);
-  color: var(--color-text-primary);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .topbar__center {
@@ -42,13 +42,44 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
 }
 
 .topbar__title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--text);
   letter-spacing: 0.01em;
+}
+
+/* v0.15.1 节点 3.4: Agent 运行状态 pill — 复用 v0.15 已建 --run-bg / --run-bd / --accent token，不新增 */
+.agent-run-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--run-bg);
+  border: 1px solid var(--run-bd);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.agent-run-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  animation: agent-run-pill-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes agent-run-pill-pulse {
+  0%, 100% { opacity: 1;    transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.78); }
 }
 
 .topbar__right {
@@ -71,26 +102,26 @@
 }
 
 .topbar__pip--ok {
-  background: #22c55e;
+  background: var(--done);
 }
 
 .topbar__pip--warn {
-  background: #f59e0b;
+  background: var(--pause);
 }
 
 .topbar__pip--error {
-  background: #ef4444;
+  background: var(--err);
 }
 
 .topbar__service-name {
   font-size: 11px;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   white-space: nowrap;
 }
 
 /* v0.2: 后端离线红点 */
 .topbar__pip--backend-offline {
-  background: #dc2626;
+  background: var(--err);
   width: 8px;
   height: 8px;
 }
@@ -102,15 +133,15 @@
   justify-content: space-between;
   height: 36px;
   padding: 0 12px;
-  background: #fef2f2;
-  border-bottom: 1px solid #fecaca;
+  background: var(--err-bg);
+  border-bottom: 1px solid var(--err-bd);
   flex-shrink: 0;
   z-index: 49;
 }
 
 .topbar-offline-banner__text {
   font-size: 13px;
-  color: #b91c1c;
+  color: var(--err);
   flex: 1;
 }
 
@@ -119,7 +150,7 @@
   height: 24px;
   border: none;
   background: transparent;
-  color: #b91c1c;
+  color: var(--err);
   cursor: pointer;
   font-size: 16px;
   display: flex;
@@ -130,7 +161,7 @@
 }
 
 .topbar-offline-banner__close:hover {
-  background: #fee2e2;
+  background: var(--err-bg);
 }
 
 /* v0.7: 瞬态通知 Toast */
@@ -165,9 +196,9 @@
 }
 
 .topbar__toast--success {
-  background: #dcfce7;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+  background: var(--done-bg);
+  color: var(--done);
+  border: 1px solid var(--done-bd);
 }
 
 .topbar__toast--error {
@@ -177,9 +208,9 @@
 }
 
 .topbar__toast--info {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
+  background: var(--accent-bg);
+  color: var(--accent-h);
+  border: 1px solid var(--accent-bd);
 }
 
 .topbar__toast-msg {
@@ -222,7 +253,7 @@
   padding: 0 5px;
   border-radius: 999px;
   background: #f97316;
-  color: #ffffff;
+  color: var(--accent-fg);
   font-size: 10px;
   font-weight: 700;
   line-height: 1;

@@ -3,7 +3,10 @@ import { createStore } from 'zustand/vanilla'
 import { createConversationSlice } from '../conversationSlice'
 import type { ConversationSlice } from '../conversationSlice'
 
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn().mockResolvedValue(undefined) }))
+// v0.15 节点 1.2: window.api.invoke 替代 @tauri-apps/api/core invoke
+;(globalThis as unknown as { window: { api: { invoke: ReturnType<typeof vi.fn> } } }).window = {
+  api: { invoke: vi.fn().mockResolvedValue(undefined) },
+}
 vi.mock('../../../utils/paths', () => ({
   BASE_PATH: '/mock/base',
   PROJECTS_PATH: '/mock/projects',

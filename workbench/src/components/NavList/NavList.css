@@ -14,10 +14,10 @@
 .nav-list__new-btn {
   width: 100%;
   padding: 6px 10px;
-  border: 1px dashed var(--color-border);
+  border: 1px dashed var(--border);
   border-radius: 6px;
   background: transparent;
-  color: var(--color-accent);
+  color: var(--accent);
   font-size: 12px;
   font-family: var(--font-ui);
   cursor: pointer;
@@ -27,8 +27,8 @@
 }
 
 .nav-list__new-btn:hover {
-  background: #eff6ff;
-  border-color: var(--color-accent);
+  background: var(--accent-bg);
+  border-color: var(--accent);
 }
 
 .nav-list__section {
@@ -40,7 +40,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   padding: 8px 12px 4px;
   margin: 0;
   line-height: 1.4;
@@ -48,7 +48,7 @@
 
 .nav-list__empty {
   font-size: 11px;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   padding: 4px 12px 8px;
   margin: 0;
 }
@@ -67,7 +67,7 @@
   padding: 5px 12px;
   border: none;
   background: transparent;
-  color: var(--color-text-primary);
+  color: var(--text);
   font-size: 12px;
   font-family: var(--font-ui);
   cursor: pointer;
@@ -78,24 +78,24 @@
 }
 
 .nav-list__item:hover {
-  background: var(--color-bg);
+  background: var(--bg);
 }
 
 .nav-list__item.nav-list__item--active {
-  background: #eff6ff;
-  color: var(--color-accent);
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .nav-list__pip {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--color-border);
+  background: var(--border);
   flex-shrink: 0;
 }
 
 .nav-list__pip--active {
-  background: #22c55e;
+  background: var(--done);
 }
 
 .nav-list__item-name {
@@ -107,9 +107,9 @@
 
 .nav-list__item-count {
   font-size: 10px;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   flex-shrink: 0;
-  background: var(--color-bg);
+  background: var(--bg);
   border-radius: 10px;
   padding: 1px 5px;
   line-height: 1.6;
@@ -118,15 +118,15 @@
 .nav-list__folder-icon {
   font-size: 13px;
   flex-shrink: 0;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
 }
 
 /* v0.10 req-033: 持久化失败提示 */
 .nav-list__error {
   font-size: 11px;
-  color: #b45309;
-  background: #fffbeb;
-  border: 1px solid #fbbf24;
+  color: var(--pause);
+  background: var(--pause-bg);
+  border: 1px solid var(--pause-bd);
   border-radius: 4px;
   padding: 4px 8px;
   margin: 4px 8px;
@@ -144,7 +144,7 @@
 
 .nav-list__section-add {
   font-size: 14px;
-  color: var(--color-muted, #6b7280);
+  color: var(--color-muted, var(--text-3));
   background: none;
   border: none;
   cursor: pointer;
@@ -154,7 +154,7 @@
 }
 
 .nav-list__section-add:hover {
-  color: var(--accent, #2563eb);
+  color: var(--accent, var(--accent));
   background: rgba(37, 99, 235, 0.08);
 }
 
@@ -165,7 +165,7 @@
 .nav-list__inline-field {
   width: 100%;
   font-size: 12px;
-  border: 1px solid var(--color-border, #e5e7eb);
+  border: 1px solid var(--color-border, var(--border));
   border-radius: 4px;
   padding: 4px 6px;
   outline: none;
@@ -173,5 +173,5 @@
 }
 
 .nav-list__inline-field:focus {
-  border-color: var(--accent, #2563eb);
+  border-color: var(--accent, var(--accent));
 }

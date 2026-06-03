@@ -1,0 +1,43 @@
+/* QABlock — v0.15.1 节点 1.1 */
+
+.qa-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 20px;
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+}
+
+.qa-block:last-child {
+  border-bottom: none;
+}
+
+.qa-block__q-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.qa-block__q-bubble {
+  max-width: 72%;
+}
+
+.qa-block__q-meta {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.qa-block__node-id {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.qa-block__time {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.qa-block__meta-sep {
+  color: var(--text-4);
+}

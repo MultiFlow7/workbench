@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { useStore } from '../../store'
 import { aggregateAtoms, aggregateFromBuckets, DayModelBucket } from '../../utils/tokenAggregation'
 import { calcCostUSD } from '../../constants/modelPrices'
@@ -110,7 +109,7 @@ export function DashboardView() {
     if (dataSource !== 'gateway') return
     setGatewayLoading(true)
     setGatewayEmpty(false)
-    invoke<GatewayRow[]>('get_token_stats_from_gateway', {
+    window.api.invoke<GatewayRow[]>('get_token_stats_from_gateway', {
       dateFrom: cutoffDate,
       dateTo: null,
     })
@@ -131,7 +130,7 @@ export function DashboardView() {
 
   // v0.9 req-029: Load Agent LLM stats
   useEffect(() => {
-    invoke<LlmStatsData>('get_llm_stats', { days: 7 })
+    window.api.invoke<LlmStatsData>('get_llm_stats', { days: 7 })
       .then((data) => {
         setLlmStats(data)
         setLlmStatsEmpty(data.total_calls === 0)

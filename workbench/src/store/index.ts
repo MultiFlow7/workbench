@@ -4,8 +4,20 @@ import { createConversationSlice, ConversationSlice } from './conversationSlice'
 import { createDecisionsSlice, DecisionsSlice } from './decisionsSlice'
 import { createNotificationsSlice, NotificationsSlice } from './notificationsSlice'
 import { createSettingsSlice, SettingsSlice } from './settingsSlice'
+import { createAppearanceSlice, AppearanceSlice } from './appearanceSlice'
+import { createCanvasSlice, CanvasSlice } from './canvasSlice'
+import { createTraceSlice, TraceSlice } from './traceSlice'
+import { createServerSlice, ServerSlice } from './serverSlice'
 
-export type StoreState = LayoutSlice & ConversationSlice & DecisionsSlice & NotificationsSlice & SettingsSlice
+export type StoreState = LayoutSlice
+  & ConversationSlice
+  & DecisionsSlice
+  & NotificationsSlice
+  & SettingsSlice
+  & AppearanceSlice
+  & CanvasSlice
+  & TraceSlice
+  & ServerSlice
 
 export const useStore = create<StoreState>()((...a) => ({
   ...createLayoutSlice(...a),
@@ -13,4 +25,8 @@ export const useStore = create<StoreState>()((...a) => ({
   ...createDecisionsSlice(...a),
   ...createNotificationsSlice(...a),
   ...createSettingsSlice(...a),
+  ...createAppearanceSlice(...a),
+  ...createCanvasSlice(...a),
+  ...createTraceSlice(...a),
+  ...createServerSlice(...a),
 }))

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import './TaskTriggerForm.css'
 
 // Hardcoded agent list (will be replaced by /agents/registry in v0.7)
@@ -51,7 +50,7 @@ export function TaskTriggerForm({ onClose }: TaskTriggerFormProps) {
     setSubmitting(true)
     setSuccessMsg(null)
     try {
-      await invoke('create_task', {
+      await window.api.invoke('create_task', {
         taskReq: {
           role: role.trim(),
           input_context: inputContext.trim(),

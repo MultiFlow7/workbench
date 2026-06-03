@@ -1,5 +1,4 @@
 import { StateCreator } from 'zustand'
-import { invoke } from '@tauri-apps/api/core'
 
 export interface DecisionOption {
   key: string
@@ -30,7 +29,7 @@ export const createDecisionsSlice: StateCreator<DecisionsSlice> = (set) => ({
 
   loadDecisions: async () => {
     try {
-      const raw = await invoke<DecisionRecord[]>('list_decisions', {
+      const raw = await window.api.invoke<DecisionRecord[]>('list_decisions', {
         filter: 'pending',
       })
       set({ decisions: raw })

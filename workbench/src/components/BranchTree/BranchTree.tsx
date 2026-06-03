@@ -2,11 +2,12 @@ import { useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import { useStore } from '../../store'
 import type { QAAtomMeta } from '../../store/conversationSlice'
 import { formatTokens } from '../../utils/tokenFormat'
+import { CanvasCard, type NodeData } from './CanvasCard'
 import './BranchTree.css'
 
-const NODE_W = 140
-const NODE_H = 60   // layout spacing baseline (card height is fluid)
-const GAP_X = 20
+const NODE_W = 260
+const NODE_H = 110  // layout spacing baseline (cc-head+cc-qa+cc-meta ≈ 100px)
+const GAP_X = 40
 const GAP_Y = 100   // gap between levels
 
 const SCALE_MIN = 0.3
@@ -19,16 +20,32 @@ interface LayoutNode {
   children: LayoutNode[]
 }
 
-function buildLayoutTree(
+// v0.15.1 P3 验收修订（2026-06-03，r10）：原 roots = atoms.filter(prev===null) 漏掉
+// 「孤儿原子」（prev 引用了不在当前 atoms 集合里的父节点 —— 可能因为父文件被删、
+// frontmatter 损坏、project 过滤排除等原因）。孤儿原子既不是根，又不在任何根的子树里 →
+// BranchTree 完全不渲染它们。修复：孤儿原子也作为根渲染（独立浮岛），保证「能看到所有原子」。
+export function buildLayoutTree(
   atoms: Record<string, QAAtomMeta>
 ): LayoutNode[] {
-  const roots = Object.values(atoms).filter((a) => a.prev === null)
+  const atomIds = new Set(Object.keys(atoms))
+  const getParentId = (a: QAAtomMeta): string | null => {
+    if (!a.prev) return null
+    // 先 trim 再 strip [[]]，避免「[[id]]  」尾随空白导致 `]]$` 不匹配
+    const stripped = a.prev.trim().replace(/^\[\[|\]\]$/g, '')
+    return stripped.length > 0 ? stripped : null
+  }
+  const roots = Object.values(atoms).filter((a) => {
+    const parentId = getParentId(a)
+    if (parentId === null) return true            // 真正的根
+    if (!atomIds.has(parentId)) return true       // 孤儿：父节点缺失 → 作为根渲染
+    return false
+  })
 
   function makeNode(atom: QAAtomMeta, depth: number): LayoutNode {
     const children = Object.values(atoms)
       .filter((a) => {
-        if (!a.prev) return false
-        return a.prev.replace(/^\[\[|\]\]$/g, '') === atom.id
+        const parentId = getParentId(a)
+        return parentId !== null && parentId === atom.id
       })
       .map((a) => makeNode(a, depth + 1))
     return { atom, x: 0, y: depth * (NODE_H + GAP_Y), children }
@@ -76,14 +93,49 @@ function collectEdges(roots: LayoutNode[]): Array<{ from: LayoutNode; to: Layout
   return edges
 }
 
+/**
+ * 把 QAAtomMeta + LayoutNode 转换成规范化 NodeData。
+ * 状态推断：streamingAtoms 包含 → 'running'，否则默认 'done'。
+ * 节点 4.3 P2 阶段还没有 paused 语义，先保留三选一接口。
+ */
+function toNodeData(
+  layout: LayoutNode,
+  isStreaming: boolean
+): NodeData {
+  const { atom, x, y } = layout
+  const totalTokens = atom.usage
+    ? atom.usage.input_tokens + atom.usage.output_tokens
+    : undefined
+  // 父节点 id：去掉 [[ ]] wiki link 包裹
+  const parent = atom.prev
+    ? atom.prev.replace(/^\[\[|\]\]$/g, '')
+    : null
+  return {
+    id: atom.id,
+    parent,
+    time: atom.timestamp,
+    status: isStreaming ? 'running' : 'done',
+    q: atom.summary || atom.id,
+    aPreview: atom.aPreview || '…',
+    pos: { x, y },
+    tokens: totalTokens,
+  }
+}
+
 export function BranchTree() {
   const atoms = useStore((s) => s.atoms)
+  // 仍读 selectedAtomId 用于 ChatView 联动；同时把选中事件写入 canvasSlice
   const selectedAtomId = useStore((s) => s.selectedAtomId)
+  const selectedNodeId = useStore((s) => s.selectedNodeId)
   const selectAtom = useStore((s) => s.selectAtom)
+  const setSelectedNode = useStore((s) => s.setSelectedNode)
   const selectedProjectId = useStore((s) => s.selectedProjectId)
   const projects = useStore((s) => s.projects)
   // Node-F-051-C-1: subscribe to streaming atoms for spinner display
   const streamingAtoms = useStore((s) => s.streamingAtoms)
+  // canvas 视图变换持久化到 store（模式切换后位置保留）
+  const canvasTransform = useStore((s) => s.canvasTransform)
+  const updateCanvasTransform = useStore((s) => s.updateCanvasTransform)
 
   // Project filtering
   const filteredAtoms = useMemo<Record<string, QAAtomMeta>>(() => {
@@ -134,8 +186,15 @@ export function BranchTree() {
     setExpandedTokenId((prev) => (prev === id ? null : id))
   }, [])
 
-  // Pan + Zoom state
-  const [transform, setTransform] = useState({ x: 40, y: 40, scale: 1 })
+  // 选中节点：同时更新 canvasSlice（视觉层）和 conversationSlice（语义层）
+  const handleSelect = useCallback(
+    (id: string) => {
+      setSelectedNode(id)
+      selectAtom(id)
+    },
+    [setSelectedNode, selectAtom],
+  )
+
   const dragging = useRef(false)
   const lastPos = useRef({ x: 0, y: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
@@ -147,7 +206,7 @@ export function BranchTree() {
     const wheelHandler = (e: WheelEvent) => { e.preventDefault() }
     el.addEventListener('wheel', wheelHandler, { passive: false })
 
-    // Tauri WKWebView fires gesturechange (not ctrlKey+wheel) for trackpad pinch
+    // Tauri WKWebView 触发 gesturechange，Electron 也会保留这一行为兼容 macOS 触控板捏合
     let gestureLastScale = 1
     const gestureStartHandler = (e: Event) => {
       e.preventDefault()
@@ -162,13 +221,12 @@ export function BranchTree() {
       const rect = el.getBoundingClientRect()
       const mx = (ge.clientX ?? rect.left + rect.width / 2) - rect.left
       const my = (ge.clientY ?? rect.top + rect.height / 2) - rect.top
-      setTransform((prev) => {
-        const newScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, prev.scale * factor))
-        return {
-          x: mx - (mx - prev.x) * (newScale / prev.scale),
-          y: my - (my - prev.y) * (newScale / prev.scale),
-          scale: newScale,
-        }
+      const prev = useStore.getState().canvasTransform
+      const newScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, prev.scale * factor))
+      updateCanvasTransform({
+        x: mx - (mx - prev.x) * (newScale / prev.scale),
+        y: my - (my - prev.y) * (newScale / prev.scale),
+        scale: newScale,
       })
     }
 
@@ -180,7 +238,7 @@ export function BranchTree() {
       el.removeEventListener('gesturestart', gestureStartHandler)
       el.removeEventListener('gesturechange', gestureChangeHandler)
     }
-  }, [])
+  }, [updateCanvasTransform])
 
   const onMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     // Only start drag on the container itself (not nodes)
@@ -196,8 +254,9 @@ export function BranchTree() {
     const dx = e.clientX - lastPos.current.x
     const dy = e.clientY - lastPos.current.y
     lastPos.current = { x: e.clientX, y: e.clientY }
-    setTransform((prev) => ({ ...prev, x: prev.x + dx, y: prev.y + dy }))
-  }, [])
+    const prev = useStore.getState().canvasTransform
+    updateCanvasTransform({ x: prev.x + dx, y: prev.y + dy })
+  }, [updateCanvasTransform])
 
   const stopDrag = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     dragging.current = false
@@ -207,36 +266,32 @@ export function BranchTree() {
   const onWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     if (e.ctrlKey) {
       // macOS pinch → 缩放（系统将捏合映射为 ctrlKey=true 的 wheel 事件）
-      // 必须在 setTransform 外提前读取 rect/mx/my：合成事件的 currentTarget 在 handler 返回后被清空，
-      // updater 函数异步执行时已为 null
       const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
       const mx = e.clientX - rect.left
       const my = e.clientY - rect.top
-      setTransform((prev) => {
-        const delta = e.deltaY < 0 ? 1.1 : 0.9
-        const newScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, prev.scale * delta))
-        return {
-          x: mx - (mx - prev.x) * (newScale / prev.scale),
-          y: my - (my - prev.y) * (newScale / prev.scale),
-          scale: newScale,
-        }
+      const prev = useStore.getState().canvasTransform
+      const delta = e.deltaY < 0 ? 1.1 : 0.9
+      const newScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, prev.scale * delta))
+      updateCanvasTransform({
+        x: mx - (mx - prev.x) * (newScale / prev.scale),
+        y: my - (my - prev.y) * (newScale / prev.scale),
+        scale: newScale,
       })
     } else {
       // 双指滑动 → 平移
-      setTransform((prev) => ({
-        ...prev,
+      const prev = useStore.getState().canvasTransform
+      updateCanvasTransform({
         x: prev.x - e.deltaX,
         y: prev.y - e.deltaY,
-      }))
+      })
     }
-  }, [])
+  }, [updateCanvasTransform])
 
   const zoom = useCallback((factor: number) => {
-    setTransform((prev) => {
-      const newScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, prev.scale * factor))
-      return { ...prev, scale: newScale }
-    })
-  }, [])
+    const prev = useStore.getState().canvasTransform
+    const newScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, prev.scale * factor))
+    updateCanvasTransform({ scale: newScale })
+  }, [updateCanvasTransform])
 
   if (allNodes.length === 0) {
     return (
@@ -260,7 +315,7 @@ export function BranchTree() {
       <div
         className="bt-canvas"
         style={{
-          transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+          transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasTransform.scale})`,
           width: canvasW,
           height: canvasH,
         }}
@@ -281,8 +336,7 @@ export function BranchTree() {
               <path
                 key={i}
                 d={`M ${x1},${y1} C ${x1},${my} ${x2},${my} ${x2},${y2}`}
-                stroke="#d4d4d8"
-                strokeWidth={1.5}
+                className="bt-edge-path"
                 fill="none"
               />
             )
@@ -290,25 +344,26 @@ export function BranchTree() {
         </svg>
 
         {/* Node cards */}
-        {allNodes.map((node) => {
-          const selected = node.atom.id === selectedAtomId
+        {allNodes.map((layout) => {
+          // canvas 视觉选中 优先级 > conversation 语义选中（兜底）
+          const selected =
+            selectedNodeId !== null
+              ? layout.atom.id === selectedNodeId
+              : layout.atom.id === selectedAtomId
           // Node-F-051-C-2: check if this node is currently streaming
-          const isStreaming = streamingAtoms.has(node.atom.id)
-          const left = node.x - NODE_W / 2
-          const top = node.y
-          const shortId = node.atom.id.slice(-4)
-          const summary = node.atom.summary || node.atom.id
+          const isStreaming = streamingAtoms.has(layout.atom.id)
+          const nodeData = toNodeData(layout, isStreaming)
+          const summary = nodeData.q
 
           return (
-            <div
-              key={node.atom.id}
-              className={`bt-node${selected ? ' bt-node--selected' : ''}`}
-              style={{ left, top }}
-              onClick={() => selectAtom(node.atom.id)}
+            <CanvasCard
+              key={layout.atom.id}
+              node={nodeData}
+              isSelected={selected}
+              onSelect={handleSelect}
+              width={NODE_W}
+              isStreaming={isStreaming}
             >
-              {/* Node ID badge */}
-              <span className="bt-node__id">{shortId}</span>
-
               {/* Q section */}
               <div className="bt-node__q">
                 <span className="bt-node__role">U</span>
@@ -324,44 +379,39 @@ export function BranchTree() {
                 <div className="bt-node__text">{summary}</div>
               </div>
 
-              {/* Node-F-051-C-3: streaming pulse dot (top-right) */}
-              {isStreaming && (
-                <span className="bt-node__streaming-dot" aria-label="AI 生成中" />
-              )}
-
               {/* Token badge */}
               <div
                 className="bt-node__token"
-                onClick={(e) => node.atom.usage ? toggleTokenExpand(node.atom.id, e) : undefined}
-                style={{ cursor: node.atom.usage ? 'pointer' : 'default' }}
+                onClick={(e) => layout.atom.usage ? toggleTokenExpand(layout.atom.id, e) : undefined}
+                style={{ cursor: layout.atom.usage ? 'pointer' : 'default' }}
               >
-                {node.atom.usage ? (
-                  <span className={`token-badge${treeAvgTokens > 0 && (node.atom.usage!.input_tokens + node.atom.usage!.output_tokens) > treeAvgTokens * 1.5 ? ' token-badge--warn' : ''}`}>
-                    {formatTokens(node.atom.usage.input_tokens + node.atom.usage.output_tokens)}
-                    {treeAvgTokens > 0 && (node.atom.usage!.input_tokens + node.atom.usage!.output_tokens) > treeAvgTokens * 1.5 && ' ⚠'}
+                {layout.atom.usage ? (
+                  <span className={`token-badge${treeAvgTokens > 0 && (layout.atom.usage!.input_tokens + layout.atom.usage!.output_tokens) > treeAvgTokens * 1.5 ? ' token-badge--warn' : ''}`}>
+                    {formatTokens(layout.atom.usage.input_tokens + layout.atom.usage.output_tokens)}
+                    {treeAvgTokens > 0 && (layout.atom.usage!.input_tokens + layout.atom.usage!.output_tokens) > treeAvgTokens * 1.5 && ' ⚠'}
                   </span>
                 ) : (
                   <span className="token-badge token-badge--empty">-</span>
                 )}
-                {expandedTokenId === node.atom.id && node.atom.usage && (
+                {expandedTokenId === layout.atom.id && layout.atom.usage && (
                   <div className="bt-node__token-detail">
                     <div className="bt-token-row">
                       <span className="bt-token-label">输入</span>
-                      <span className="bt-token-val">{formatTokens(node.atom.usage.input_tokens)}</span>
+                      <span className="bt-token-val">{formatTokens(layout.atom.usage.input_tokens)}</span>
                     </div>
                     <div className="bt-token-row">
                       <span className="bt-token-label">输出</span>
-                      <span className="bt-token-val">{formatTokens(node.atom.usage.output_tokens)}</span>
+                      <span className="bt-token-val">{formatTokens(layout.atom.usage.output_tokens)}</span>
                     </div>
-                    {node.atom.model && (
+                    {layout.atom.model && (
                       <div className="bt-token-row">
                         <span className="bt-token-label">模型</span>
-                        <span className="bt-token-val bt-token-model">{node.atom.model}</span>
+                        <span className="bt-token-val bt-token-model">{layout.atom.model}</span>
                       </div>
                     )}
                     {(() => {
                       const avg = allAtomsArr.reduce((s, a) => s + (a.usage ? a.usage.input_tokens + a.usage.output_tokens : 0), 0) / (allAtomsArr.filter(a => a.usage).length || 1)
-                      const total = node.atom.usage.input_tokens + node.atom.usage.output_tokens
+                      const total = layout.atom.usage.input_tokens + layout.atom.usage.output_tokens
                       const ratio = avg > 0 ? (total / avg).toFixed(1) : null
                       return ratio ? (
                         <div className="bt-token-row">
@@ -375,7 +425,7 @@ export function BranchTree() {
                   </div>
                 )}
               </div>
-            </div>
+            </CanvasCard>
           )
         })}
       </div>

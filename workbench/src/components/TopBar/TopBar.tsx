@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../../store'
 import { ContextIndicator } from '../ContextIndicator/ContextIndicator'
+import { AgentRunPill } from './AgentRunPill'
 import type { ToastNotification } from '../../store/notificationsSlice'
 import './TopBar.css'
 
@@ -101,6 +102,8 @@ export function TopBar() {
 
         <div className="topbar__center">
           <span className="topbar__title">工作台</span>
+          {/* v0.15.1 节点 3.4: Agent 运行状态 pill（0 计数自动不渲染） */}
+          <AgentRunPill />
         </div>
 
         <div className="topbar__right">

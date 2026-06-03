@@ -1,7 +1,7 @@
 .decision-card {
   position: relative;
-  background: #ffffff;
-  border: 1px solid #e4e4e7;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px 14px;
   cursor: pointer;
@@ -20,24 +20,24 @@
 }
 
 .decision-card--HIGH::before {
-  background: #dc2626;
+  background: var(--err);
 }
 
 .decision-card--MEDIUM::before {
-  background: #f59e0b;
+  background: var(--pause);
 }
 
 .decision-card--LOW::before {
-  background: #a1a1aa;
+  background: var(--text-4);
 }
 
 .decision-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-color: #d4d4d8;
+  border-color: var(--border-2);
 }
 
 .decision-card--selected {
-  border-color: #2563eb;
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
 
@@ -55,8 +55,8 @@
   align-items: center;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--accent-bg);
+  color: var(--accent-h);
   font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
@@ -74,31 +74,31 @@
 }
 
 .decision-card__risk-badge--HIGH {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--err-bg);
+  color: var(--err);
 }
 
 .decision-card__risk-badge--MEDIUM {
-  background: #fef3c7;
-  color: #d97706;
+  background: var(--pause-bg);
+  color: var(--pause);
 }
 
 .decision-card__risk-badge--LOW {
-  background: #f4f4f5;
-  color: #71717a;
+  background: var(--surface-2);
+  color: var(--text-3);
 }
 
 .decision-card__wait-time {
   margin-left: auto;
   font-size: 11px;
-  color: #a1a1aa;
+  color: var(--text-4);
   white-space: nowrap;
 }
 
 /* Question text */
 .decision-card__question {
   font-size: 13px;
-  color: #18181b;
+  color: var(--text);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -117,17 +117,17 @@
 
 .decision-card__option-row {
   font-size: 11px;
-  color: #52525b;
+  color: var(--text-2);
   line-height: 1.4;
 }
 
 .decision-card__option-label {
   font-weight: 600;
-  color: #3f3f46;
+  color: var(--text-2);
 }
 
 .decision-card__option-desc {
-  color: #71717a;
+  color: var(--text-3);
 }
 
 /* Action buttons */
@@ -148,33 +148,33 @@
 }
 
 .decision-card__btn--primary {
-  background: #2563eb;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--accent-fg);
   border: none;
 }
 
 .decision-card__btn--primary:hover {
-  background: #1d4ed8;
+  background: var(--accent-h);
 }
 
 .decision-card__btn--secondary {
   background: transparent;
-  color: #2563eb;
-  border: 1px solid #2563eb;
+  color: var(--accent);
+  border: 1px solid var(--accent);
 }
 
 .decision-card__btn--secondary:hover {
-  background: #eff6ff;
+  background: var(--accent-bg);
 }
 
 .decision-card__btn--snooze {
   background: transparent;
-  color: #a1a1aa;
-  border: 1px solid #e4e4e7;
+  color: var(--text-4);
+  border: 1px solid var(--border);
   margin-left: auto;
 }
 
 .decision-card__btn--snooze:hover {
-  background: #f4f4f5;
-  color: #71717a;
+  background: var(--surface-2);
+  color: var(--text-3);
 }

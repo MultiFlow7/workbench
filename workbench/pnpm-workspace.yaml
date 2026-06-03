@@ -1,2 +1,4 @@
 allowBuilds:
+  '@anthropic-ai/claude-code': true
+  electron: true
   esbuild: true

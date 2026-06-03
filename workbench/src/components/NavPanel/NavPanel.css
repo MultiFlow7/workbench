@@ -13,7 +13,7 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--text-3);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -25,13 +25,13 @@
 }
 
 .nav-btn:hover:not(:disabled) {
-  background: var(--color-bg);
-  color: var(--color-text-primary);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .nav-btn.nav-btn--active {
-  background: var(--color-bg);
-  color: var(--color-accent);
+  background: var(--bg);
+  color: var(--accent);
 }
 
 .nav-btn:disabled {
@@ -44,8 +44,8 @@
   left: 44px;
   top: 50%;
   transform: translateY(-50%);
-  background: var(--color-text-primary);
-  color: #fff;
+  background: var(--text);
+  color: var(--accent-fg);
   font-size: 11px;
   padding: 4px 8px;
   border-radius: 4px;

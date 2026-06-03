@@ -1,5 +1,4 @@
 import { StateCreator } from 'zustand'
-import { invoke } from '@tauri-apps/api/core'
 
 const LS_KEYS = 'wb_api_keys'
 
@@ -50,7 +49,7 @@ function loadKeys(): StoredApiKey[] {
 function persistKeys(keys: StoredApiKey[], cachingEnabled: boolean) {
   localStorage.setItem(LS_KEYS, JSON.stringify(keys))
   localStorage.setItem('wb_caching_enabled', JSON.stringify(cachingEnabled))
-  invoke('write_settings', {
+  window.api.invoke('write_settings', {
     data: JSON.stringify({ apiKeys: keys, cachingEnabled })
   }).catch(() => {})
 }
@@ -74,7 +73,7 @@ export const createSettingsSlice: StateCreator<SettingsSlice> = (set, get) => ({
   setCachingEnabled: (v) => {
     localStorage.setItem('wb_caching_enabled', JSON.stringify(v))
     set({ cachingEnabled: v })
-    invoke('write_settings', {
+    window.api.invoke('write_settings', {
       data: JSON.stringify({ apiKeys: get().apiKeys, cachingEnabled: v })
     }).catch(() => {})
   },
@@ -105,7 +104,7 @@ export async function hydrateSettingsFromFile(
   setState: (partial: Partial<SettingsSlice>) => void
 ): Promise<void> {
   try {
-    const raw = await invoke<string>('read_settings')
+    const raw = await window.api.invoke<string>('read_settings')
     const data = JSON.parse(raw) as { apiKeys?: StoredApiKey[]; cachingEnabled?: boolean }
     if (data.apiKeys && data.apiKeys.length > 0) {
       // Sync back to localStorage so the next cold start is also fast

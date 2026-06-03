@@ -7,7 +7,7 @@ interface TokenTimeChartProps {
   onGranularityChange: (g: 'day' | 'week' | 'month') => void
 }
 
-const MODEL_COLORS = ['#2563eb', '#16a34a', '#ea580c', '#6b7280']
+const MODEL_COLORS = ['var(--accent)', 'var(--done)', '#ea580c', 'var(--text-3)']
 
 function getWeekLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00Z')
@@ -128,12 +128,12 @@ export function TokenTimeChart({ buckets, granularity, onGranularityChange }: To
             y={H - 5}
             textAnchor="middle"
             fontSize="10"
-            fill="#6b7280"
+            fill="var(--text-3)"
           >
             {p.label.length > 7 ? p.label.slice(5) : p.label}
           </text>
         ))}
-        <text x={PAD.left - 4} y={PAD.top + 4} textAnchor="end" fontSize="10" fill="#6b7280">
+        <text x={PAD.left - 4} y={PAD.top + 4} textAnchor="end" fontSize="10" fill="var(--text-3)">
           {formatTokens(maxY)}
         </text>
       </svg>

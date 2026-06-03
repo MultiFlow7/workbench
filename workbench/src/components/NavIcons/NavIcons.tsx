@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { useStore } from '../../store'
 import { StoredApiKey } from '../../store/settingsSlice'
+import { ServerConfig } from '../ServerConfig/ServerConfig'
+import { ThemeToggleButton } from './ThemeToggleButton'
 import './NavIcons.css'
 
 const MODES = [
@@ -253,6 +254,10 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
                 发送时自动匹配对应 Key
               </div>
             </div>
+
+            <div className="settings-panel__section">
+              <ServerConfig />
+            </div>
           </>
         )}
       </div>
@@ -267,6 +272,12 @@ export function NavIcons() {
   return (
     <nav className="nav-icons">
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+
+      {/* v0.15.1 P2 验收修订（2026-06-02）：移除顶部 ServerStatusButton
+          - 服务器状态信息密度低，按钮和模式组并排造成识别噪音
+          - 服务器配置入口由底部 settings 按钮承担（SettingsPanel 内嵌 <ServerConfig />）
+          - ServerStatusButton.tsx 文件保留（避免破坏现有测试，无外部引用） */}
+
       <div className="nav-icons__modes">
         {MODES.map(({ id, icon, label, enabled }) => (
           <button
@@ -276,7 +287,7 @@ export function NavIcons() {
               if (!enabled) return
               const t0 = performance.now()
               setMode(id)
-              invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: id, latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
+              window.api.invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: id, latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
             }}
             disabled={!enabled}
             title={enabled ? label : undefined}
@@ -294,7 +305,7 @@ export function NavIcons() {
           onClick={() => {
             const t0 = performance.now()
             setMode('dashboard')
-            invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'dashboard', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
+            window.api.invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'dashboard', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
           }}
           title="Token 仪表盘"
           aria-label="Token 仪表盘"
@@ -308,7 +319,7 @@ export function NavIcons() {
           onClick={() => {
             const t0 = performance.now()
             setMode('analytics')
-            invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'analytics', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
+            window.api.invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'analytics', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
           }}
           title="Token 统计"
           aria-label="Token 统计"
@@ -323,7 +334,7 @@ export function NavIcons() {
             onClick={() => {
               const t0 = performance.now()
               setMode('decisions')
-              invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'decisions', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
+              window.api.invoke('write_event_log', { event: { event: 'mode_switch', timestamp: new Date().toISOString(), payload: { to_mode: 'decisions', latency_ms: Math.round(performance.now() - t0) } } }).catch(() => {})
             }}
             title="决策收件箱"
             aria-label="决策收件箱"
@@ -331,14 +342,15 @@ export function NavIcons() {
             <InboxIcon />
           </button>
           {pendingDecisionCount > 0 && (
-            <span className="decision-badge" aria-label={`${pendingDecisionCount} 个待决策`}>
-              {pendingDecisionCount > 99 ? '99+' : pendingDecisionCount}
-            </span>
+            <span className="decision-badge" aria-label={`${pendingDecisionCount} 个待决策`} />
           )}
         </div>
       </div>
 
       <div className="nav-icons__bottom">
+        {/* v0.15.1 节点 3.1: 移除原 .status-pill.server（硬编码"在线"文案，与状态脱钩），改由顶部 ServerStatusButton 承载 */}
+        {/* v0.15.1 节点 3.3: 底部 theme + settings 两个独立按钮（theme 在上、settings 在下） */}
+        <ThemeToggleButton />
         <button
           className="nav-icon-btn"
           title="设置"

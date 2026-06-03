@@ -1,24 +1,154 @@
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   Design Tokens · v0.15 节点 3.1
+   ─────────────────────────────────────────────────────────────────────────
+   - 浅色为默认，暗色通过 :root.dark / body.dark 选择器覆盖同一组语义变量
+   - 命名空间冻结于 r4 / 2026-05-29（节点 3.2 见 tokens.md），值可后续微调
+   - 来源：prototype-v0.15.html `:root` + `.dark` 段（行 10-95）
 
-html, body {
-  height: 100%;
-  overflow: hidden;
-}
-
-#root {
-  height: 100%;
-}
+   分组（按 product.md req-058 排序）：
+     1. 表面层级（bg / surface / surface-2..4 / hover）
+     2. 边框（border / border-2 / border-3）
+     3. 文字（text / text-2 / text-3 / text-4）
+     4. 主色与状态（accent + accent-h/bg/bd/fg，run/done/pause/err/think 各色配 -bg/-bd）
+     5. 阴影 + focus-ring
+     6. 间距（4px 格点 s1~s8）
+     7. 圆角（r-sm/md/lg/xl/2xl/full）
+     8. 字体 + 动效
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --color-bg: #f5f5f5;
-  --color-surface: #ffffff;
-  --color-accent: #2563eb;
-  --color-text-primary: #111827;
-  --color-text-secondary: #6b7280;
-  --color-border: #e5e7eb;
-  --font-ui: 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --duration-fast: 150ms;
-  --duration-normal: 250ms;
-  --ease-panel: cubic-bezier(0.4, 0, 0.2, 1);
+  /* 1. 表面层级 */
+  --bg:        #F5F5F7;
+  --surface:   #FFFFFF;
+  --surface-2: #F7F7F9;
+  --surface-3: #EDEDF0;
+  --surface-4: #E0E0E5;
+  --hover:     rgba(0, 0, 0, 0.04);
+
+  /* 2. 边框 */
+  --border:    #E5E7EB;
+  --border-2:  #D4D4D8;
+  --border-3:  rgba(0, 0, 0, 0.18);
+
+  /* 3. 文字 */
+  --text:      #18181B;
+  --text-2:    #3F3F46;
+  --text-3:    #71717A;
+  --text-4:    #A1A1AA;
+
+  /* 4. 主色（accent + 状态色） */
+  --accent:    #2563EB;
+  --accent-h:  #1D4ED8;
+  --accent-bg: rgba(37, 99, 235, 0.07);
+  --accent-bd: rgba(37, 99, 235, 0.20);
+  --accent-fg: #FFFFFF;
+
+  --run:       #2563EB;
+  --run-bg:    rgba(37, 99, 235, 0.07);
+  --run-bd:    rgba(37, 99, 235, 0.20);
+
+  --done:      #10B981;
+  --done-bg:   rgba(16, 185, 129, 0.08);
+  --done-bd:   rgba(16, 185, 129, 0.22);
+
+  --pause:     #F59E0B;
+  --pause-bg:  rgba(245, 158, 11, 0.08);
+  --pause-bd:  rgba(245, 158, 11, 0.25);
+
+  --err:       #EF4444;
+  --err-bg:    rgba(239, 68, 68, 0.07);
+  --err-bd:    rgba(239, 68, 68, 0.22);
+
+  --think:     #8B5CF6;
+  --think-bg:  rgba(139, 92, 246, 0.06);
+  --think-bd:  rgba(139, 92, 246, 0.20);
+
+  /* 5. 阴影 + focus ring */
+  --sh-sm:     0 1px 2px rgba(16, 24, 40, 0.04);
+  --sh:        0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --sh-md:     0 4px 12px rgba(16, 24, 40, 0.08), 0 2px 6px rgba(16, 24, 40, 0.04);
+  --sh-lg:     0 12px 32px rgba(16, 24, 40, 0.12), 0 4px 12px rgba(16, 24, 40, 0.08);
+  --focus-ring: 0 0 0 3px var(--accent-bg);
+
+  /* 6. 间距（4px 格点） */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s8: 32px;
+
+  /* 7. 圆角 */
+  --r-sm:  4px;
+  --r-md:  6px;
+  --r-lg:  8px;
+  --r-xl:  12px;
+  --r-2xl: 16px;
+  --r-full: 9999px;
+
+  /* 8. 字体 + 动效 */
+  --font: -apple-system, BlinkMacSystemFont, "Inter Variable", "Inter",
+          "SF Pro Display", "PingFang SC", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur:  180ms;
+
+  /* 折叠态规范（衍生于 req-058 折叠态 token 沉淀） */
+  --collapsed-w:       12px;
+  --collapsed-w-hover: 32px;
+  --collapsed-indicator-w: 2px;
+  --collapsed-indicator-h: 28px;
+}
+
+/* ─── 暗色覆盖（同语义变量名） ─────────────────────────────────────────── */
+
+.dark {
+  --bg:        #0A0A0B;
+  --surface:   #131316;
+  --surface-2: #18181B;
+  --surface-3: #1F1F23;
+  --surface-4: #27272A;
+  --hover:     rgba(255, 255, 255, 0.05);
+
+  --border:    rgba(255, 255, 255, 0.06);
+  --border-2:  rgba(255, 255, 255, 0.12);
+  --border-3:  rgba(255, 255, 255, 0.20);
+
+  --text:      #FAFAFA;
+  --text-2:    #D4D4D8;
+  --text-3:    #A1A1AA;
+  --text-4:    #71717A;
+
+  --accent:    #6366F1;
+  --accent-h:  #818CF8;
+  --accent-bg: rgba(99, 102, 241, 0.14);
+  --accent-bd: rgba(99, 102, 241, 0.30);
+  /* accent-fg 在暗色下保持白色（用户气泡文字） */
+
+  --run:       #60A5FA;
+  --run-bg:    rgba(96, 165, 250, 0.12);
+  --run-bd:    rgba(96, 165, 250, 0.28);
+
+  --done:      #34D399;
+  --done-bg:   rgba(52, 211, 153, 0.12);
+  --done-bd:   rgba(52, 211, 153, 0.28);
+
+  --pause:     #FBBF24;
+  --pause-bg:  rgba(251, 191, 36, 0.12);
+  --pause-bd:  rgba(251, 191, 36, 0.30);
+
+  --err:       #F87171;
+  --err-bg:    rgba(248, 113, 113, 0.12);
+  --err-bd:    rgba(248, 113, 113, 0.28);
+
+  --think:     #C084FC;
+  --think-bg:  rgba(192, 132, 252, 0.10);
+  --think-bd:  rgba(192, 132, 252, 0.26);
+
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --sh:    0 1px 3px rgba(0, 0, 0, 0.50);
+  --sh-md: 0 4px 12px rgba(0, 0, 0, 0.50);
+  --sh-lg: 0 12px 32px rgba(0, 0, 0, 0.70);
+  /* focus-ring 仍依赖 var(--accent-bg)，自动跟随主题 */
 }

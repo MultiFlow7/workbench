@@ -1,6 +1,4 @@
 import { useEffect } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
 import { useStore } from '../store'
 
 interface SsePayload {
@@ -24,12 +22,12 @@ export function useBackendSSE() {
 
   useEffect(() => {
     // Start the Rust SSE subscription
-    invoke('start_backend_sse').catch((e: unknown) => {
+    window.api.invoke('start_backend_sse').catch((e: unknown) => {
       console.warn('[useBackendSSE] start_backend_sse failed:', e)
     })
 
     // Listen for events forwarded from Rust to frontend
-    const unlistenPromise = listen<SsePayload>('backend-sse', (event) => {
+    const unlistenPromise = window.api.listen<SsePayload>('backend-sse', (event) => {
       const payload = event.payload
       const isUserInputting = useStore.getState().isUserInputting
 
@@ -95,7 +93,7 @@ export function useBackendSSE() {
 
     return () => {
       unlistenPromise.then((unlisten) => unlisten())
-      invoke('stop_backend_sse').catch(() => {})
+      window.api.invoke('stop_backend_sse').catch(() => {})
     }
   }, [
     incrementPendingCount,

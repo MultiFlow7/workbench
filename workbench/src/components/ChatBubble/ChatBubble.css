@@ -1,0 +1,125 @@
+/* ─── ChatBubble · v0.15 节点 4.4 ──────────────────────────────────────────── */
+
+/* Row container ────────────────────────────────────────────────────────────── */
+
+.chat-row {
+  display: flex;
+  padding: var(--s2) var(--s4);
+}
+
+.chat-row--user {
+  justify-content: flex-end;
+}
+
+.chat-row--ai {
+  justify-content: flex-start;
+}
+
+/* Bubble ────────────────────────────────────────────────────────────────────── */
+
+.chat-row__bubble {
+  display: flex;
+  flex-direction: column;
+  max-width: 70%;
+  gap: var(--s1);
+}
+
+.chat-row--ai .chat-row__bubble {
+  max-width: 90%;
+}
+
+/* Content ───────────────────────────────────────────────────────────────────── */
+
+.chat-row__content--user {
+  background: var(--accent);
+  color: var(--accent-fg);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-lg);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.chat-row__content--ai {
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Markdown body inside AI bubble ─────────────────────────────────────────── */
+
+.chat-row__content--ai.markdown-body p:first-child {
+  margin-top: 0;
+}
+
+.chat-row__content--ai.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-row__content--ai.markdown-body pre {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s3);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.chat-row__content--ai.markdown-body code:not(pre > code) {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 1px 4px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+/* Meta line (nodeId · time) ──────────────────────────────────────────────── */
+
+.chat-row__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-4);
+}
+
+.chat-row--user .chat-row__meta {
+  justify-content: flex-end;
+}
+
+.chat-row__meta-sep {
+  opacity: 0.5;
+}
+
+/* TokenBadge ──────────────────────────────────────────────────────────────── */
+
+.token-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-4);
+}
+
+.token-badge__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.token-badge__label {
+  opacity: 0.7;
+  text-transform: lowercase;
+}
+
+.token-badge__value {
+  font-weight: 500;
+}
+
+.token-badge__sep {
+  opacity: 0.4;
+}

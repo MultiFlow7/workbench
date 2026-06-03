@@ -1,10 +1,16 @@
 """FastAPI 应用入口。"""
 
+import json
 import logging
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request as FastAPIRequest
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+
+from providers.base import AnthropicRequest
+from providers.router import route_to_provider
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,6 +46,42 @@ app.add_middleware(
 async def health() -> dict:
     """健康检查端点。"""
     return {"status": "ok", "version": "0.13.0"}
+
+
+@app.post("/v1/messages")
+async def messages(req: AnthropicRequest, raw_request: FastAPIRequest):
+    """Anthropic Messages API 兼容端点。
+
+    按 model 前缀路由到具体 provider，将 provider 输出的 Anthropic SSE event
+    dict 序列编码为标准 `event: <type>\\ndata: <json>\\n\\n` 帧返回。
+    BYOK：优先用请求 header `x-provider-key`，否则回退到环境变量。
+    """
+    try:
+        provider = route_to_provider(req.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    api_key = raw_request.headers.get("x-provider-key") or None
+
+    async def event_stream() -> AsyncGenerator[str, None]:
+        try:
+            async for event in provider.stream_completion(req, api_key=api_key):
+                event_type = event.get("type", "message")
+                payload = json.dumps(event, ensure_ascii=False)
+                yield f"event: {event_type}\ndata: {payload}\n\n"
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Provider stream error: %s", exc, exc_info=True)
+            err = json.dumps({"type": "error", "error": {"type": type(exc).__name__, "message": str(exc)}})
+            yield f"event: error\ndata: {err}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # 延迟导入 router，避免循环依赖

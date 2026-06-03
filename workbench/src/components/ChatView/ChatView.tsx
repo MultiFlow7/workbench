@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
-import { exists } from '@tauri-apps/plugin-fs'
 import { useStore } from '../../store'
 import type { QAAtomMeta } from '../../store/conversationSlice'
 import { findKeyForModel } from '../../store/settingsSlice'
 import { toFilePath, VAULT_PATH, BASE_PATH } from '../../utils/paths'
 import { getContextLimit } from '../../constants/modelLimits'
 import { ContextIndicator } from '../ContextIndicator/ContextIndicator'
+import { InterventionInline } from '../InterventionInline/InterventionInline'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -90,7 +88,7 @@ async function generateNewAtomId(parentId: string): Promise<string> {
     const date = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`
     const time = `${pad2(now.getHours())}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`
     const candidate = `${branchId}-${String(seqNum).padStart(3, '0')}-${date}-${time}`
-    const fileExists = await exists(toFilePath(candidate))
+    const fileExists = await window.api.fsExists(toFilePath(candidate))
     if (!fileExists) return candidate
     seqNum++
   }
@@ -208,7 +206,7 @@ export function ChatView() {
     let cancelled = false
     Promise.all(
       currentPath.map((m) =>
-        invoke<QAAtom>('read_qa_atom', { filePath: toFilePath(m.id) })
+        window.api.invoke<QAAtom>('read_qa_atom', { filePath: toFilePath(m.id) })
       )
     )
       .then((atoms) => {
@@ -233,7 +231,7 @@ export function ChatView() {
     const unlisteners: Array<() => void> = []
 
     // Node-F-051-B-9: all streams write to their own streamingTexts entry
-    listen<{ atom_id: string; text: string }>('ai-token', (e) => {
+    window.api.listen<{ atom_id: string; text: string }>('ai-token', (e) => {
       const { text, atom_id } = e.payload
       appendStreamingText(atom_id, text)
       if (atom_id === selectedAtomIdRef.current && isNearBottom()) {
@@ -248,7 +246,7 @@ export function ChatView() {
       }
     }).then((u) => unlisteners.push(u))
 
-    listen<{ atom_id: string; tool_use_id: string; tool_name: string; tool_input: Record<string, unknown> }>('ai-tool-call', async (e) => {
+    window.api.listen<{ atom_id: string; tool_use_id: string; tool_name: string; tool_input: Record<string, unknown> }>('ai-tool-call', async (e) => {
       toolCallInProgressRef.current = true
       const { atom_id, tool_use_id, tool_name, tool_input } = e.payload
       const startedAt = Date.now()
@@ -259,7 +257,7 @@ export function ChatView() {
 
       let toolResult: string
       try {
-        toolResult = await invoke<string>('execute_tool', {
+        toolResult = await window.api.invoke<string>('execute_tool', {
           toolName: tool_name,
           toolInput: tool_input,
         })
@@ -296,14 +294,14 @@ export function ChatView() {
       if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current)
       const toolContinuationTimeoutCb = () => {
         console.warn('[ChatView] tool continuation idle timeout (no tokens for 60s)')
-        invoke('cancel_stream', { atomId: atom_id }).catch(() => {})
+        window.api.invoke('cancel_stream', { atomId: atom_id }).catch(() => {})
         setStreamingState('error')
         setToolCallStatuses([])
       }
       streamTimeoutCbRef.current = toolContinuationTimeoutCb
       streamTimeoutRef.current = setTimeout(toolContinuationTimeoutCb, STREAM_TIMEOUT_MS)
 
-      invoke('stream_ai', {
+      window.api.invoke('stream_ai', {
         messages: continuationMessages,
         model: modelRef.current,
         atomId: atom_id,
@@ -328,7 +326,7 @@ export function ChatView() {
       })
     }).then((u) => unlisteners.push(u))
 
-    listen<{ atom_id: string; full_content: string; input_tokens?: number; output_tokens?: number }>('ai-done', async (e) => {
+    window.api.listen<{ atom_id: string; full_content: string; input_tokens?: number; output_tokens?: number }>('ai-done', async (e) => {
       if (streamTimeoutRef.current) {
         clearTimeout(streamTimeoutRef.current)
         streamTimeoutRef.current = null
@@ -354,7 +352,7 @@ export function ChatView() {
       } : undefined
 
       // Overwrite placeholder file with actual answer
-      await invoke('write_qa_atom', {
+      await window.api.invoke('write_qa_atom', {
         filePath: toFilePath(atom_id),
         atom: {
           meta: {
@@ -418,11 +416,11 @@ export function ChatView() {
 
       const duration_ms = Date.now() - streamStartRef.current
       const token_count = Math.round(full_content.length / 4)
-      invoke('write_event_log', { event: { event: 'streaming_complete', timestamp: new Date().toISOString(), payload: { duration_ms, token_count } } }).catch(() => {})
+      window.api.invoke('write_event_log', { event: { event: 'streaming_complete', timestamp: new Date().toISOString(), payload: { duration_ms, token_count } } }).catch(() => {})
     }).then((u) => unlisteners.push(u))
 
     // Node-F-051-B-18: per-atom error handling, no global lastError
-    listen<{ atom_id?: string; error?: string; message?: string }>('ai-error', (e) => {
+    window.api.listen<{ atom_id?: string; error?: string; message?: string }>('ai-error', (e) => {
       if (streamTimeoutRef.current) {
         clearTimeout(streamTimeoutRef.current)
         streamTimeoutRef.current = null
@@ -454,7 +452,7 @@ export function ChatView() {
     }).then((u) => unlisteners.push(u))
 
     // Node-F-051-B-17: per-atom cancel handling
-    listen<{ atom_id?: string }>('ai-cancelled', (e) => {
+    window.api.listen<{ atom_id?: string }>('ai-cancelled', (e) => {
       if (streamTimeoutRef.current) {
         clearTimeout(streamTimeoutRef.current)
         streamTimeoutRef.current = null
@@ -478,10 +476,10 @@ export function ChatView() {
   const buildSystemPrompt = useCallback(async (): Promise<string | undefined> => {
     try {
       const [pending, running, blocked, awaitingDecision] = await Promise.all([
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Pending' }),
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Running' }),
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Blocked' }),
-        invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'AwaitingDecision' }),
+        window.api.invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Pending' }),
+        window.api.invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Running' }),
+        window.api.invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'Blocked' }),
+        window.api.invoke<Array<{ task_id: string; role: string; status: string; version: string }>>('list_tasks', { status: 'AwaitingDecision' }),
       ])
 
       const allTasks = [...pending, ...running, ...blocked, ...awaitingDecision]
@@ -520,7 +518,7 @@ export function ChatView() {
     } else {
       if (!selectedProjectId) return
       if (!projects.find((p) => p.id === selectedProjectId)) return
-      const branchId = await invoke<string>('next_branch_id', { qaDir: BASE_PATH })
+      const branchId = await window.api.invoke<string>('next_branch_id', { qaDir: BASE_PATH })
       const now = new Date()
       const pad2 = (n: number) => String(n).padStart(2, '0')
       const dateStr = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`
@@ -543,7 +541,7 @@ export function ChatView() {
 
     // Step 4: Node-F-051-B-4 — write placeholder atom file (answer: '')
     const placeholderPrev = parentMeta ? `[[${parentMeta.id}]]` : null
-    await invoke('write_qa_atom', {
+    await window.api.invoke('write_qa_atom', {
       filePath: toFilePath(newAtomId),
       atom: {
         meta: {
@@ -604,7 +602,7 @@ export function ChatView() {
 
     const systemPrompt = await buildSystemPrompt()
 
-    invoke('write_event_log', { event: { event: 'message_sent', timestamp: new Date().toISOString(), payload: { path_length: currentPath.length, model } } }).catch(() => {})
+    window.api.invoke('write_event_log', { event: { event: 'message_sent', timestamp: new Date().toISOString(), payload: { path_length: currentPath.length, model } } }).catch(() => {})
     streamStartRef.current = Date.now()
 
     const outgoingMessages = [
@@ -615,7 +613,7 @@ export function ChatView() {
     systemPromptRef.current = systemPrompt
 
     // Step 10: Node-F-051-B-8 — fire-and-forget (no await, input stays unlocked)
-    invoke('stream_ai', {
+    window.api.invoke('stream_ai', {
       messages: outgoingMessages,
       model,
       atomId: newAtomId,
@@ -641,7 +639,7 @@ export function ChatView() {
       if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current)
       const idleTimeoutCb = () => {
         console.warn('[ChatView] idle timeout: no tokens for 60s')
-        invoke('cancel_stream', { atomId: activeStreamAtomIdRef.current ?? '' }).catch(() => {})
+        window.api.invoke('cancel_stream', { atomId: activeStreamAtomIdRef.current ?? '' }).catch(() => {})
         streamTimeoutCbRef.current = null
       }
       streamTimeoutCbRef.current = idleTimeoutCb
@@ -653,18 +651,43 @@ export function ChatView() {
 
   // Node-F-051-B-14: stop button cancels the currently viewed streaming atom
   const handleStop = useCallback(() => {
-    invoke('cancel_stream', { atomId: selectedAtomIdRef.current ?? '' }).catch(console.error)
+    window.api.invoke('cancel_stream', { atomId: selectedAtomIdRef.current ?? '' }).catch(console.error)
   }, [])
-
-  // Breadcrumb: first + last 3 items
-  const breadcrumb = currentPath.length <= 3
-    ? currentPath.map((n) => n.summary || n.id).join(' › ')
-    : [currentPath[0].summary || currentPath[0].id, '…', ...currentPath.slice(-2).map((n) => n.summary || n.id)].join(' › ')
 
   return (
     <div className="chat-view">
-      {currentPath.length > 0 && (
-        <div className="chat-breadcrumb">{breadcrumb}</div>
+      {/* P3 Header */}
+      {(currentPath.length > 0 || streamingState === 'streaming' || streamingState === 'paused') && (
+        <div className="chat-header">
+          <div className="chat-node-info">
+            <div className="chat-node-title">
+              {currentPath[currentPath.length - 1]?.summary || currentPath[currentPath.length - 1]?.id || ''}
+            </div>
+            {currentPath.length > 0 && (
+              <div className="chat-node-meta">
+                <span className="chat-node-meta-id">{currentPath[currentPath.length - 1].id}</span>
+              </div>
+            )}
+          </div>
+          {streamingState === 'streaming' && (
+            <span className="chat-status-badge chat-status-badge--running">
+              <span className="chat-spinner" />
+              运行中
+            </span>
+          )}
+          {streamingState === 'paused' && (
+            <span className="chat-status-badge chat-status-badge--paused">暂停</span>
+          )}
+          {streamingState === 'streaming' && (
+            <button
+              className="chat-pause-btn-header"
+              onClick={() => void window.api.agent.pause()}
+              title="暂停 Agent"
+            >
+              ⏸
+            </button>
+          )}
+        </div>
       )}
 
       <div className="chat-messages" ref={messagesContainerRef}>
@@ -709,6 +732,9 @@ export function ChatView() {
           </div>
         )}
 
+        {/* 节点 5.2：暂停干预组件 */}
+        <InterventionInline />
+
         {streamingState === 'error' && (
           <div className="chat-error">
             请求失败：请检查网络或 API Key
@@ -719,64 +745,68 @@ export function ChatView() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="chat-input-area">
+      <div className="chat-footer">
         <ContextIndicator />
-        <div className="chat-model-row">
-          <select
-            className="chat-model-select"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            disabled={streamingAtoms.size > 0}
-          >
-            {MODELS.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-          <button
-            className={`chat-caching-btn${cachingEnabled ? ' chat-caching-btn--active' : ''}`}
-            onClick={() => setCachingEnabled(!cachingEnabled)}
-            title={cachingEnabled ? '关闭 Prompt Caching' : '开启 Prompt Caching'}
-          >
-            Caching
-          </button>
-        </div>
-        <div className="chat-input-row">
-          <textarea
-            className="chat-input"
-            value={expandedInput}
-            onChange={(e) => {
-              setExpandedInput(e.target.value)
-              if (e.target.value.trim()) { setIsUserInputting(true) } else { setIsUserInputting(false) }
-            }}
-            placeholder={currentPath.length ? '输入消息…' : selectedProjectId ? '输入消息，自动开始新对话…' : '请先在左侧选择项目'}
-            disabled={!currentPath.length && !selectedProjectId}
-            rows={1}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSend()
-              }
-            }}
-          />
-          <button
-            className="chat-expand-btn"
-            onClick={() => setP4Mode('text-input')}
-            title="展开到 P4 编辑 (⤢)"
-          >
-            ⤢
-          </button>
-          {/* Node-F-051-B-14: stop button shows when current atom is streaming */}
-          {isCurrentAtomStreaming ? (
-            <button className="chat-stop-btn" onClick={handleStop}>停止</button>
-          ) : (
-            <button
-              className="chat-send-btn"
-              onClick={handleSend}
-              disabled={!expandedInput.trim() || (!currentPath.length && !selectedProjectId)}
+        <div className="chat-input-wrap">
+          <div className="chat-input-row">
+            <textarea
+              className="chat-input"
+              value={expandedInput}
+              onChange={(e) => {
+                setExpandedInput(e.target.value)
+                if (e.target.value.trim()) { setIsUserInputting(true) } else { setIsUserInputting(false) }
+              }}
+              placeholder={currentPath.length ? '输入消息…' : selectedProjectId ? '输入消息，自动开始新对话…' : '请先在左侧选择项目'}
+              disabled={!currentPath.length && !selectedProjectId}
+              rows={1}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+            />
+            {/* Node-F-051-B-14: stop button shows when current atom is streaming */}
+            {isCurrentAtomStreaming ? (
+              <button className="chat-stop-btn" onClick={handleStop}>■</button>
+            ) : (
+              <button
+                className="chat-send-btn"
+                onClick={handleSend}
+                disabled={!expandedInput.trim() || (!currentPath.length && !selectedProjectId)}
+              >
+                ↑
+              </button>
+            )}
+          </div>
+          <div className="chat-input-meta">
+            <select
+              className="meta-chip chat-model-select"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              disabled={streamingAtoms.size > 0}
             >
-              发送
+              {MODELS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <button
+              className={`meta-chip${cachingEnabled ? ' meta-chip--on' : ''}`}
+              onClick={() => setCachingEnabled(!cachingEnabled)}
+              title={cachingEnabled ? '关闭 Prompt Caching' : '开启 Prompt Caching'}
+            >
+              Caching
             </button>
-          )}
+            <button
+              className="meta-chip"
+              onClick={() => setP4Mode('text-input')}
+              title="展开到 P4 编辑 (⤢)"
+            >
+              ⤢
+            </button>
+            <span className="chat-meta-spacer" />
+            <span className="chat-shortcut-hint">⌘↵ 发送 · ⌘K 新节点</span>
+          </div>
         </div>
       </div>
     </div>
