@@ -460,18 +460,92 @@ export function registerIpcHandlers(): void {
       return projects
     } catch { return [] }
   })
-  ipcMain.handle('create_project', (_e, _args) => ({
-    id: crypto.randomUUID(),
-    name: '',
-    rootBranchId: '',
-    createdAt: new Date().toISOString(),
-    atomIds: [],
-  }))
-  stubOk('add_atom_to_project')
+  // create_project: 在 projectsDir 下创建 {name}.md 文件，写入 frontmatter + `## 对话索引` 空 section
+  // v0.15.1 P8 r17：原 stub 不写盘 → renderer 内存里多了个 ProjectMeta 但 list_projects 下次重读发现不到，
+  // 且后续 add_atom_to_project（同样 stub noop）无法把新 atom 追加进 `## 对话索引`，导致：
+  //   ① 新建项目后画布空白；② 老项目里"在工作台里发起"的新对话也无法被项目过滤到 → 「有的项目画布没显示节点」。
+  // 实现镜像 src-tauri/src/commands/projects.rs::create_project（保留与历史项目文件相同的 frontmatter 形态）。
+  // args: { projectsDir: string; name: string }
+  ipcMain.handle('create_project', async (_e, args: { projectsDir: string; name: string }) => {
+    const projectsDir = args?.projectsDir
+    const rawName = args?.name ?? ''
+    const name = rawName.trim()
+    if (!projectsDir) throw new Error('projectsDir 不能为空')
+    if (!name) throw new Error('项目名称不能为空')
+    // 确保目录存在
+    await fsp.mkdir(projectsDir, { recursive: true }).catch(() => {})
+    const filePath = join(projectsDir, `${name}.md`)
+    if (fs.existsSync(filePath)) {
+      throw new Error(`项目「${name}」已存在`)
+    }
+    const id = `proj-${Date.now()}`
+    const createdAt = new Date().toISOString()
+    // 与历史项目文件格式保持一致：frontmatter 后空行 + `## 对话索引` + 空行（后续 add 时追加）
+    const content = `---\nid: ${id}\nname: ${name}\nrootBranchId: ""\ncreatedAt: ${createdAt}\n---\n\n## 对话索引\n\n`
+    const tmpPath = `${filePath}.tmp-${process.pid}`
+    await fsp.writeFile(tmpPath, content, 'utf-8')
+    await fsp.rename(tmpPath, filePath)
+    return {
+      id,
+      name,
+      rootBranchId: '',
+      createdAt,
+      atomIds: [],
+    }
+  })
 
-  // ── 分支 ID 生成（stub）──────────────────────────────────────────────────
-  ipcMain.handle('next_branch_id', () => {
-    return String(Date.now()).slice(-4)
+  // add_atom_to_project: 在 projectName.md 的 `## 对话索引` section 追加 `- [[ atomId ]]`
+  // v0.15.1 P8 r17：原 stubOk noop → 新对话发送后项目文件不更新，BranchTree 按 proj.atomIds 过滤就把新 atom 全部排除。
+  // 实现镜像 src-tauri/src/commands/projects.rs::add_atom_to_project，包括"已存在则跳过"去重。
+  // args: { projectsDir: string; projectName: string; atomId: string }
+  ipcMain.handle('add_atom_to_project', async (_e, args: { projectsDir: string; projectName: string; atomId: string }) => {
+    const { projectsDir, projectName, atomId } = args ?? {}
+    if (!projectsDir || !projectName || !atomId) return null
+    const filePath = join(projectsDir, `${projectName}.md`)
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`项目文件不存在: ${projectName}`)
+    }
+    const existing = await fsp.readFile(filePath, 'utf-8')
+    // 去重：任意一行已含 [[atomId]]（trim 兼容 `- [[ id ]]` 与 `- [[id]]` 两种历史写法）
+    const alreadyExists = existing.split(/\r?\n/).some((line) => {
+      const m = line.match(/\[\[([^\]]+)\]\]/)
+      return m ? m[1].trim() === atomId : false
+    })
+    if (alreadyExists) return null
+    // 与历史项目文件一致的格式：`- [[ atomId ]]\n`
+    const appendLine = `- [[ ${atomId} ]]\n`
+    // 简单 append（项目文件天然以 `## 对话索引\n\n` 结尾 / 或上一条 list item 换行结尾）
+    const next = existing.endsWith('\n') ? existing + appendLine : existing + '\n' + appendLine
+    const tmpPath = `${filePath}.tmp-${process.pid}`
+    await fsp.writeFile(tmpPath, next, 'utf-8')
+    await fsp.rename(tmpPath, filePath)
+    return null
+  })
+
+  // ── 分支 ID 生成 ────────────────────────────────────────────────────────
+  // v0.15.1 P8 r17：原 stub `String(Date.now()).slice(-4)` 是个随机 4 位数（毫秒尾数），
+  // 直接破坏了 v0.14 起的 `{branchId}-{NNN}-{YYYYMMDD}-{HHMMSS}` 顺序契约——
+  // 用户从工作台发起新对话，QA 目录里就会冒出 `1367-`、`6034-`、`7289-` 这种乱序前缀，
+  // 既无法定位"第几次对话"，也让原本的 +1 单调性消失。
+  // 实现镜像 src-tauri/src/commands/qa_atoms.rs::next_branch_id：扫描 qaDir 下所有 `.md` 文件，
+  // 按文件名首段（`-` 前）解析为 4 位整数，取 max + 1 后零填充到 4 位返回。
+  // args: { qaDir: string }
+  ipcMain.handle('next_branch_id', async (_e, args: { qaDir: string }) => {
+    const dir = args?.qaDir
+    if (!dir) return '0001'
+    try {
+      const files = await fsp.readdir(dir).catch(() => [] as string[])
+      let max = 0
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue
+        const head = file.split('-')[0]
+        const n = parseInt(head, 10)
+        if (Number.isFinite(n) && n > max) max = n
+      }
+      return String(max + 1).padStart(4, '0')
+    } catch {
+      return '0001'
+    }
   })
 
   // ── AI 流式对话：v0.15.1 P4 r13 整体撤除 stream_ai / cancel_stream / execute_tool
