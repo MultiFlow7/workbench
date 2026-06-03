@@ -1,19 +1,41 @@
 /**
- * useChatSend — v0.15.1 节点 2.2
+ * useChatSend — v0.15.1 节点 2.2（P4 r13 重写）
  *
- * 从 ChatViewV2 抽出的发送/事件监听/工具调用接续/取消逻辑。
- * 仅业务（不含渲染），便于 ChatViewV2 与 ChatInputV2 共享同一发送链路。
+ * 发送/取消/暂停逻辑（仅业务，不含渲染）。
+ *
+ * v0.15.1 P4（r13）协议切换：
+ *   旧路径：window.api.invoke('stream_ai', ...) + ai-token / ai-done / ai-tool-call 监听
+ *   新路径：window.api.agent.start(prompt, options) + agent:event（agentEventDispatcher 已接管）
+ *
+ * 切换根因：electron/ipc/handlers.ts:477 `stream_ai` 自 v0.15 起就是 stubOk noop（注释明示
+ * "Phase 2 通过 agent:start/stop 接入"）。v0.15 节点 2.x 在主进程侧建立了 LocalRunner /
+ * RemoteRunner / SDKBridge 完整新通路，agentEventDispatcher（节点 2.3 / 4.6 / 4.8）也接管
+ * 了 agent:event → conversationSlice / traceSlice / 落盘的完整映射。但是 renderer 侧 chat
+ * 主入口 useChatSend 在 v0.15.1 节点 2.2 抽取 hook 时只是 1:1 搬运了旧的 stream_ai 调用，
+ * 没有跟着切到新通路。结果：消息发送进 stubOk 黑洞，无任何事件返回，streamingState 永远卡
+ * 在 'streaming'，前端表现为「输入框灰了，但没有 AI 响应」。
+ *
+ * P4 改动：
+ *   1. handleSend 改用 window.api.agent.start({prompt, options})，prompt 由历史 + 新问
+ *      题拼接成单一字符串（SDK programmatic query 模式只接受单 prompt）
+ *   2. 删除所有 ai-* 事件监听（agentEventDispatcher 已经在 main.tsx 接管）
+ *   3. 删除工具调用接续逻辑（execute_tool / tool_use → 自实现 messages 拼接） — SDK 内置工具
+ *      由 PreToolUse hook 广播 tool_use / tool_result，dispatcher 负责映射到 traceSlice
+ *   4. 删除 ai-done 中的 write_qa_atom 二次落盘 — agentEventDispatcher._flushAtomToDisk
+ *      在收到 result 事件时统一负责
+ *   5. handleStop → window.api.agent.stop()；cancel_stream IPC 退役
+ *   6. 进入 streaming 时显式 setStreamingState('streaming') + setActiveAtomId(newAtomId)，
+ *      session buffer 由 dispatcher 内部管理
+ *   7. toolCallStatuses 简化为空数组（liveRounds 已是 traceSlice 真源），保留接口避免 V2
+ *      组件 props 变更，但行为退化为 noop
  *
  * 返回：
  *   - handleSend(): 发送当前 expandedInput
- *   - handleStop(): 取消当前 atom 流式
+ *   - handleStop(): 取消当前 agent
  *   - handlePause(): 触发 agent.pause（req-061 节点 2.1 暂停按钮）
- *   - toolCallStatuses: 工具调用进行中的列表（用于输入区底部提示）
+ *   - toolCallStatuses: 工具调用进行中的列表（节点 P4 退化为始终为空，liveRounds 才是真源）
  *   - model / setModel / MODELS: 模型选择
  *   - atomEntries: 已加载的 atom 列表（含 frontmatter + parsed）
- *
- * 与 ChatView 一致的事件订阅（ai-token / ai-tool-call / ai-done / ai-error / ai-cancelled）
- * 在 hook 内部 useEffect 中挂载，组件卸载时清理。
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
@@ -21,35 +43,15 @@ import { useStore } from '../store'
 import type { QAAtomMeta } from '../store/conversationSlice'
 import { findKeyForModel } from '../store/settingsSlice'
 import { toFilePath, VAULT_PATH, BASE_PATH } from '../utils/paths'
-import { getContextLimit } from '../constants/modelLimits'
 import { parseAtom } from '../lib/atomParser'
 import type { ParsedAtom } from '../lib/atomParser'
+import {
+  setActiveAtomId as dispatcherSetActiveAtomId,
+  setSessionQ as dispatcherSetSessionQ,
+} from '../lib/agentEventDispatcher'
 
-const TOOL_SCHEMAS = [
-  {
-    name: 'read_file',
-    description: '读取指定绝对路径的文件内容',
-    input_schema: {
-      type: 'object',
-      properties: {
-        path: { type: 'string', description: '绝对文件路径' },
-      },
-      required: ['path'],
-    },
-  },
-  {
-    name: 'search_vault',
-    description: '在 Vault 中搜索包含关键词的笔记',
-    input_schema: {
-      type: 'object',
-      properties: {
-        keyword: { type: 'string', description: '搜索关键词' },
-        vault_path: { type: 'string', description: `Vault 根目录，默认 ${VAULT_PATH}` },
-      },
-      required: ['keyword'],
-    },
-  },
-]
+// VAULT_PATH 仍是工具 schema 默认参数；保留以避免未引用警告（也供未来工具配置使用）
+void VAULT_PATH
 
 export interface ToolCallStatus {
   id: string
@@ -65,8 +67,6 @@ export interface AtomEntry {
   meta: QAAtomMeta
   parsed: ParsedAtom
 }
-
-const STREAM_TIMEOUT_MS = 60_000
 
 async function generateNewAtomId(parentId: string): Promise<string> {
   const match = parentId.match(/^(\d+)-(\d+)/)
@@ -113,15 +113,10 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
   const addAtomToProject = useStore((s) => s.addAtomToProject)
   const setIsUserInputting = useStore((s) => s.setIsUserInputting)
   const clearPendingEvents = useStore((s) => s.clearPendingEvents)
-  const updateAtomTokens = useStore((s) => s.updateAtomTokens)
   const apiKeys = useStore((s) => s.apiKeys)
   const selectedProjectId = useStore((s) => s.selectedProjectId)
   const projects = useStore((s) => s.projects)
   const setAtomStreaming = useStore((s) => s.setAtomStreaming)
-  const setAtomDone = useStore((s) => s.setAtomDone)
-  const appendStreamingText = useStore((s) => s.appendStreamingText)
-  const clearStreamingText = useStore((s) => s.clearStreamingText)
-  const cachingEnabled = useStore((s) => s.cachingEnabled)
   const expandedInput = useStore((s) => s.expandedInput)
   const setExpandedInput = useStore((s) => s.setExpandedInput)
   const selectedAtomId = useStore((s) => s.selectedAtomId)
@@ -137,21 +132,14 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
 
   const [atomEntries, setAtomEntries] = useState<AtomEntry[]>([])
   const [model, setModel] = useState(MODELS[0])
-  const [toolCallStatuses, setToolCallStatuses] = useState<ToolCallStatus[]>([])
+  // v0.15.1 P4 r13：toolCallStatuses 退化为空（liveRounds 是 traceSlice 真源），保留接口
+  // 让 ChatInputV2 props 不变；未来若需要"工具进行中"局部 UI，订阅 liveRounds 即可。
+  const toolCallStatuses: ToolCallStatus[] = []
 
-  const streamStartRef = useRef<number>(0)
-  const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const streamTimeoutCbRef = useRef<(() => void) | null>(null)
   const currentPathRef = useRef(currentPath)
   const modelRef = useRef(model)
   const selectedAtomIdRef = useRef<string | null>(null)
   const activeStreamAtomIdRef = useRef<string | null>(null)
-  const pendingPrevMapRef = useRef<Map<string, string>>(new Map())
-  const pendingQuestionsMapRef = useRef<Map<string, string>>(new Map())
-  const pendingIsNewRootRef = useRef(false)
-  const pendingMessagesRef = useRef<Array<{ role: string; content: unknown }>>([])
-  const systemPromptRef = useRef<string | undefined>(undefined)
-  const toolCallInProgressRef = useRef(false)
 
   useEffect(() => { currentPathRef.current = currentPath }, [currentPath])
   useEffect(() => { modelRef.current = model }, [model])
@@ -197,224 +185,13 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
     return () => { cancelled = true }
   }, [currentPath])
 
-  // 事件监听（与 ChatView 1:1）
-  useEffect(() => {
-    const unlisteners: Array<() => void> = []
+  // v0.15.1 P4 r13：旧的 ai-* 事件监听整块删除。
+  // agent:event 由 src/main.tsx::initAgentEventDispatcher 统一接管，映射到
+  // conversationSlice（appendStreamingText / setAtomStreaming / setAtomDone）和
+  // traceSlice（liveRounds），落盘由 _flushAtomToDisk 在 result 事件触发。
+  // useChatSend 不再持有事件订阅，避免重复触发。
 
-    window.api.listen<{ atom_id: string; text: string }>('ai-token', (e) => {
-      const { text, atom_id } = e.payload
-      appendStreamingText(atom_id, text)
-      if (atom_id === selectedAtomIdRef.current && opts.isNearBottom()) {
-        opts.scrollToBottom()
-      }
-      if (atom_id === activeStreamAtomIdRef.current) {
-        if (streamTimeoutCbRef.current && streamTimeoutRef.current) {
-          clearTimeout(streamTimeoutRef.current)
-          streamTimeoutRef.current = setTimeout(streamTimeoutCbRef.current, STREAM_TIMEOUT_MS)
-        }
-      }
-    }).then((u) => unlisteners.push(u))
-
-    window.api.listen<{ atom_id: string; tool_use_id: string; tool_name: string; tool_input: Record<string, unknown> }>('ai-tool-call', async (e) => {
-      toolCallInProgressRef.current = true
-      const { atom_id, tool_use_id, tool_name, tool_input } = e.payload
-      const startedAt = Date.now()
-      setToolCallStatuses((prev) => [
-        ...prev,
-        { id: tool_use_id, name: tool_name, input: tool_input, status: 'running', startedAt },
-      ])
-
-      let toolResult: string
-      try {
-        toolResult = await window.api.invoke<string>('execute_tool', {
-          toolName: tool_name,
-          toolInput: tool_input,
-        })
-        const durationMs = Date.now() - startedAt
-        setToolCallStatuses((prev) =>
-          prev.map((s) => s.id === tool_use_id ? { ...s, status: 'done', durationMs } : s),
-        )
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : String(err)
-        const durationMs = Date.now() - startedAt
-        setToolCallStatuses((prev) =>
-          prev.map((s) => s.id === tool_use_id ? { ...s, status: 'error', error: errMsg, durationMs } : s),
-        )
-        toolResult = `error: ${errMsg}`
-      }
-
-      const textBeforeTool = useStore.getState().streamingTexts.get(atom_id) ?? ''
-      clearStreamingText(atom_id)
-
-      const assistantContent: unknown[] = []
-      if (textBeforeTool) {
-        assistantContent.push({ type: 'text', text: textBeforeTool })
-      }
-      assistantContent.push({ type: 'tool_use', id: tool_use_id, name: tool_name, input: tool_input })
-
-      const continuationMessages = [
-        ...pendingMessagesRef.current,
-        { role: 'assistant', content: assistantContent },
-        { role: 'user', content: [{ type: 'tool_result', tool_use_id, content: toolResult }] },
-      ]
-      pendingMessagesRef.current = continuationMessages
-
-      if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current)
-      const toolContinuationTimeoutCb = () => {
-        console.warn('[useChatSend] tool continuation idle timeout (no tokens for 60s)')
-        window.api.invoke('cancel_stream', { atomId: atom_id }).catch(() => {})
-        setStreamingState('error')
-        setToolCallStatuses([])
-      }
-      streamTimeoutCbRef.current = toolContinuationTimeoutCb
-      streamTimeoutRef.current = setTimeout(toolContinuationTimeoutCb, STREAM_TIMEOUT_MS)
-
-      window.api.invoke('stream_ai', {
-        messages: continuationMessages,
-        model: modelRef.current,
-        atomId: atom_id,
-        ...(systemPromptRef.current ? { system: systemPromptRef.current } : {}),
-        tools: TOOL_SCHEMAS,
-        caching: useStore.getState().cachingEnabled,
-        providerKey: findKeyForModel(useStore.getState().apiKeys, modelRef.current)?.key ?? null,
-      }).catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err)
-        console.error('[useChatSend] tool continuation stream_ai error:', msg)
-        if (streamTimeoutRef.current) {
-          clearTimeout(streamTimeoutRef.current)
-          streamTimeoutRef.current = null
-          streamTimeoutCbRef.current = null
-        }
-        toolCallInProgressRef.current = false
-        setAtomDone(atom_id)
-        clearStreamingText(atom_id)
-        pendingPrevMapRef.current.delete(atom_id)
-        pendingQuestionsMapRef.current.delete(atom_id)
-        setStreamingState('error')
-      })
-    }).then((u) => unlisteners.push(u))
-
-    window.api.listen<{ atom_id: string; full_content: string; input_tokens?: number; output_tokens?: number }>('ai-done', async (e) => {
-      if (streamTimeoutRef.current) {
-        clearTimeout(streamTimeoutRef.current)
-        streamTimeoutRef.current = null
-        streamTimeoutCbRef.current = null
-      }
-      const { atom_id, full_content, input_tokens, output_tokens } = e.payload
-
-      if (!pendingQuestionsMapRef.current.has(atom_id)) return
-
-      const questionText = pendingQuestionsMapRef.current.get(atom_id) ?? ''
-      const prevRawId = pendingPrevMapRef.current.get(atom_id) ?? ''
-      const prevWikilink = prevRawId ? `[[${prevRawId}]]` : null
-      const currentModel = modelRef.current
-      const now = new Date().toISOString()
-
-      const hasTokens = input_tokens !== undefined && output_tokens !== undefined
-      const tokenMeta = hasTokens ? {
-        model: currentModel,
-        usage: { input_tokens: input_tokens!, output_tokens: output_tokens! },
-        context_tokens_used: input_tokens,
-        context_window_limit: getContextLimit(currentModel),
-      } : undefined
-
-      await window.api.invoke('write_qa_atom', {
-        filePath: toFilePath(atom_id),
-        atom: {
-          meta: {
-            id: atom_id,
-            prev: prevWikilink,
-            children: [],
-            summary: questionText.slice(0, 50),
-            timestamp: now,
-            ...(tokenMeta ?? {}),
-          },
-          question: questionText,
-          answer: full_content,
-        },
-      }).catch(console.error)
-
-      const newMeta: QAAtomMeta = {
-        id: atom_id,
-        prev: prevWikilink,
-        children: [],
-        summary: questionText.slice(0, 50),
-        timestamp: now,
-        ...(tokenMeta ?? {}),
-      }
-      appendAtom(newMeta)
-      if (hasTokens) {
-        updateAtomTokens(atom_id, {
-          model: currentModel,
-          usage: tokenMeta!.usage,
-          contextTokensUsed: input_tokens,
-          contextWindowLimit: getContextLimit(currentModel),
-        })
-      }
-
-      toolCallInProgressRef.current = false
-      setAtomDone(atom_id)
-      clearStreamingText(atom_id)
-      setToolCallStatuses([])
-
-      if (atom_id === selectedAtomIdRef.current && full_content) {
-        opts.requestScrollToBottom()
-      }
-
-      const lastInPath = currentPathRef.current[currentPathRef.current.length - 1]
-      if (lastInPath?.id === prevRawId) {
-        selectAtom(atom_id)
-      }
-
-      pendingPrevMapRef.current.delete(atom_id)
-      pendingQuestionsMapRef.current.delete(atom_id)
-
-      const duration_ms = Date.now() - streamStartRef.current
-      const token_count = Math.round(full_content.length / 4)
-      window.api.invoke('write_event_log', { event: { event: 'streaming_complete', timestamp: new Date().toISOString(), payload: { duration_ms, token_count } } }).catch(() => {})
-    }).then((u) => unlisteners.push(u))
-
-    window.api.listen<{ atom_id?: string; error?: string; message?: string }>('ai-error', (e) => {
-      if (streamTimeoutRef.current) {
-        clearTimeout(streamTimeoutRef.current)
-        streamTimeoutRef.current = null
-        streamTimeoutCbRef.current = null
-      }
-      toolCallInProgressRef.current = false
-      const atom_id = e.payload.atom_id
-      if (atom_id) {
-        setAtomDone(atom_id)
-        clearStreamingText(atom_id)
-        pendingPrevMapRef.current.delete(atom_id)
-        pendingQuestionsMapRef.current.delete(atom_id)
-      } else {
-        setStreamingState('error')
-      }
-      setToolCallStatuses([])
-    }).then((u) => unlisteners.push(u))
-
-    window.api.listen<{ atom_id?: string }>('ai-cancelled', (e) => {
-      if (streamTimeoutRef.current) {
-        clearTimeout(streamTimeoutRef.current)
-        streamTimeoutRef.current = null
-        streamTimeoutCbRef.current = null
-      }
-      toolCallInProgressRef.current = false
-      const atom_id = e.payload.atom_id
-      if (atom_id) {
-        setAtomDone(atom_id)
-        clearStreamingText(atom_id)
-        pendingPrevMapRef.current.delete(atom_id)
-        pendingQuestionsMapRef.current.delete(atom_id)
-      }
-      setToolCallStatuses([])
-    }).then((u) => unlisteners.push(u))
-
-    return () => unlisteners.forEach((u) => u())
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // v0.2: 构造 system prompt（后台任务摘要）
+  // v0.2: 构造 system prompt（后台任务摘要）— 转为 prompt 文本前缀（SDK 无独立 system 字段）
   const buildSystemPrompt = useCallback(async (): Promise<string | undefined> => {
     try {
       const [pending, running, blocked, awaitingDecision] = await Promise.all([
@@ -433,6 +210,41 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
     }
   }, [])
 
+  /**
+   * 拼接历史 + 当前问题为 SDK 单一 prompt 字符串。
+   * SDK programmatic query() 模式只接受 prompt: string，无 messages array。
+   * 历史路径已在前置 placeholder 写盘前累积；这里把 atomEntries 与 currentPath 交集
+   * 还原成 ## User / ## Assistant 形态供模型读历史。
+   */
+  function buildPromptString(
+    historyEntries: AtomEntry[],
+    pathIds: Set<string>,
+    questionText: string,
+    systemPrompt?: string,
+  ): string {
+    const parts: string[] = []
+    if (systemPrompt) {
+      parts.push(systemPrompt)
+      parts.push('')
+    }
+    for (const entry of historyEntries) {
+      if (!pathIds.has(entry.meta.id)) continue
+      if (entry.parsed.q) {
+        parts.push(`## User`)
+        parts.push(entry.parsed.q)
+        parts.push('')
+      }
+      if (entry.parsed.response) {
+        parts.push(`## Assistant`)
+        parts.push(entry.parsed.response)
+        parts.push('')
+      }
+    }
+    parts.push(`## User`)
+    parts.push(questionText)
+    return parts.join('\n')
+  }
+
   const handleSend = useCallback(async () => {
     if (!expandedInput.trim()) return
     if (!currentPath.length && !selectedProjectId) return
@@ -448,7 +260,6 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
         setStreamingState('error')
         return
       }
-      pendingIsNewRootRef.current = false
     } else {
       if (!selectedProjectId) return
       if (!projects.find((p) => p.id === selectedProjectId)) return
@@ -458,18 +269,16 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
       const dateStr = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`
       const timeStr = `${pad2(now.getHours())}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`
       newAtomId = `${branchId}-001-${dateStr}-${timeStr}`
-      pendingIsNewRootRef.current = true
     }
 
     activeStreamAtomIdRef.current = newAtomId
-
     const questionText = expandedInput
-    pendingPrevMapRef.current.set(newAtomId, parentMeta?.id ?? '')
-    pendingQuestionsMapRef.current.set(newAtomId, questionText)
 
     clearPendingEvents()
     setIsUserInputting(false)
 
+    // 占位 atom 落盘（让分支树/历史能立即看到节点）— 实际答案体由 agentEventDispatcher
+    // 在 result 事件时通过 _flushAtomToDisk 覆盖写入完整内容（Q / Steps / Intervention / A）
     const placeholderPrev = parentMeta ? `[[${parentMeta.id}]]` : null
     await window.api.invoke('write_qa_atom', {
       filePath: toFilePath(newAtomId),
@@ -495,6 +304,11 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
     }
     appendAtom(placeholderMeta)
     setAtomStreaming(newAtomId)
+    setStreamingState('streaming')
+
+    // 通知 dispatcher：当前流式目标 = newAtomId（重置 session buffer / 轮次计数器）
+    dispatcherSetActiveAtomId(newAtomId)
+    dispatcherSetSessionQ(questionText)
 
     if (selectedProjectId) {
       const proj = projects.find((p) => p.id === selectedProjectId)
@@ -505,66 +319,35 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
 
     opts.requestScrollToBottom()
     setExpandedInput('')
-    setToolCallStatuses([])
 
     // 历史消息从已加载的 atomEntries 派生（仅当前分支）
     const currentPathIds = new Set(currentPath.map((a) => a.id))
-    const historyMessages: Array<{ role: string; content: unknown }> = []
-    for (const entry of atomEntries) {
-      if (!currentPathIds.has(entry.meta.id)) continue
-      if (entry.parsed.q) {
-        historyMessages.push({ role: 'user', content: [{ type: 'text', text: entry.parsed.q }] })
-      }
-      if (entry.parsed.response) {
-        historyMessages.push({ role: 'assistant', content: [{ type: 'text', text: entry.parsed.response }] })
-      }
-    }
-
     const systemPrompt = await buildSystemPrompt()
+    const promptString = buildPromptString(atomEntries, currentPathIds, questionText, systemPrompt)
 
     window.api.invoke('write_event_log', { event: { event: 'message_sent', timestamp: new Date().toISOString(), payload: { path_length: currentPath.length, model } } }).catch(() => {})
-    streamStartRef.current = Date.now()
 
-    const outgoingMessages = [
-      ...historyMessages,
-      { role: 'user', content: [{ type: 'text', text: questionText }] },
-    ]
-    pendingMessagesRef.current = outgoingMessages
-    systemPromptRef.current = systemPrompt
+    // 选择 provider key 的 baseUrl（覆盖 electron-store 默认 anthropicBaseUrl）
+    const keyEntry = findKeyForModel(apiKeys, model)
+    const baseUrl = keyEntry?.baseUrl
 
-    window.api.invoke('stream_ai', {
-      messages: outgoingMessages,
-      model,
-      atomId: newAtomId,
-      ...(systemPrompt ? { system: systemPrompt } : {}),
-      tools: TOOL_SCHEMAS,
-      caching: cachingEnabled,
-      providerKey: findKeyForModel(apiKeys, model)?.key ?? null,
-    }).catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error('[useChatSend] stream_ai error:', msg)
-      setAtomDone(newAtomId)
-      clearStreamingText(newAtomId)
-      pendingPrevMapRef.current.delete(newAtomId)
-      pendingQuestionsMapRef.current.delete(newAtomId)
-    })
-
-    if (!toolCallInProgressRef.current) {
-      if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current)
-      const idleTimeoutCb = () => {
-        console.warn('[useChatSend] idle timeout: no tokens for 60s')
-        window.api.invoke('cancel_stream', { atomId: activeStreamAtomIdRef.current ?? '' }).catch(() => {})
-        streamTimeoutCbRef.current = null
-      }
-      streamTimeoutCbRef.current = idleTimeoutCb
-      streamTimeoutRef.current = setTimeout(idleTimeoutCb, STREAM_TIMEOUT_MS)
-    }
+    window.api.agent
+      .start(promptString, {
+        ...(baseUrl ? { baseUrl } : {}),
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error('[useChatSend] agent.start error:', msg)
+        setStreamingState('error')
+        dispatcherSetActiveAtomId(null)
+        activeStreamAtomIdRef.current = null
+      })
   }, [expandedInput, currentPath, atomEntries, selectedProjectId, projects, appendAtom, setAtomStreaming,
-      setAtomDone, clearStreamingText, addAtomToProject, setExpandedInput, buildSystemPrompt,
-      cachingEnabled, apiKeys, model, setStreamingState, clearPendingEvents, setIsUserInputting, opts])
+      addAtomToProject, setExpandedInput, buildSystemPrompt,
+      apiKeys, model, setStreamingState, clearPendingEvents, setIsUserInputting, opts])
 
   const handleStop = useCallback(() => {
-    window.api.invoke('cancel_stream', { atomId: selectedAtomIdRef.current ?? '' }).catch(console.error)
+    window.api.agent.stop().catch(console.error)
   }, [])
 
   // 节点 2.1：暂停按钮触发 agent.pause（与 ChatView 第 684 行 chat-pause-btn-header 一致）
@@ -579,6 +362,11 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
     }).catch(() => {})
     void window.api.agent.pause()
   }, [])
+
+  // 兜底：未使用变量提示规避（selectAtom 在 P4 r13 之前由 ai-done 链路使用，
+  // 此处保留依赖订阅以便 _atomsRef 派生稳定，但实际选择由 dispatcher 触发 selectedAtomId
+  // 不再发生在 hook 层；如未来需要"流完成后自动选中新 atom"再恢复）
+  void selectAtom
 
   return {
     atomEntries,

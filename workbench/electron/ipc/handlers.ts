@@ -473,10 +473,18 @@ export function registerIpcHandlers(): void {
     return String(Date.now()).slice(-4)
   })
 
-  // ── AI 流式对话（原 stub 保留兼容，Phase 2 通过 agent:start/stop 接入）────
-  stubOk('stream_ai')
-  stubOk('cancel_stream')
-  stubOk('execute_tool', '')
+  // ── AI 流式对话：v0.15.1 P4 r13 整体撤除 stream_ai / cancel_stream / execute_tool
+  // 替代路径：agent:start / agent:stop / agent:pause / agent:resume + agent:event
+  // 旧 IPC 名保留为显式 throw，防止 renderer 漏改后悄悄走 stubOk noop 黑洞
+  ipcMain.handle('stream_ai', () => {
+    throw new Error('stream_ai retired in v0.15.1 P4 — use window.api.agent.start()')
+  })
+  ipcMain.handle('cancel_stream', () => {
+    throw new Error('cancel_stream retired in v0.15.1 P4 — use window.api.agent.stop()')
+  })
+  ipcMain.handle('execute_tool', () => {
+    throw new Error('execute_tool retired in v0.15.1 P4 — tools handled by SDK directly')
+  })
 
   // ── agent:start（节点 2.1 + 2.6 + 6.4）──────────────────────────────────
   // 根据 location 选择 LocalRunner（本地）或 RemoteRunner（服务器）。
