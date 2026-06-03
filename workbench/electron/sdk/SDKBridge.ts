@@ -11,20 +11,25 @@
  */
 
 import { BrowserWindow } from 'electron'
-import { createRequire } from 'node:module'
 import Store from 'electron-store'
 
-// ─── SDK 动态导入（ESM .mjs，避免 electron-vite CJS 转换问题）──────────────────
-// 使用 createRequire 动态 require，规避 top-level await 约束
+// ─── SDK 动态导入（ESM-only 包，规避 electron-vite 静态分析转 require）─────────
+// v0.15.1 P6 r15：@anthropic-ai/claude-agent-sdk 是 ESM-only 包，
+// Node 24 下 require() ESM 会抛 ERR_REQUIRE_ESM。
+// 用 new Function 包裹 dynamic import，绕过 electron-vite 的静态依赖分析
+// （否则 import() 也会被改写成 createRequire(...).require）。
 
 type SDKModule = typeof import('@anthropic-ai/claude-agent-sdk')
 let _sdkModule: SDKModule | null = null
 
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+const dynamicImport = new Function('specifier', 'return import(specifier)') as (
+  s: string
+) => Promise<SDKModule>
+
 async function getSdk(): Promise<SDKModule> {
   if (_sdkModule) return _sdkModule
-  const req = createRequire(import.meta.url)
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  _sdkModule = req('@anthropic-ai/claude-agent-sdk') as SDKModule
+  _sdkModule = await dynamicImport('@anthropic-ai/claude-agent-sdk')
   return _sdkModule
 }
 
