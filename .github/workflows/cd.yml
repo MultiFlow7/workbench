@@ -3,53 +3,93 @@ name: CD
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
+
+permissions:
+  contents: write
 
 jobs:
-  deploy:
-    name: Build & Deploy
-    runs-on: ubuntu-latest
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-      - name: Build release binary
-        run: cargo build --release
-        working-directory: backend
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm modules
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: node-modules-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: workbench
+
+      - name: Install Python dependencies (macOS)
+        if: matrix.platform == 'mac'
+        run: pip3 install -r requirements.txt
+        working-directory: ai-service
+
+      - name: Install Python dependencies (Windows)
+        if: matrix.platform == 'win'
+        run: pip install -r requirements.txt
+        working-directory: ai-service
+
+      - name: Build (macOS)
+        if: matrix.platform == 'mac'
+        run: pnpm run dist:mac
+        working-directory: workbench
         env:
-          RUSTFLAGS: ""
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine target environment
-        id: env
-        run: |
-          TAG="${{ github.ref_name }}"
-          if [[ "$TAG" == *"-beta"* ]]; then
-            echo "target=staging" >> $GITHUB_OUTPUT
-            echo "host=${{ secrets.STAGING_HOST || secrets.SERVER_HOST }}" >> $GITHUB_OUTPUT
-          else
-            echo "target=production" >> $GITHUB_OUTPUT
-            echo "host=${{ secrets.SERVER_HOST }}" >> $GITHUB_OUTPUT
-          fi
+      - name: Build (Windows)
+        if: matrix.platform == 'win'
+        run: pnpm run dist:win
+        working-directory: workbench
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload binary to server
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
-          chmod 600 /tmp/deploy_key
-          scp -i /tmp/deploy_key \
-            -o StrictHostKeyChecking=no \
-            backend/target/release/workbench-backend \
-            root@${{ steps.env.outputs.host }}:/data/workbench/workbench-backend.new
-
-      - name: Swap binary and restart service
-        run: |
-          ssh -i /tmp/deploy_key \
-            -o StrictHostKeyChecking=no \
-            root@${{ steps.env.outputs.host }} \
-            "mv /data/workbench/workbench-backend.new /data/workbench/workbench-backend \
-             && systemctl restart workbench-backend \
-             && systemctl status workbench-backend --no-pager | head -5"
-          rm -f /tmp/deploy_key
-
-      - name: Summary
-        run: echo "Deployed ${{ github.ref_name }} to ${{ steps.env.outputs.target }}"
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            workbench/release/*.dmg
+            workbench/release/*.exe
+            workbench/release/*.AppImage
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
