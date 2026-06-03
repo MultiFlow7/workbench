@@ -32,6 +32,7 @@
 import { useStore } from '../store'
 import type { Round, Intervention, Tool } from './atomParser'
 import type { QAAtomMeta } from '../store/conversationSlice'
+import { toFilePath } from '../utils/paths'
 
 // ─── AgentEvent 类型（与主进程 SDKBridge 保持同步）────────────────────────────
 
@@ -291,6 +292,10 @@ function _handleEvent(event: AgentEvent): void {
         store.setAtomDone(atomId)
         store.clearStreamingText(atomId)
       }
+      // v0.15.1 P5 r14：保留具体错误消息，让 ChatViewV2 错误区展示真因（如「请先配置 API Key」）
+      // setLastErrorMessage 必须在 setStreamingState('error') 之前/之后调用都安全 —
+      // setStreamingState('error') 不会清掉 lastErrorMessage（见 conversationSlice）
+      store.setLastErrorMessage(event.message || null)
       store.setStreamingState('error')
       _activeAtomId = null
       _currentRoundIndex = 0
@@ -334,23 +339,34 @@ async function _flushAtomToDisk(): Promise<void> {
 
   try {
     const content = serializeAtom(meta, buf.q, buf.rounds, buf.interventions, buf.responseText)
-    const atomPath = await getAtomFilePath(buf.atomId)
+    const atomPath = getAtomFilePath(buf.atomId)
     await window.api.fs.write(atomPath, content)
+    // v0.15.1 P7（r16）：通知 renderer 该 atom 已完成落盘，触发 atomEntries 重载
+    // （useChatSend useEffect 仅监听 currentPath，流式结束后磁盘内容更新但 path
+    // 引用未变 → 不重载 → 末位 atom 渲染从 streamingTexts 切回 parsed.response
+    // 时落空 → "一闪而过又消失"）。
+    useStore.getState().bumpAtomDiskRevision(buf.atomId)
   } catch (err) {
     console.error('[agentEventDispatcher] flush atom to disk failed', err)
   }
 }
 
 /**
- * 推导 atom 文件路径：<cwd>/atoms/<atomId>.md
- * 从 main process 读取当前 workspace cwd（节点 1.4 已实现 workspace:getCwd）。
+ * 推导 atom 文件路径。
+ *
+ * v0.15.1 P7 修复（2026-06-03，r16）：原实现写到 `<cwd>/atoms/<atomId>.md`，
+ * 但 `cwd` 是 vault 根目录，atoms 子目录并不存在；同时 `useChatSend` 的占位
+ * write_qa_atom 与历史回读 read_qa_atom 都用 `toFilePath(id) = ${BASE_PATH}/${id}.md`
+ * （`VITE_VAULT_QA_PATH` 指向 `07-AI知识库/L1-原始对话/QA`）。结果：
+ *   - 占位 atom 写到正确位置但只含 `## Q`，`## A` 为空
+ *   - 流式结束后 dispatcher 把完整内容写到错误路径（且目录不存在 → fs:write 静默失败）
+ *   - 用户重新点回节点 → read_qa_atom 读到占位文件 → 只看到用户问题，无 AI 回复
+ *
+ * 修复后统一走 `toFilePath`，与占位写 / 历史回读路径一致，dispatcher 覆盖
+ * 占位文件即可。fs:write 主进程侧已实现 tmp → rename 原子写。
  */
-async function getAtomFilePath(atomId: string): Promise<string> {
-  const cwd = await window.api.invoke<string | null>('workspace:getCwd')
-  if (!cwd) {
-    throw new Error('workspace cwd not set')
-  }
-  return `${cwd}/atoms/${atomId}.md`
+function getAtomFilePath(atomId: string): string {
+  return toFilePath(atomId)
 }
 
 // ─── 序列化（节点 4.8 / 4.9）──────────────────────────────────────────────

@@ -20,16 +20,32 @@ interface LayoutNode {
   children: LayoutNode[]
 }
 
-function buildLayoutTree(
+// v0.15.1 P3 验收修订（2026-06-03，r10）：原 roots = atoms.filter(prev===null) 漏掉
+// 「孤儿原子」（prev 引用了不在当前 atoms 集合里的父节点 —— 可能因为父文件被删、
+// frontmatter 损坏、project 过滤排除等原因）。孤儿原子既不是根，又不在任何根的子树里 →
+// BranchTree 完全不渲染它们。修复：孤儿原子也作为根渲染（独立浮岛），保证「能看到所有原子」。
+export function buildLayoutTree(
   atoms: Record<string, QAAtomMeta>
 ): LayoutNode[] {
-  const roots = Object.values(atoms).filter((a) => a.prev === null)
+  const atomIds = new Set(Object.keys(atoms))
+  const getParentId = (a: QAAtomMeta): string | null => {
+    if (!a.prev) return null
+    // 先 trim 再 strip [[]]，避免「[[id]]  」尾随空白导致 `]]$` 不匹配
+    const stripped = a.prev.trim().replace(/^\[\[|\]\]$/g, '')
+    return stripped.length > 0 ? stripped : null
+  }
+  const roots = Object.values(atoms).filter((a) => {
+    const parentId = getParentId(a)
+    if (parentId === null) return true            // 真正的根
+    if (!atomIds.has(parentId)) return true       // 孤儿：父节点缺失 → 作为根渲染
+    return false
+  })
 
   function makeNode(atom: QAAtomMeta, depth: number): LayoutNode {
     const children = Object.values(atoms)
       .filter((a) => {
-        if (!a.prev) return false
-        return a.prev.replace(/^\[\[|\]\]$/g, '') === atom.id
+        const parentId = getParentId(a)
+        return parentId !== null && parentId === atom.id
       })
       .map((a) => makeNode(a, depth + 1))
     return { atom, x: 0, y: depth * (NODE_H + GAP_Y), children }

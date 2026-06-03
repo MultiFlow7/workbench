@@ -1,9 +1,36 @@
 /**
  * atomParser — atom 文件 Markdown 解析器（v0.15 节点 4.7）
  *
- * 将 atom .md 文件解析为结构化对象。frontmatter 用 gray-matter，
- * body 用纯字符串状态机扫描（不引 markdown-it），以保持解析逻辑透明、
- * 边界可控、便于单元测试。
+ * 将 atom .md 文件解析为结构化对象。frontmatter 用内置 mini-YAML 解析器
+ * （仅覆盖 atom 文件实际使用的字段子集：id / prev / children / summary /
+ * timestamp），body 用纯字符串状态机扫描（不引 markdown-it），以保持解析
+ * 逻辑透明、边界可控、便于单元测试。
+ *
+ * v0.15.1 P3.3 修订（2026-06-03）：移除 gray-matter 依赖
+ * ─────────────────────────────────────────────────────────────────────
+ * 原实现 `import matter from 'gray-matter'` 在 Electron renderer 抛
+ *   ReferenceError: Buffer is not defined
+ * 链路：parseAtom() → matter() → exports2.toBuffer() → Buffer.from(...)
+ * 根因：v0.15 Tauri → Electron 迁移期，renderer 默认 sandboxed，没有
+ *   Node.js 全局（Buffer / process / fs 等），而 gray-matter 内部用
+ *   Buffer 处理字符串/输入归一化。结果整个 parseAtom 抛错被 useChatSend
+ *   的 `.catch(...)` 吞下，atomEntries=[]，P3 永远显示空。
+ *   之前未暴露是因为 v0.15 期间 read_qa_atom 是 stub（answer=整文件、
+ *   write_qa_atom noop 文件不落盘），parseAtom 根本没机会被真实数据触发。
+ *   v0.15.1 P3 r10 修复了 read/write IPC 之后这个老坑才浮出水面。
+ *
+ * 修复方案：自实现 parseFrontmatter()
+ *   - 仅识别 atom 文件实际写出的字段（id / prev / children / summary /
+ *     timestamp / model / input_tokens / ... 等扩展字段对 atomParser
+ *     不需要，由 read_qa_atom 在 main 进程解析后挂到 meta 上）
+ *   - prev：null / 单行字符串 / 单行 inline 数组 `[]` / `['x']` 三种
+ *   - children：多行 `  - "[[xxx]]"` 块 或 单行 inline 数组 两种
+ *   - timestamp / summary / id：单行 scalar，自动去引号
+ *   - 不依赖 Buffer / process / fs，纯字符串操作，浏览器/renderer 安全
+ *
+ * 复盘归档：v0.15 迁移期 renderer 端 Node 模块兼容性应列入审计清单
+ *   （Buffer / process / fs / path 等全局或 node-only 包；下次迁移
+ *   前用 `grep -rE "from ['\\\"](buffer|fs|path|os|crypto)['\\\"]|Buffer\\.|process\\." src/` 扫一遍）。
  *
  * Atom 文件格式（参考 changelog/v0.15/technical.md 节点 4.7）：
  *
@@ -42,7 +69,77 @@
  *   - 嵌套代码块（``` 围栏）内的 ## / ### / ** 不被解析为 section 边界
  */
 
-import matter from 'gray-matter'
+// ─── 内置 mini-frontmatter 解析器 ──────────────────────────────────────────
+//
+// 不引入 gray-matter / js-yaml；仅识别 atom 文件实际写出的字段。
+// 见文件头注释 v0.15.1 P3.3 修订段。
+
+interface FrontmatterResult {
+  data: Record<string, unknown>
+  content: string
+}
+
+const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/
+
+function stripQuotes(s: string): string {
+  return s.trim().replace(/^['"]|['"]$/g, '')
+}
+
+function parseInlineArray(raw: string): string[] {
+  // 接受形如 [], ['a', 'b'], ["x"] —— 仅一层
+  const inner = raw.trim().replace(/^\[/, '').replace(/\]$/, '').trim()
+  if (!inner) return []
+  return inner
+    .split(',')
+    .map((s) => stripQuotes(s))
+    .filter((s) => s.length > 0)
+}
+
+function parseFrontmatter(raw: string): FrontmatterResult {
+  const m = FRONTMATTER_RE.exec(raw)
+  if (!m) return { data: {}, content: raw }
+  const fm = m[1]
+  const content = raw.slice(m[0].length)
+  const data: Record<string, unknown> = {}
+
+  const lines = fm.split('\n')
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    if (line.trim() === '') { i++; continue }
+    // 顶层 key: value（不缩进；缩进列表项由块标量分支处理）
+    const scalarMatch = /^([A-Za-z_][\w-]*)\s*:\s*(.*)$/.exec(line)
+    if (!scalarMatch) { i++; continue }
+    const key = scalarMatch[1]
+    const rest = scalarMatch[2]
+
+    if (rest === '' || rest === undefined) {
+      // 块标量：下一行起 `  - xxx` 形式的多行列表
+      const items: string[] = []
+      let j = i + 1
+      while (j < lines.length && /^\s+-\s+/.test(lines[j])) {
+        const itemMatch = /^\s+-\s+(.*)$/.exec(lines[j])
+        if (itemMatch) items.push(stripQuotes(itemMatch[1]))
+        j++
+      }
+      data[key] = items
+      i = j
+      continue
+    }
+
+    const trimmedRest = rest.trim()
+    if (trimmedRest === 'null') {
+      data[key] = null
+    } else if (trimmedRest.startsWith('[') && trimmedRest.endsWith(']')) {
+      data[key] = parseInlineArray(trimmedRest)
+    } else {
+      data[key] = stripQuotes(trimmedRest)
+    }
+    i++
+  }
+
+  return { data, content }
+}
 
 // ─── 类型定义 ───────────────────────────────────────────────────────────────
 
@@ -81,9 +178,10 @@ export type Intervention = {
 // ─── 主入口 ────────────────────────────────────────────────────────────────
 
 export function parseAtom(raw: string): ParsedAtom {
-  // 1. frontmatter 用 gray-matter
-  const parsed = matter(raw)
-  const fmRaw = parsed.data as Record<string, unknown>
+  // 1. frontmatter 用内置 mini-parser（避免 gray-matter 在 renderer 触发 Buffer 错误，
+  //    见文件头 v0.15.1 P3.3 修订段）
+  const parsed = parseFrontmatter(raw)
+  const fmRaw = parsed.data
   const frontmatter: ParsedAtom['frontmatter'] = {
     id: typeof fmRaw.id === 'string' ? fmRaw.id : '',
     prev: Array.isArray(fmRaw.prev) ? fmRaw.prev.map(String) : [],
@@ -119,8 +217,19 @@ export function parseAtom(raw: string): ParsedAtom {
 
 /**
  * 按 `## <Name>` 切分 body，返回 name → 内容（去掉标题行）的 Map。
- * 关键规则：在代码块围栏（``` 或 ~~~）内的 `##` 不视为 section 边界。
+ *
+ * 关键规则（v0.15.1 P3 r11 修订）：
+ *   1. 仅识别 4 个 KNOWN 顶层 section 名：Q / A / Steps / Intervention
+ *      ——答案体（## A 之后）的 `## XX` markdown 二级标题（例如 ## 项目现状总结、
+ *      ## REQ-004 待确认项）不再被误判为新顶层 section 边界，保留为 section 内部内容。
+ *   2. 代码块围栏（``` 或 ~~~）内的 `##` 不视为 section 边界。
+ *
+ * 历史 bug：原实现 `^##\s+(.+?)\s*$` 把任意二级标题都当成新顶层 section，
+ *   导致答案被截断（例如 0013-001-* 的 ## A 实际内容 1000+ 字，但被截到 109 字），
+ *   外部表现是「点击节点后 P3 几乎不显示内容」。
  */
+const KNOWN_TOP_SECTIONS = new Set(['Q', 'A', 'Steps', 'Intervention'])
+
 function splitTopSections(body: string): Map<string, string> {
   const lines = body.split('\n')
   const sections = new Map<string, string>()
@@ -153,11 +262,15 @@ function splitTopSections(body: string): Map<string, string> {
     if (!fenceOpen) {
       const match = /^##\s+(.+?)\s*$/.exec(line)
       if (match && !line.startsWith('###')) {
-        // 遇到新顶层 section
-        flush()
-        currentName = match[1].trim()
-        currentBuf = []
-        continue
+        const name = match[1].trim()
+        if (KNOWN_TOP_SECTIONS.has(name)) {
+          // 仅 known 顶层 section 才视为新分段边界
+          flush()
+          currentName = name
+          currentBuf = []
+          continue
+        }
+        // 否则当作 section 内部的 markdown 二级标题，落入下方 push
       }
     }
 

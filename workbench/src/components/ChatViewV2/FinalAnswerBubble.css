@@ -1,0 +1,95 @@
+/* FinalAnswerBubble — v0.15.1 节点 1.2
+ * 左对齐无外框：移除 .bubble--ai 的 border / background，仅保留 markdown-body 样式。
+ */
+
+.bubble--ai-plain {
+  max-width: 100%;
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  background: none;
+  border: none;
+}
+
+.bubble--ai-plain.markdown-body h1,
+.bubble--ai-plain.markdown-body h2,
+.bubble--ai-plain.markdown-body h3 {
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
+
+.bubble--ai-plain.markdown-body h1 { font-size: 16px; }
+.bubble--ai-plain.markdown-body h2 { font-size: 14px; }
+.bubble--ai-plain.markdown-body h3 { font-size: 13px; }
+
+.bubble--ai-plain.markdown-body code {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.bubble--ai-plain.markdown-body pre {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 6px 0;
+}
+
+.bubble--ai-plain.markdown-body pre code {
+  background: none;
+  padding: 0;
+}
+
+.bubble--ai-plain.markdown-body table {
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+.bubble--ai-plain.markdown-body th,
+.bubble--ai-plain.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+}
+
+.bubble--ai-plain.markdown-body ul,
+.bubble--ai-plain.markdown-body ol {
+  padding-left: 18px;
+  margin: 4px 0;
+}
+
+.bubble--ai-plain.markdown-body p {
+  margin: 4px 0;
+}
+
+.bubble--ai-plain.markdown-body blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 10px;
+  margin: 6px 0;
+  color: var(--text-2);
+}
+
+.final-answer__cursor {
+  display: inline-block;
+  width: 6px;
+  height: 14px;
+  background: var(--text-3);
+  animation: final-answer-blink 0.7s steps(1) infinite;
+  vertical-align: middle;
+}
+
+.bubble--streaming-plain::after {
+  content: '▋';
+  animation: final-answer-blink 0.7s steps(1) infinite;
+  margin-left: 2px;
+  color: var(--text-3);
+}
+
+@keyframes final-answer-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}

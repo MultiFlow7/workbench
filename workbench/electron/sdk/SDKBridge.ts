@@ -11,20 +11,25 @@
  */
 
 import { BrowserWindow } from 'electron'
-import { createRequire } from 'node:module'
 import Store from 'electron-store'
 
-// ─── SDK 动态导入（ESM .mjs，避免 electron-vite CJS 转换问题）──────────────────
-// 使用 createRequire 动态 require，规避 top-level await 约束
+// ─── SDK 动态导入（ESM-only 包，规避 electron-vite 静态分析转 require）─────────
+// v0.15.1 P6 r15：@anthropic-ai/claude-agent-sdk 是 ESM-only 包，
+// Node 24 下 require() ESM 会抛 ERR_REQUIRE_ESM。
+// 用 new Function 包裹 dynamic import，绕过 electron-vite 的静态依赖分析
+// （否则 import() 也会被改写成 createRequire(...).require）。
 
 type SDKModule = typeof import('@anthropic-ai/claude-agent-sdk')
 let _sdkModule: SDKModule | null = null
 
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+const dynamicImport = new Function('specifier', 'return import(specifier)') as (
+  s: string
+) => Promise<SDKModule>
+
 async function getSdk(): Promise<SDKModule> {
   if (_sdkModule) return _sdkModule
-  const req = createRequire(import.meta.url)
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  _sdkModule = req('@anthropic-ai/claude-agent-sdk') as SDKModule
+  _sdkModule = await dynamicImport('@anthropic-ai/claude-agent-sdk')
   return _sdkModule
 }
 
@@ -36,6 +41,12 @@ export interface SDKOptions {
   allowedTools?: string[]
   /** 节点 2.2 注入点：覆盖 Anthropic API Base URL */
   baseUrl?: string
+  /**
+   * v0.15.1 P5 r14：覆盖 ANTHROPIC_API_KEY 环境变量。
+   * 由 agent:start handler 按 model 从 settings.apiKeys 反查后注入。
+   * 没传时维持 process.env.ANTHROPIC_API_KEY（兼容用户在 shell 里手动 export 的场景）。
+   */
+  apiKey?: string
 }
 
 /** agent:event IPC 事件的联合类型（renderer 侧 agentEventDispatcher 使用） */
@@ -97,6 +108,12 @@ export class SDKBridge {
       if (v !== undefined) env[k] = v
     }
     if (baseUrl) env['ANTHROPIC_BASE_URL'] = baseUrl
+    // v0.15.1 P5 r14：注入 API key。claude CLI 子进程不继承 renderer 的 settings.apiKeys，
+    // 必须显式通过 env 传递。优先用 options.apiKey（agent:start handler 已按 model 反查），
+    // 否则保持 process.env.ANTHROPIC_API_KEY（兼容 shell export 场景）。
+    if (options.apiKey && options.apiKey.length > 0) {
+      env['ANTHROPIC_API_KEY'] = options.apiKey
+    }
 
     const sdk = await getSdk()
 

@@ -1,0 +1,71 @@
+/* ChatInputV2 — v0.15.1 节点 2.1 发送按钮三态机 */
+
+.chat-input-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+
+/* idle / cancelled / error — 主色 Send */
+.chat-input-btn--send {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.chat-input-btn--send:hover:not(:disabled) {
+  background: var(--accent-h);
+}
+.chat-input-btn--send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* streaming — 琥珀色 Pause */
+.chat-input-btn--pause {
+  background: var(--pause-bg);
+  color: var(--pause);
+  border: 1px solid var(--pause-bd);
+  font-size: 14px;
+}
+.chat-input-btn--pause:hover:not(:disabled) {
+  background: var(--pause);
+  color: var(--accent-fg);
+}
+
+/* paused — 禁用态，pointer-events: none 屏蔽点击 */
+.chat-input-btn--paused-disabled {
+  pointer-events: none;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 输入区背景 — 三态背景过渡 */
+.chat-input-wrap--idle .chat-input {
+  background: var(--surface);
+}
+.chat-input-wrap--running .chat-input,
+.chat-input-wrap--paused .chat-input {
+  background: var(--surface-2);
+}
+
+.chat-input-wrap {
+  transition: background-color var(--dur) var(--ease);
+}
+
+/* 输入框 disabled 时光标和颜色降级 */
+.chat-input:disabled {
+  cursor: not-allowed;
+  color: var(--text-3);
+}

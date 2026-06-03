@@ -5,7 +5,10 @@ import { TopBar } from './components/TopBar/TopBar'
 import { NavIcons } from './components/NavIcons/NavIcons'
 import { NavList } from './components/NavList/NavList'
 import { BranchTree } from './components/BranchTree/BranchTree'
-import { ChatView } from './components/ChatView/ChatView'
+// v0.15.1 节点 1.4：ChatView 已被 ChatViewV2 替代，保留 import 以便快速回滚
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { ChatView as _ChatViewLegacy } from './components/ChatView/ChatView'
+import { ChatViewV2 } from './components/ChatViewV2/ChatViewV2'
 import { DetailPanel } from './components/DetailPanel/DetailPanel'
 import { DecisionInbox } from './components/DecisionInbox/DecisionInbox'
 import { DecisionPanel } from './components/DecisionPanel/DecisionPanel'
@@ -217,7 +220,9 @@ function App() {
         </div>
       </div>
     ) :
-    <ChatView />
+    // v0.15.1 节点 1.4：chat 模式 P3 渲染器替换为 ChatViewV2
+    // ChatView 保留 import 不删，便于回滚（参考 technical.md 关键技术决策 5）
+    <ChatViewV2 />
 
   // v0.6: P4 switches by mode
   const p4Content =

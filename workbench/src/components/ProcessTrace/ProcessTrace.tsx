@@ -192,7 +192,11 @@ export function ProcessTrace({ rounds, interventions, atomId }: AIProcessProps) 
       {/* Layer 1: header toggle */}
       <button
         className="process-trace__header"
-        onClick={toggleProcess}
+        onClick={() => {
+          const nextCollapsed = !processCollapsed
+          toggleProcess()
+          window.api.invoke('write_event_log', { event: { event: 'process_trace_toggled', timestamp: new Date().toISOString(), payload: { collapsed: nextCollapsed } } }).catch(() => {})
+        }}
         aria-expanded={!processCollapsed}
       >
         <span className="process-trace__title">AI 执行过程</span>
@@ -206,14 +210,22 @@ export function ProcessTrace({ rounds, interventions, atomId }: AIProcessProps) 
           <div className="process-trace__group-row">
             <button
               className={`process-trace__group-btn${thinkingGroupCollapsed ? '' : ' process-trace__group-btn--active'}`}
-              onClick={toggleThinkingGroup}
+              onClick={() => {
+                const nextCollapsed = !thinkingGroupCollapsed
+                toggleThinkingGroup()
+                window.api.invoke('write_event_log', { event: { event: 'group_toggle_used', timestamp: new Date().toISOString(), payload: { group: 'thinking', collapsed: nextCollapsed } } }).catch(() => {})
+              }}
               aria-pressed={!thinkingGroupCollapsed}
             >
               🧠 思维链 {thinkingGroupCollapsed ? '▶' : '▼'}
             </button>
             <button
               className={`process-trace__group-btn${toolGroupCollapsed ? '' : ' process-trace__group-btn--active'}`}
-              onClick={toggleToolGroup}
+              onClick={() => {
+                const nextCollapsed = !toolGroupCollapsed
+                toggleToolGroup()
+                window.api.invoke('write_event_log', { event: { event: 'group_toggle_used', timestamp: new Date().toISOString(), payload: { group: 'tool', collapsed: nextCollapsed } } }).catch(() => {})
+              }}
               aria-pressed={!toolGroupCollapsed}
             >
               🔧 工具调用 {toolGroupCollapsed ? '▶' : '▼'}

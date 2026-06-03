@@ -34,6 +34,7 @@ import type { SDKOptions } from '../sdk/SDKBridge'
 import { createRunner } from '../sdk/runnerFactory'
 import type { ServerConfig } from '../sdk/RemoteRunner'
 import type { AgentRunner } from '../sdk/AgentRunner'
+import { readApiKeysFromDisk, findKeyForModel } from '../store/settingsKeys'
 
 // ─── 工作区 cwd 状态（节点 1.4 已接入 electron-store 持久化）─────────────────
 //
@@ -286,21 +287,137 @@ export function registerIpcHandlers(): void {
     } catch { return [] }
   })
 
-  // read_qa_atom: returns QAAtom object
+  // read_qa_atom: returns QAAtom object（meta + question + answer 全字段解析）
+  // v0.15.1 P3 验收修订（2026-06-03，r10）：原 stub 把整文件塞进 answer、meta 全空，
+  // 导致 DetailPanel 渲染空 id / Invalid Date / 整 markdown 作为 answer；
+  // ChatViewV2 仅"巧合"工作（因为 parseAtom 能处理带 frontmatter 的整文件）。
+  // 改为镜像 src-tauri/src/commands/qa_atoms.rs::read_qa_atom：
+  //   - frontmatter 提取 id / prev / children / timestamp / summary / model / usage / context_*
+  //   - body 提取 ## Q / ## A 内容（## Steps / ## Intervention 由 renderer 端 parseAtom 处理）
   ipcMain.handle('read_qa_atom', (_e, args: { filePath: string }) => {
+    const emptyResp = () => ({
+      meta: { id: '', prev: null, children: [], summary: '', timestamp: new Date().toISOString() },
+      question: '',
+      answer: '',
+      raw: '',
+    })
     try {
-      if (fs.existsSync(args.filePath)) {
-        const raw = fs.readFileSync(args.filePath, 'utf-8')
-        // minimal parse: return raw content as answer
-        return { meta: { id: '', prev: null, children: [], summary: '', timestamp: '' }, question: '', answer: raw }
+      if (!fs.existsSync(args.filePath)) return emptyResp()
+      const raw = fs.readFileSync(args.filePath, 'utf-8')
+      const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+      if (!fmMatch) return { ...emptyResp(), answer: raw, raw }
+      const fm = fmMatch[1]
+
+      const fileId = args.filePath.replace(/^.*[\\/]/, '').replace(/\.md$/, '')
+      const scalar = (key: string): string | undefined => {
+        const m = fm.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'))
+        return m ? m[1].trim().replace(/^['"]|['"]$/g, '') : undefined
+      }
+      const num = (key: string): number | undefined => {
+        const v = scalar(key)
+        if (v === undefined) return undefined
+        const n = parseInt(v, 10)
+        return Number.isFinite(n) ? n : undefined
+      }
+      const id = scalar('id') ?? fileId
+      const timestamp = scalar('timestamp') ?? ''
+      const prevRaw = scalar('prev')
+      const prev = (!prevRaw || prevRaw === 'null') ? null : prevRaw
+      const model = scalar('model')
+      const inputTokens = num('input_tokens')
+      const outputTokens = num('output_tokens')
+      const contextTokensUsed = num('context_tokens_used')
+      const contextWindowLimit = num('context_window_limit')
+
+      // children：与 list_qa_atoms 同款解析（多行 - "[[xxx]]" 块优先，回退 inline []）
+      let children: string[] = []
+      const childrenBlock = fm.match(/^children:\s*\n((?:\s+-\s+.+\n?)*)/m)
+      if (childrenBlock) {
+        children = [...childrenBlock[1].matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => `[[${m[1]}]]`)
+      } else {
+        const inlinePart = fm.match(/^children:\s*\[([^\]]*)\]/m)
+        if (inlinePart) {
+          children = inlinePart[1]
+            .split(',')
+            .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
+            .filter(Boolean)
+        }
+      }
+
+      // body：按 ## 顶层切片提取 Q / A
+      const bodyStart = fmMatch[0].length
+      const body = raw.slice(bodyStart).replace(/^\s*\n/, '')
+      const extractSection = (header: 'Q' | 'A'): string => {
+        const re = new RegExp(`(?:^|\\n)## ${header}\\s*\\n([\\s\\S]*?)(?=\\n## [A-Za-z\\u4e00-\\u9fa5]|$)`)
+        const m = body.match(re)
+        return m ? m[1].trim() : ''
+      }
+      const question = extractSection('Q')
+      const answer = extractSection('A')
+      const summary = scalar('summary') ?? question.slice(0, 50)
+
+      const usage = (inputTokens !== undefined && outputTokens !== undefined)
+        ? { input_tokens: inputTokens, output_tokens: outputTokens }
+        : undefined
+
+      return {
+        meta: {
+          id,
+          prev,
+          children,
+          summary,
+          timestamp,
+          ...(model ? { model } : {}),
+          ...(usage ? { usage } : {}),
+          ...(contextTokensUsed !== undefined ? { context_tokens_used: contextTokensUsed } : {}),
+          ...(contextWindowLimit !== undefined ? { context_window_limit: contextWindowLimit } : {}),
+        },
+        question,
+        answer,
+        // raw: 完整文件内容（含 frontmatter），供 renderer 端 parseAtom 解析 ## Steps / ## Intervention
+        raw,
       }
     } catch { /* ignore */ }
-    return { meta: { id: '', prev: null, children: [], summary: '', timestamp: new Date().toISOString() }, question: '', answer: '' }
+    return emptyResp()
   })
 
   // write_qa_atom: args = { filePath: string, atom: object }
-  ipcMain.handle('write_qa_atom', (_e, args: { filePath: string; atom: unknown }) => {
-    void args
+  // v0.15.1 P2 验收修订（2026-06-02）：原 noop stub 导致新对话不落盘 → 重新打开看不到历史。
+  // 实现与 src-tauri/src/commands/qa_atoms.rs::write_qa_atom 等效的原子写入。
+  ipcMain.handle('write_qa_atom', async (_e, args: { filePath: string; atom: {
+    meta: {
+      id: string
+      prev: string | null
+      children: string[]
+      summary?: string
+      timestamp: string
+      model?: string
+      usage?: { input_tokens: number; output_tokens: number }
+      context_tokens_used?: number
+      context_window_limit?: number
+    }
+    question: string
+    answer: string
+  } }) => {
+    const { filePath, atom } = args
+    if (!filePath || !atom?.meta?.id) return null
+    const prevYaml = atom.meta.prev ? `"${atom.meta.prev}"` : 'null'
+    const childrenStr = atom.meta.children && atom.meta.children.length > 0
+      ? `children:\n${atom.meta.children.map((c) => `  - "${c}"`).join('\n')}`
+      : 'children: []'
+    const tokenYaml = atom.meta.usage
+      ? `model: "${atom.meta.model ?? ''}"\ninput_tokens: ${atom.meta.usage.input_tokens}\noutput_tokens: ${atom.meta.usage.output_tokens}\ncontext_tokens_used: ${atom.meta.context_tokens_used ?? 0}\ncontext_window_limit: ${atom.meta.context_window_limit ?? 0}\n`
+      : ''
+    const content = `---\nid: ${atom.meta.id}\nprev: ${prevYaml}\n${childrenStr}\ntimestamp: "${atom.meta.timestamp}"\n${tokenYaml}status: done\n---\n\n## Q\n\n${atom.question}\n\n## A\n\n${atom.answer}\n`
+    // 原子写入：tmp → rename
+    const tmpPath = `${filePath}.tmp`
+    try {
+      await fsp.writeFile(tmpPath, content, 'utf-8')
+      await fsp.rename(tmpPath, filePath)
+    } catch (e) {
+      await fsp.unlink(tmpPath).catch(() => {})
+      throw e
+    }
     return null
   })
 
@@ -343,29 +460,115 @@ export function registerIpcHandlers(): void {
       return projects
     } catch { return [] }
   })
-  ipcMain.handle('create_project', (_e, _args) => ({
-    id: crypto.randomUUID(),
-    name: '',
-    rootBranchId: '',
-    createdAt: new Date().toISOString(),
-    atomIds: [],
-  }))
-  stubOk('add_atom_to_project')
-
-  // ── 分支 ID 生成（stub）──────────────────────────────────────────────────
-  ipcMain.handle('next_branch_id', () => {
-    return String(Date.now()).slice(-4)
+  // create_project: 在 projectsDir 下创建 {name}.md 文件，写入 frontmatter + `## 对话索引` 空 section
+  // v0.15.1 P8 r17：原 stub 不写盘 → renderer 内存里多了个 ProjectMeta 但 list_projects 下次重读发现不到，
+  // 且后续 add_atom_to_project（同样 stub noop）无法把新 atom 追加进 `## 对话索引`，导致：
+  //   ① 新建项目后画布空白；② 老项目里"在工作台里发起"的新对话也无法被项目过滤到 → 「有的项目画布没显示节点」。
+  // 实现镜像 src-tauri/src/commands/projects.rs::create_project（保留与历史项目文件相同的 frontmatter 形态）。
+  // args: { projectsDir: string; name: string }
+  ipcMain.handle('create_project', async (_e, args: { projectsDir: string; name: string }) => {
+    const projectsDir = args?.projectsDir
+    const rawName = args?.name ?? ''
+    const name = rawName.trim()
+    if (!projectsDir) throw new Error('projectsDir 不能为空')
+    if (!name) throw new Error('项目名称不能为空')
+    // 确保目录存在
+    await fsp.mkdir(projectsDir, { recursive: true }).catch(() => {})
+    const filePath = join(projectsDir, `${name}.md`)
+    if (fs.existsSync(filePath)) {
+      throw new Error(`项目「${name}」已存在`)
+    }
+    const id = `proj-${Date.now()}`
+    const createdAt = new Date().toISOString()
+    // 与历史项目文件格式保持一致：frontmatter 后空行 + `## 对话索引` + 空行（后续 add 时追加）
+    const content = `---\nid: ${id}\nname: ${name}\nrootBranchId: ""\ncreatedAt: ${createdAt}\n---\n\n## 对话索引\n\n`
+    const tmpPath = `${filePath}.tmp-${process.pid}`
+    await fsp.writeFile(tmpPath, content, 'utf-8')
+    await fsp.rename(tmpPath, filePath)
+    return {
+      id,
+      name,
+      rootBranchId: '',
+      createdAt,
+      atomIds: [],
+    }
   })
 
-  // ── AI 流式对话（原 stub 保留兼容，Phase 2 通过 agent:start/stop 接入）────
-  stubOk('stream_ai')
-  stubOk('cancel_stream')
-  stubOk('execute_tool', '')
+  // add_atom_to_project: 在 projectName.md 的 `## 对话索引` section 追加 `- [[ atomId ]]`
+  // v0.15.1 P8 r17：原 stubOk noop → 新对话发送后项目文件不更新，BranchTree 按 proj.atomIds 过滤就把新 atom 全部排除。
+  // 实现镜像 src-tauri/src/commands/projects.rs::add_atom_to_project，包括"已存在则跳过"去重。
+  // args: { projectsDir: string; projectName: string; atomId: string }
+  ipcMain.handle('add_atom_to_project', async (_e, args: { projectsDir: string; projectName: string; atomId: string }) => {
+    const { projectsDir, projectName, atomId } = args ?? {}
+    if (!projectsDir || !projectName || !atomId) return null
+    const filePath = join(projectsDir, `${projectName}.md`)
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`项目文件不存在: ${projectName}`)
+    }
+    const existing = await fsp.readFile(filePath, 'utf-8')
+    // 去重：任意一行已含 [[atomId]]（trim 兼容 `- [[ id ]]` 与 `- [[id]]` 两种历史写法）
+    const alreadyExists = existing.split(/\r?\n/).some((line) => {
+      const m = line.match(/\[\[([^\]]+)\]\]/)
+      return m ? m[1].trim() === atomId : false
+    })
+    if (alreadyExists) return null
+    // 与历史项目文件一致的格式：`- [[ atomId ]]\n`
+    const appendLine = `- [[ ${atomId} ]]\n`
+    // 简单 append（项目文件天然以 `## 对话索引\n\n` 结尾 / 或上一条 list item 换行结尾）
+    const next = existing.endsWith('\n') ? existing + appendLine : existing + '\n' + appendLine
+    const tmpPath = `${filePath}.tmp-${process.pid}`
+    await fsp.writeFile(tmpPath, next, 'utf-8')
+    await fsp.rename(tmpPath, filePath)
+    return null
+  })
 
-  // ── agent:start（节点 2.1 + 2.6 + 6.4）──────────────────────────────────
+  // ── 分支 ID 生成 ────────────────────────────────────────────────────────
+  // v0.15.1 P8 r17：原 stub `String(Date.now()).slice(-4)` 是个随机 4 位数（毫秒尾数），
+  // 直接破坏了 v0.14 起的 `{branchId}-{NNN}-{YYYYMMDD}-{HHMMSS}` 顺序契约——
+  // 用户从工作台发起新对话，QA 目录里就会冒出 `1367-`、`6034-`、`7289-` 这种乱序前缀，
+  // 既无法定位"第几次对话"，也让原本的 +1 单调性消失。
+  // 实现镜像 src-tauri/src/commands/qa_atoms.rs::next_branch_id：扫描 qaDir 下所有 `.md` 文件，
+  // 按文件名首段（`-` 前）解析为 4 位整数，取 max + 1 后零填充到 4 位返回。
+  // args: { qaDir: string }
+  ipcMain.handle('next_branch_id', async (_e, args: { qaDir: string }) => {
+    const dir = args?.qaDir
+    if (!dir) return '0001'
+    try {
+      const files = await fsp.readdir(dir).catch(() => [] as string[])
+      let max = 0
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue
+        const head = file.split('-')[0]
+        const n = parseInt(head, 10)
+        if (Number.isFinite(n) && n > max) max = n
+      }
+      return String(max + 1).padStart(4, '0')
+    } catch {
+      return '0001'
+    }
+  })
+
+  // ── AI 流式对话：v0.15.1 P4 r13 整体撤除 stream_ai / cancel_stream / execute_tool
+  // 替代路径：agent:start / agent:stop / agent:pause / agent:resume + agent:event
+  // 旧 IPC 名保留为显式 throw，防止 renderer 漏改后悄悄走 stubOk noop 黑洞
+  ipcMain.handle('stream_ai', () => {
+    throw new Error('stream_ai retired in v0.15.1 P4 — use window.api.agent.start()')
+  })
+  ipcMain.handle('cancel_stream', () => {
+    throw new Error('cancel_stream retired in v0.15.1 P4 — use window.api.agent.stop()')
+  })
+  ipcMain.handle('execute_tool', () => {
+    throw new Error('execute_tool retired in v0.15.1 P4 — tools handled by SDK directly')
+  })
+
+  // ── agent:start（节点 2.1 + 2.6 + 6.4，v0.15.1 P5 r14 注入 apiKey）──────
   // 根据 location 选择 LocalRunner（本地）或 RemoteRunner（服务器）。
-  // args: { prompt, options?, location?, serverConfig? }
-  // 启动为异步后台任务，立即返回 null；进度事件通过 'agent:event' IPC 推送。
+  // args: { prompt, options?, model?, location?, serverConfig? }
+  //
+  // r14：renderer 把当前选中的 model 传过来，main 进程按 model 反查 settings.apiKeys，
+  // 把命中的 apiKey + baseUrl 透传给 SDKBridge（再注入到 claude CLI 子进程的 env）。
+  // 反查失败（apiKeys 为空）时直接 push 一个清晰的 error 事件到 renderer，不抛异常，
+  // 让 ChatViewV2 错误区显示「请先在设置中配置 API Key」。
   ipcMain.handle(
     'agent:start',
     async (
@@ -373,6 +576,7 @@ export function registerIpcHandlers(): void {
       args: {
         prompt: string
         options?: SDKOptions
+        model?: string
         location?: 'local' | 'remote'
         serverConfig?: ServerConfig
       }
@@ -391,6 +595,41 @@ export function registerIpcHandlers(): void {
         _activeRunners.delete(webContentsId)
       }
 
+      // ─── r14：按 model 从 settings.apiKeys 反查 apiKey + baseUrl ─────────
+      // 本地路径（location !== 'remote'）才需要注入 API key；远程路径走服务器侧鉴权。
+      const effectiveOptions: SDKOptions = { ...(args.options ?? {}) }
+      if ((args.location ?? 'local') === 'local') {
+        const apiKeys = readApiKeysFromDisk()
+        if (apiKeys.length === 0) {
+          // 没有任何配置 — 立即广播错误，不启动 runner
+          if (!win.isDestroyed()) {
+            win.webContents.send('agent:event', {
+              type: 'error',
+              message: '请先在设置中配置 API Key（ActivityBar → 设置 → API Keys）',
+            })
+          }
+          return null
+        }
+        const model = args.model ?? ''
+        const keyEntry = findKeyForModel(apiKeys, model)
+        if (!keyEntry) {
+          // 极端情况：apiKeys 非空但 findKeyForModel 兜底也没命中（逻辑上不该发生）
+          if (!win.isDestroyed()) {
+            win.webContents.send('agent:event', {
+              type: 'error',
+              message: `未找到 model "${model}" 对应的 API Key 配置，请检查设置`,
+            })
+          }
+          return null
+        }
+        // 注入：renderer 已通过 useChatSend 把 keyEntry.baseUrl 放进 options.baseUrl，
+        // 这里以反查结果为准（覆盖 renderer 端可能的过期值），保持单一真源
+        effectiveOptions.apiKey = keyEntry.key
+        if (keyEntry.baseUrl && keyEntry.baseUrl.length > 0) {
+          effectiveOptions.baseUrl = keyEntry.baseUrl
+        }
+      }
+
       const runner = createRunner(
         args.location ?? 'local',
         win,
@@ -400,7 +639,7 @@ export function registerIpcHandlers(): void {
 
       // 异步启动，不 await（事件通过 IPC 推送到 renderer）
       runner
-        .start(args.prompt, args.options ?? {})
+        .start(args.prompt, effectiveOptions)
         .catch((err: unknown) => {
           const errMsg = err instanceof Error ? err.message : String(err)
           if (!win.isDestroyed()) {

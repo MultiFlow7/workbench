@@ -108,14 +108,20 @@ const api = {
         permissionMode?: 'auto' | 'manual'
         allowedTools?: string[]
         baseUrl?: string
+        /**
+         * v0.15.1 P5 r14：当前选中的 model 名，main 进程据此从 settings.apiKeys 反查
+         * apiKey + baseUrl 注入到 SDKBridge env。
+         */
+        model?: string
         location?: 'local' | 'remote'
         serverConfig?: { url: string; token: string }
       }
     ): Promise<null> => {
-      const { location, serverConfig, ...sdkOptions } = options ?? {}
+      const { location, serverConfig, model, ...sdkOptions } = options ?? {}
       return ipcRenderer.invoke('agent:start', {
         prompt,
         options: sdkOptions,
+        model,
         location,
         serverConfig,
       }) as Promise<null>

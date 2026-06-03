@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../../store'
 import { StoredApiKey } from '../../store/settingsSlice'
 import { ServerConfig } from '../ServerConfig/ServerConfig'
+import { ThemeToggleButton } from './ThemeToggleButton'
 import './NavIcons.css'
 
 const MODES = [
@@ -271,6 +272,12 @@ export function NavIcons() {
   return (
     <nav className="nav-icons">
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+
+      {/* v0.15.1 P2 验收修订（2026-06-02）：移除顶部 ServerStatusButton
+          - 服务器状态信息密度低，按钮和模式组并排造成识别噪音
+          - 服务器配置入口由底部 settings 按钮承担（SettingsPanel 内嵌 <ServerConfig />）
+          - ServerStatusButton.tsx 文件保留（避免破坏现有测试，无外部引用） */}
+
       <div className="nav-icons__modes">
         {MODES.map(({ id, icon, label, enabled }) => (
           <button
@@ -341,10 +348,9 @@ export function NavIcons() {
       </div>
 
       <div className="nav-icons__bottom">
-        <div className="status-pill server">
-          <span className="dot" />
-          在线
-        </div>
+        {/* v0.15.1 节点 3.1: 移除原 .status-pill.server（硬编码"在线"文案，与状态脱钩），改由顶部 ServerStatusButton 承载 */}
+        {/* v0.15.1 节点 3.3: 底部 theme + settings 两个独立按钮（theme 在上、settings 在下） */}
+        <ThemeToggleButton />
         <button
           className="nav-icon-btn"
           title="设置"
