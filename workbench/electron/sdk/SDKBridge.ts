@@ -36,6 +36,12 @@ export interface SDKOptions {
   allowedTools?: string[]
   /** 节点 2.2 注入点：覆盖 Anthropic API Base URL */
   baseUrl?: string
+  /**
+   * v0.15.1 P5 r14：覆盖 ANTHROPIC_API_KEY 环境变量。
+   * 由 agent:start handler 按 model 从 settings.apiKeys 反查后注入。
+   * 没传时维持 process.env.ANTHROPIC_API_KEY（兼容用户在 shell 里手动 export 的场景）。
+   */
+  apiKey?: string
 }
 
 /** agent:event IPC 事件的联合类型（renderer 侧 agentEventDispatcher 使用） */
@@ -97,6 +103,12 @@ export class SDKBridge {
       if (v !== undefined) env[k] = v
     }
     if (baseUrl) env['ANTHROPIC_BASE_URL'] = baseUrl
+    // v0.15.1 P5 r14：注入 API key。claude CLI 子进程不继承 renderer 的 settings.apiKeys，
+    // 必须显式通过 env 传递。优先用 options.apiKey（agent:start handler 已按 model 反查），
+    // 否则保持 process.env.ANTHROPIC_API_KEY（兼容 shell export 场景）。
+    if (options.apiKey && options.apiKey.length > 0) {
+      env['ANTHROPIC_API_KEY'] = options.apiKey
+    }
 
     const sdk = await getSdk()
 

@@ -291,6 +291,10 @@ function _handleEvent(event: AgentEvent): void {
         store.setAtomDone(atomId)
         store.clearStreamingText(atomId)
       }
+      // v0.15.1 P5 r14：保留具体错误消息，让 ChatViewV2 错误区展示真因（如「请先配置 API Key」）
+      // setLastErrorMessage 必须在 setStreamingState('error') 之前/之后调用都安全 —
+      // setStreamingState('error') 不会清掉 lastErrorMessage（见 conversationSlice）
+      store.setLastErrorMessage(event.message || null)
       store.setStreamingState('error')
       _activeAtomId = null
       _currentRoundIndex = 0

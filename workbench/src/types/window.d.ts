@@ -33,6 +33,11 @@ interface WindowApiAgentOptions {
   allowedTools?: string[]
   /** 覆盖 Anthropic API Base URL（节点 2.2） */
   baseUrl?: string
+  /**
+   * v0.15.1 P5 r14：当前选中的 model 名（如 'claude-sonnet-4-5'）。
+   * main 进程据此从 settings.apiKeys 反查 apiKey + baseUrl 注入到 SDKBridge env。
+   */
+  model?: string
   /** 部署位置：local（默认）或 remote（节点 6.4） */
   location?: 'local' | 'remote'
   /** 远程服务器配置（location === 'remote' 时必填，节点 6.4） */

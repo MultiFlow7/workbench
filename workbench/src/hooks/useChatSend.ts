@@ -327,12 +327,15 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
 
     window.api.invoke('write_event_log', { event: { event: 'message_sent', timestamp: new Date().toISOString(), payload: { path_length: currentPath.length, model } } }).catch(() => {})
 
-    // 选择 provider key 的 baseUrl（覆盖 electron-store 默认 anthropicBaseUrl）
+    // 选择 provider key 的 baseUrl（main 进程 r14 反查会覆盖，这里仍传作为冗余/提示）
     const keyEntry = findKeyForModel(apiKeys, model)
     const baseUrl = keyEntry?.baseUrl
 
+    // v0.15.1 P5 r14：把 model 透传给 main，让 main 进程按 model 反查 settings.apiKeys
+    // 注入 ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL 到 SDKBridge env。
     window.api.agent
       .start(promptString, {
+        model,
         ...(baseUrl ? { baseUrl } : {}),
       })
       .catch((err: unknown) => {

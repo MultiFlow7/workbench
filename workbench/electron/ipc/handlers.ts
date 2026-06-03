@@ -34,6 +34,7 @@ import type { SDKOptions } from '../sdk/SDKBridge'
 import { createRunner } from '../sdk/runnerFactory'
 import type { ServerConfig } from '../sdk/RemoteRunner'
 import type { AgentRunner } from '../sdk/AgentRunner'
+import { readApiKeysFromDisk, findKeyForModel } from '../store/settingsKeys'
 
 // ─── 工作区 cwd 状态（节点 1.4 已接入 electron-store 持久化）─────────────────
 //
@@ -486,10 +487,14 @@ export function registerIpcHandlers(): void {
     throw new Error('execute_tool retired in v0.15.1 P4 — tools handled by SDK directly')
   })
 
-  // ── agent:start（节点 2.1 + 2.6 + 6.4）──────────────────────────────────
+  // ── agent:start（节点 2.1 + 2.6 + 6.4，v0.15.1 P5 r14 注入 apiKey）──────
   // 根据 location 选择 LocalRunner（本地）或 RemoteRunner（服务器）。
-  // args: { prompt, options?, location?, serverConfig? }
-  // 启动为异步后台任务，立即返回 null；进度事件通过 'agent:event' IPC 推送。
+  // args: { prompt, options?, model?, location?, serverConfig? }
+  //
+  // r14：renderer 把当前选中的 model 传过来，main 进程按 model 反查 settings.apiKeys，
+  // 把命中的 apiKey + baseUrl 透传给 SDKBridge（再注入到 claude CLI 子进程的 env）。
+  // 反查失败（apiKeys 为空）时直接 push 一个清晰的 error 事件到 renderer，不抛异常，
+  // 让 ChatViewV2 错误区显示「请先在设置中配置 API Key」。
   ipcMain.handle(
     'agent:start',
     async (
@@ -497,6 +502,7 @@ export function registerIpcHandlers(): void {
       args: {
         prompt: string
         options?: SDKOptions
+        model?: string
         location?: 'local' | 'remote'
         serverConfig?: ServerConfig
       }
@@ -515,6 +521,41 @@ export function registerIpcHandlers(): void {
         _activeRunners.delete(webContentsId)
       }
 
+      // ─── r14：按 model 从 settings.apiKeys 反查 apiKey + baseUrl ─────────
+      // 本地路径（location !== 'remote'）才需要注入 API key；远程路径走服务器侧鉴权。
+      const effectiveOptions: SDKOptions = { ...(args.options ?? {}) }
+      if ((args.location ?? 'local') === 'local') {
+        const apiKeys = readApiKeysFromDisk()
+        if (apiKeys.length === 0) {
+          // 没有任何配置 — 立即广播错误，不启动 runner
+          if (!win.isDestroyed()) {
+            win.webContents.send('agent:event', {
+              type: 'error',
+              message: '请先在设置中配置 API Key（ActivityBar → 设置 → API Keys）',
+            })
+          }
+          return null
+        }
+        const model = args.model ?? ''
+        const keyEntry = findKeyForModel(apiKeys, model)
+        if (!keyEntry) {
+          // 极端情况：apiKeys 非空但 findKeyForModel 兜底也没命中（逻辑上不该发生）
+          if (!win.isDestroyed()) {
+            win.webContents.send('agent:event', {
+              type: 'error',
+              message: `未找到 model "${model}" 对应的 API Key 配置，请检查设置`,
+            })
+          }
+          return null
+        }
+        // 注入：renderer 已通过 useChatSend 把 keyEntry.baseUrl 放进 options.baseUrl，
+        // 这里以反查结果为准（覆盖 renderer 端可能的过期值），保持单一真源
+        effectiveOptions.apiKey = keyEntry.key
+        if (keyEntry.baseUrl && keyEntry.baseUrl.length > 0) {
+          effectiveOptions.baseUrl = keyEntry.baseUrl
+        }
+      }
+
       const runner = createRunner(
         args.location ?? 'local',
         win,
@@ -524,7 +565,7 @@ export function registerIpcHandlers(): void {
 
       // 异步启动，不 await（事件通过 IPC 推送到 renderer）
       runner
-        .start(args.prompt, args.options ?? {})
+        .start(args.prompt, effectiveOptions)
         .catch((err: unknown) => {
           const errMsg = err instanceof Error ? err.message : String(err)
           if (!win.isDestroyed()) {

@@ -39,6 +39,11 @@ export interface ConversationSlice {
   selectedAtomId: string | null
   currentPath: QAAtomMeta[]
   streamingState: 'idle' | 'streaming' | 'cancelled' | 'error' | 'paused'
+  /**
+   * v0.15.1 P5 r14：error 状态下的具体错误消息（来自 agent:event { type:'error', message }）。
+   * ChatViewV2 错误区优先显示这条具体消息，否则回退到「请检查网络或 API Key」兜底文案。
+   */
+  lastErrorMessage: string | null
   projects: ProjectMeta[]
   selectedProjectId: string | null
   // v0.2 新增
@@ -51,6 +56,8 @@ export interface ConversationSlice {
   selectAtom: (id: string) => void
   appendAtom: (atom: QAAtomMeta) => void
   setStreamingState: (s: 'idle' | 'streaming' | 'cancelled' | 'error' | 'paused') => void
+  /** v0.15.1 P5 r14：写入具体错误消息（与 setStreamingState('error') 配对使用） */
+  setLastErrorMessage: (msg: string | null) => void
   loadProjects: () => Promise<void>
   createProject: (name: string) => Promise<void>
   addAtomToProject: (projectName: string, atomId: string) => Promise<void>
@@ -73,6 +80,7 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
   selectedAtomId: null,
   currentPath: [],
   streamingState: 'idle',
+  lastErrorMessage: null,
   projects: [],
   selectedProjectId: null,
   // v0.2 初始值
@@ -120,7 +128,13 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
       atoms: { ...state.atoms, [atom.id]: atom },
     })),
 
-  setStreamingState: (s) => set({ streamingState: s }),
+  setStreamingState: (s) =>
+    set((state) => ({
+      streamingState: s,
+      // 进入 idle / streaming / paused 时清除上一次错误，避免错误条残留
+      lastErrorMessage: s === 'error' ? state.lastErrorMessage : null,
+    })),
+  setLastErrorMessage: (msg) => set({ lastErrorMessage: msg }),
 
   loadProjects: async () => {
     const list = await window.api.invoke<ProjectMeta[]>('list_projects', {

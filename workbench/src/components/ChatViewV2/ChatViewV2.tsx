@@ -42,6 +42,7 @@ export function ChatViewV2() {
   const selectedAtomId = useStore((s) => s.selectedAtomId)
   const streamingState = useStore((s) => s.streamingState)
   const setStreamingState = useStore((s) => s.setStreamingState)
+  const lastErrorMessage = useStore((s) => s.lastErrorMessage)
   const streamingAtoms = useStore((s) => s.streamingAtoms)
   const streamingTexts = useStore((s) => s.streamingTexts)
   const liveRounds = useStore((s) => s.liveRounds)
@@ -163,7 +164,11 @@ export function ChatViewV2() {
 
         {streamingState === 'error' && (
           <div className="chat-error">
-            请求失败：请检查网络或 API Key
+            {/* v0.15.1 P5 r14：优先显示 main 进程下发的具体错误（如「请先配置 API Key」），
+                兜底回退到通用文案 */}
+            {lastErrorMessage && lastErrorMessage.length > 0
+              ? `请求失败：${lastErrorMessage}`
+              : '请求失败：请检查网络或 API Key'}
             <button onClick={() => setStreamingState('idle')}>关闭</button>
           </div>
         )}
