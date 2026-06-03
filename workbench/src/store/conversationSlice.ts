@@ -52,9 +52,24 @@ export interface ConversationSlice {
   // v0.14 req-051: 并发流状态
   streamingAtoms: Set<string>
   streamingTexts: Map<string, string>
+  /**
+   * v0.15.1 P7（r16）：atom 落盘版本号。每次 dispatcher `_flushAtomToDisk`
+   * 成功后递增对应 atom 的版本号，触发 useChatSend 的 atomEntries 重载，让
+   * 末位 atom 从「流式 streamingTexts」平滑切换到「磁盘 parsed.response」。
+   */
+  atomDiskRevisions: Record<string, number>
   loadAtoms: () => Promise<void>
   selectAtom: (id: string) => void
   appendAtom: (atom: QAAtomMeta) => void
+  /**
+   * v0.15.1 P7（r16）：把新 atom 追加到 `currentPath` 末尾（仅当其 prev 与
+   * 当前 path 末位匹配 / 或 path 为空 + prev=null）。`appendAtom` 仅写入
+   * `atoms` 字典，不更新 path —— 流式发送时若不显式扩展 path，
+   * `useChatSend` useEffect 不会重载 atomEntries，导致新节点流式期间无法
+   * 在 P3 渲染（详见 v0.15.1 P7 复盘）。
+   */
+  extendCurrentPath: (atom: QAAtomMeta) => void
+  bumpAtomDiskRevision: (atomId: string) => void
   setStreamingState: (s: 'idle' | 'streaming' | 'cancelled' | 'error' | 'paused') => void
   /** v0.15.1 P5 r14：写入具体错误消息（与 setStreamingState('error') 配对使用） */
   setLastErrorMessage: (msg: string | null) => void
@@ -89,6 +104,8 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
   // v0.14 req-051 初始值
   streamingAtoms: new Set<string>(),
   streamingTexts: new Map<string, string>(),
+  // v0.15.1 P7（r16）初始值
+  atomDiskRevisions: {},
 
   loadAtoms: async () => {
     const list = await window.api.invoke<QAAtomMeta[]>('list_qa_atoms', {
@@ -126,6 +143,34 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
   appendAtom: (atom) =>
     set((state) => ({
       atoms: { ...state.atoms, [atom.id]: atom },
+    })),
+
+  // v0.15.1 P7（r16）：扩展 currentPath，让流式新节点立即出现在 P3 渲染队列。
+  // 只在 atom.prev 与 path 末位匹配 / 或 path 为空 + prev=null 时追加，避免错配。
+  extendCurrentPath: (atom) =>
+    set((state) => {
+      const stripWiki = (s: string | null | undefined) =>
+        s ? s.trim().replace(/^\[\[|\]\]$/g, '') : null
+      const tail = state.currentPath[state.currentPath.length - 1]
+      const atomPrevId = stripWiki(atom.prev)
+      const matchesTail = tail
+        ? atomPrevId === tail.id
+        : atomPrevId === null
+      if (!matchesTail) return {}
+      // 已在 path 中则不重复追加
+      if (state.currentPath.some((m) => m.id === atom.id)) return {}
+      return {
+        currentPath: [...state.currentPath, atom],
+        selectedAtomId: atom.id,
+      }
+    }),
+
+  bumpAtomDiskRevision: (atomId) =>
+    set((state) => ({
+      atomDiskRevisions: {
+        ...state.atomDiskRevisions,
+        [atomId]: (state.atomDiskRevisions[atomId] ?? 0) + 1,
+      },
     })),
 
   setStreamingState: (s) =>

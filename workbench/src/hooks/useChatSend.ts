@@ -109,6 +109,7 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
   const currentPath = useStore((s) => s.currentPath)
   const setStreamingState = useStore((s) => s.setStreamingState)
   const appendAtom = useStore((s) => s.appendAtom)
+  const extendCurrentPath = useStore((s) => s.extendCurrentPath)
   const selectAtom = useStore((s) => s.selectAtom)
   const addAtomToProject = useStore((s) => s.addAtomToProject)
   const setIsUserInputting = useStore((s) => s.setIsUserInputting)
@@ -120,6 +121,9 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
   const expandedInput = useStore((s) => s.expandedInput)
   const setExpandedInput = useStore((s) => s.setExpandedInput)
   const selectedAtomId = useStore((s) => s.selectedAtomId)
+  // v0.15.1 P7（r16）：流式结束后 dispatcher bump 对应 atom 版本号，
+  // useEffect 监听该字典变化触发 atomEntries 重载（从磁盘读到最终答案）。
+  const atomDiskRevisions = useStore((s) => s.atomDiskRevisions)
 
   const DEFAULT_MODELS = [
     'claude-sonnet-4-6',
@@ -183,7 +187,12 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
       })
       .catch((e) => console.error('[useChatSend] load atoms error:', e))
     return () => { cancelled = true }
-  }, [currentPath])
+    // v0.15.1 P7（r16）：依赖加上 atomDiskRevisions 的相关 atom 版本汇总，
+    // dispatcher 落盘后 bump 版本号 → 触发 effect 重跑 → 读到最终答案，
+    // 解决「AI 回复一闪而过又消失」（流式 streamingTexts 清空后 atomEntries 未更新）。
+    // 用 path 内每个 atom 的版本号串联，避免无关 atom bump 触发重读。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPath, currentPath.map((m) => atomDiskRevisions[m.id] ?? 0).join(',')])
 
   // v0.15.1 P4 r13：旧的 ai-* 事件监听整块删除。
   // agent:event 由 src/main.tsx::initAgentEventDispatcher 统一接管，映射到
@@ -303,6 +312,10 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
       timestamp: new Date().toISOString(),
     }
     appendAtom(placeholderMeta)
+    // v0.15.1 P7（r16）：扩展 currentPath，让新节点立即进入 atomEntries 渲染队列。
+    // 否则 ChatViewV2 只渲染 atomEntries（来自 currentPath），新流式节点永远不显示，
+    // 用户表现为「P2 节点显示运行中、P3 无变化、AI 回复一闪而过又消失」。
+    extendCurrentPath(placeholderMeta)
     setAtomStreaming(newAtomId)
     setStreamingState('streaming')
 
@@ -345,7 +358,7 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
         dispatcherSetActiveAtomId(null)
         activeStreamAtomIdRef.current = null
       })
-  }, [expandedInput, currentPath, atomEntries, selectedProjectId, projects, appendAtom, setAtomStreaming,
+  }, [expandedInput, currentPath, atomEntries, selectedProjectId, projects, appendAtom, extendCurrentPath, setAtomStreaming,
       addAtomToProject, setExpandedInput, buildSystemPrompt,
       apiKeys, model, setStreamingState, clearPendingEvents, setIsUserInputting, opts])
 
