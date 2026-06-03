@@ -2,11 +2,11 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: ["**"]
   pull_request:
     branches:
       - main
+      - feature/v0.15-agent-foundation
 
 jobs:
   ci:
@@ -42,13 +42,10 @@ jobs:
             node-modules-${{ runner.os }}-
 
       - name: Install dependencies
-        working-directory: workbench
         run: pnpm install --frozen-lockfile
 
       - name: TypeScript type check
-        working-directory: workbench
         run: npx tsc --noEmit
 
       - name: Run unit tests
-        working-directory: workbench
         run: npx vitest run
