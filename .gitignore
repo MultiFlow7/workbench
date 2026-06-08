@@ -54,4 +54,8 @@ requirements/
 CLAUDE.md
 prototype.html
 project-intro.html
+prototype-v0.15.html
+decision-compare.html
+ui-compare.html
+v0151-decision-compare.html
 workbench/src-tauri/.env
