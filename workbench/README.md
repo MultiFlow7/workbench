@@ -1,18 +1,18 @@
 # workbench — 桌面前端
 
-Tauri v2 + React 19 + TypeScript 桌面应用，工作台的用户界面层。
+Electron 33 + React + electron-vite 4 + Claude Code SDK 桌面应用，工作台的用户界面层。
 
 ## 本地开发
 
 ```bash
-npm install
-npm run tauri dev
+pnpm install
+pnpm dev
 ```
 
 ## 构建
 
 ```bash
-npm run tauri build
+pnpm build
 ```
 
 ## 依赖服务
@@ -23,3 +23,21 @@ npm run tauri build
 - `ai-service/` — Python AI 服务，默认端口 `:8000`
 
 完整启动说明见项目根目录 [README](../README.md)。
+
+## First Launch · Vault Configuration
+
+首次启动时，应用会自动在用户主目录下创建默认 vault：
+
+```
+~/Workbench-Vault/
+├── QA/         # 问答类笔记
+└── Projects/   # 项目类笔记
+```
+
+**Vault 结构约定**：根目录下固定包含 `QA/` 和 `Projects/` 两个子目录，应用读写均基于此约定。
+
+**Fallback 路径**：如果 `~/Workbench-Vault` 创建失败（例如权限问题或主目录不可写），应用会自动 fallback 到 Electron `userData` 目录下的 `Workbench-Vault/`（macOS 通常为 `~/Library/Application Support/workbench/Workbench-Vault/`），保证首次启动始终能拿到一个可用 vault。
+
+**重新配置 Vault 路径**：可通过 Settings 重新配置 vault 路径。配置变更后立即生效，原有 vault 内容不会自动迁移。
+
+**dev 环境 `.env.local` 兼容**：如果开发者本地 `.env.local` 中存在历史的 `VITE_VAULT_ROOT` / `VITE_VAULT_QA_PATH` / `VITE_VAULT_PROJECTS_PATH` 配置，首次启动时会一次性迁移到 electron-store 持久化存储中，并在控制台输出弃用警告。后续重启不再读取 `.env.local` 中的 vault 配置——请通过 Settings 管理。
