@@ -1,12 +1,19 @@
 /**
- * VaultConfig · v0.16 节点 R-4
+ * VaultConfig · v0.16 (QA 阶段重塑)
  *
- * Settings 视图「Vault 配置」分区（置顶第一项）。
- * - vaultRoot 输入框 + 「选择文件夹」按钮（vault:pick-folder IPC）
- * - qaSubdir / projectsSubdir 输入框（支持相对名或绝对路径）
- * - 「检测路径有效性」按钮（window.api.fsExists）
- * - 「保存」按钮（vault:set-config IPC，触发广播）
- * - fallback warning bar（vaultFallbackInfo.used 时显示）
+ * NavIcons SettingsPanel overlay 内首分区。
+ * 用户决策 (2026-06-08)：
+ *   1. R-4 独立 SettingsView P3 视图撤销 → 改塞进既有 overlay
+ *   2. QA / Projects 子目录字段砍掉（用户不会调） → 仅暴露 vault 根目录
+ *      hardcode 默认值 'QA' / 'Projects' 写在 vaultStore 默认值层，UI 不再展示。
+ *
+ * 保留：
+ *   - vaultRoot 输入框 + 「选择文件夹」按钮
+ *   - 「检测路径有效性」按钮（只验 vault 根目录可读性）
+ *   - 「保存」按钮（vault:set-config IPC，触发广播）
+ *   - fallback warning bar（vaultFallbackInfo.used 时显示）
+ *
+ * 样式：复用 SettingsPanel overlay 的 .settings-panel__* 类，融入 overlay 风格。
  */
 
 import { useState, useEffect } from 'react'
@@ -25,8 +32,6 @@ export function VaultConfig() {
   const fallback = useStore((s) => s.vaultFallbackInfo)
 
   const [vaultRoot, setVaultRoot] = useState(config?.vaultRoot ?? '')
-  const [qaSubdir, setQaSubdir] = useState(config?.qaSubdir ?? 'QA')
-  const [projectsSubdir, setProjectsSubdir] = useState(config?.projectsSubdir ?? 'Projects')
   const [formError, setFormError] = useState<string | null>(null)
   const [validating, setValidating] = useState(false)
   const [validateResult, setValidateResult] = useState<string | null>(null)
@@ -37,8 +42,6 @@ export function VaultConfig() {
   useEffect(() => {
     if (config) {
       setVaultRoot(config.vaultRoot)
-      setQaSubdir(config.qaSubdir)
-      setProjectsSubdir(config.projectsSubdir)
     }
   }, [config])
 
@@ -54,9 +57,9 @@ export function VaultConfig() {
   }
 
   function validateForm(): string | null {
-    if (!vaultRoot.trim()) return 'Vault 根目录不能为空'
-    if (qaSubdir.includes('..')) return 'QA 子目录不能含 ".." 段'
-    if (projectsSubdir.includes('..')) return 'Projects 子目录不能含 ".." 段'
+    const trimmed = vaultRoot.trim()
+    if (!trimmed) return 'Vault 根目录不能为空'
+    if (!isAbsolutePath(trimmed)) return 'Vault 根目录必须是绝对路径'
     return null
   }
 
@@ -69,21 +72,8 @@ export function VaultConfig() {
     setValidating(true)
     setValidateResult(null)
     try {
-      const qaDir = isAbsolutePath(qaSubdir) ? qaSubdir : `${vaultRoot}/${qaSubdir}`
-      const projDir = isAbsolutePath(projectsSubdir)
-        ? projectsSubdir
-        : `${vaultRoot}/${projectsSubdir}`
-      const targets = [
-        { label: 'Vault 根目录', path: vaultRoot },
-        { label: 'QA 目录', path: qaDir },
-        { label: 'Projects 目录', path: projDir },
-      ]
-      const results: string[] = []
-      for (const t of targets) {
-        const exists = await window.api.fsExists(t.path)
-        results.push(`${exists ? '✓' : '✗'} ${t.label}：${t.path}`)
-      }
-      setValidateResult(results.join('\n'))
+      const exists = await window.api.fsExists(vaultRoot.trim())
+      setValidateResult(`${exists ? '✓' : '✗'} Vault 根目录：${vaultRoot.trim()}`)
     } catch (e) {
       setValidateResult(`检测失败：${String(e)}`)
     } finally {
@@ -102,10 +92,9 @@ export function VaultConfig() {
     setSaving(true)
     setSaveOk(false)
     try {
+      // QA / Projects 子目录不再暴露给用户，保持 store 既有值（默认 'QA' / 'Projects'）
       await useStore.getState().setVaultConfig({
         vaultRoot: vaultRoot.trim(),
-        qaSubdir: qaSubdir.trim() || 'QA',
-        projectsSubdir: projectsSubdir.trim() || 'Projects',
       })
       setSaveOk(true)
     } catch (e) {
@@ -116,123 +105,98 @@ export function VaultConfig() {
   }
 
   return (
-    <section id="settings-section-vault" className="settings-section vault-config">
-      <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Vault 配置</h2>
+    <div
+      id="settings-section-vault"
+      className="settings-panel__section"
+    >
+      <div className="settings-panel__label">Vault 配置</div>
 
       {fallback?.used && (
         <div
           role="alert"
-          className="vault-fallback-warning"
+          className="settings-panel__hint"
           style={{
-            padding: '8px 12px',
-            marginBottom: 12,
-            background: '#fff7e6',
-            border: '1px solid #ffd591',
+            padding: '6px 8px',
+            marginBottom: 6,
+            background: 'var(--warn-bg, #fff7e6)',
+            border: '1px solid var(--warn-bd, #ffd591)',
             borderRadius: 4,
-            color: '#874d00',
-            fontSize: 12,
+            color: 'var(--warn, #874d00)',
           }}
         >
           已使用 fallback 路径：{fallback.reason}
         </div>
       )}
 
-      <div className="form-row" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <label htmlFor="vault-root" style={{ minWidth: 100, fontSize: 13 }}>
-          Vault 根目录
-        </label>
+      <div className="settings-panel__input-row" style={{ marginBottom: 6 }}>
         <input
           id="vault-root"
+          className="settings-panel__input"
           type="text"
           value={vaultRoot}
           onChange={(e) => setVaultRoot(e.target.value)}
-          style={{ flex: 1, padding: '4px 8px', fontSize: 13, border: '1px solid var(--bd, #e4e4e7)', borderRadius: 4 }}
+          placeholder="选择或输入 Vault 根目录的绝对路径"
         />
-        <button type="button" onClick={handlePickFolder} style={{ padding: '4px 12px', fontSize: 13 }}>
-          选择文件夹
+        <button
+          type="button"
+          onClick={handlePickFolder}
+          className="settings-panel__eye-btn"
+          title="选择文件夹"
+          aria-label="选择文件夹"
+        >
+          📁
         </button>
       </div>
 
-      <div className="form-row" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <label htmlFor="qa-subdir" style={{ minWidth: 100, fontSize: 13 }}>
-          QA 子目录
-        </label>
-        <input
-          id="qa-subdir"
-          type="text"
-          value={qaSubdir}
-          onChange={(e) => setQaSubdir(e.target.value)}
-          placeholder="相对子目录名（推荐）或绝对路径"
-          style={{ flex: 1, padding: '4px 8px', fontSize: 13, border: '1px solid var(--bd, #e4e4e7)', borderRadius: 4 }}
-        />
-      </div>
-
-      <div className="form-row" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <label htmlFor="projects-subdir" style={{ minWidth: 100, fontSize: 13 }}>
-          Projects 子目录
-        </label>
-        <input
-          id="projects-subdir"
-          type="text"
-          value={projectsSubdir}
-          onChange={(e) => setProjectsSubdir(e.target.value)}
-          placeholder="相对子目录名（推荐）或绝对路径"
-          style={{ flex: 1, padding: '4px 8px', fontSize: 13, border: '1px solid var(--bd, #e4e4e7)', borderRadius: 4 }}
-        />
-      </div>
-
-      <div className="form-actions" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button type="button" onClick={handleValidate} disabled={validating} style={{ padding: '6px 14px', fontSize: 13 }}>
-          {validating ? '检测中...' : '检测路径有效性'}
+      <div className="settings-panel__actions" style={{ padding: 0, borderTop: 'none', marginBottom: 6 }}>
+        <button
+          type="button"
+          className="settings-panel__btn--clear"
+          onClick={handleValidate}
+          disabled={validating}
+        >
+          {validating ? '检测中…' : '检测有效性'}
         </button>
         <button
           type="button"
+          className="settings-panel__btn--save"
           onClick={handleSave}
           disabled={saving}
-          style={{
-            padding: '6px 14px',
-            fontSize: 13,
-            background: 'var(--accent, #2563eb)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 4,
-            cursor: saving ? 'not-allowed' : 'pointer',
-          }}
         >
-          {saving ? '保存中...' : '保存'}
+          {saving ? '保存中…' : '保存'}
         </button>
       </div>
 
       {formError && (
-        <div className="form-error" role="alert" style={{ color: '#b91c1c', fontSize: 12, marginBottom: 8 }}>
+        <div role="alert" className="settings-panel__hint" style={{ color: 'var(--err, #b91c1c)' }}>
           {formError}
         </div>
       )}
       {saveOk && (
-        <div role="status" style={{ color: '#15803d', fontSize: 12, marginBottom: 8 }}>
+        <div role="status" className="settings-panel__hint" style={{ color: 'var(--done, #15803d)' }}>
           已保存
         </div>
       )}
       {validateResult && (
         <pre
-          className="validate-result"
+          className="settings-panel__hint"
           style={{
-            background: '#f5f5f5',
-            padding: 8,
+            background: 'var(--surface-2)',
+            padding: 6,
             borderRadius: 4,
-            fontSize: 12,
             whiteSpace: 'pre-wrap',
-            margin: 0,
+            margin: '4px 0 0',
+            fontFamily: 'JetBrains Mono, monospace',
           }}
         >
           {validateResult}
         </pre>
       )}
       {error && (
-        <div className="store-error" style={{ color: '#b91c1c', fontSize: 12, marginTop: 8 }}>
+        <div className="settings-panel__hint" style={{ color: 'var(--err, #b91c1c)', marginTop: 4 }}>
           最近一次 IPC 错误：{error}
         </div>
       )}
-    </section>
+    </div>
   )
 }

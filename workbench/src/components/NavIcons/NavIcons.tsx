@@ -3,6 +3,7 @@ import { useStore } from '../../store'
 import { StoredApiKey } from '../../store/settingsSlice'
 import { ServerConfig } from '../ServerConfig/ServerConfig'
 import { ThemeToggleButton } from './ThemeToggleButton'
+import { VaultConfig } from '../Settings/VaultConfig'
 import './NavIcons.css'
 
 const MODES = [
@@ -208,6 +209,10 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
           />
         ) : (
           <>
+            {/* v0.16 QA 决策（2026-06-08）：Vault 根目录配置首分区置顶
+                R-4 SettingsView 撤销 → 改塞进既有 SettingsPanel overlay */}
+            <VaultConfig />
+
             <div className="settings-panel__section">
               <div className="settings-panel__label">API Keys</div>
               {apiKeys.length === 0 ? (
@@ -267,7 +272,10 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
 
 export function NavIcons() {
   const { currentMode, setMode, pendingDecisionCount } = useStore()
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  // v0.16 QA 决策：SettingsPanel 可见性提升到 store（settingsSlice.settingsPanelOpen）
+  // 以便 FirstLaunchToast「打开 Settings」联动跨组件触发
+  const settingsOpen = useStore((s) => s.settingsPanelOpen)
+  const setSettingsOpen = useStore((s) => s.setSettingsPanelOpen)
 
   return (
     <nav className="nav-icons">
