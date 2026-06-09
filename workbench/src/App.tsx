@@ -24,6 +24,8 @@ import { useBackendHealth } from './hooks/useBackendHealth'
 import { useBackendSSE } from './hooks/useBackendSSE'
 import { useNotifications } from './hooks/useNotifications'
 import { hydrateSettingsFromFile } from './store/settingsSlice'
+// v0.16 R-3：Vault 配置启动门（FirstLaunchToast 在 R-5 节点接入）
+import { VaultBootGate } from './components/VaultBootGate'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
@@ -238,14 +240,16 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Layout
-        topBar={<TopBar />}
-        p1Icons={<NavIcons />}
-        p1List={<NavList />}
-        p2={p2Content}
-        p3={p3Content}
-        p4={p4Content}
-      />
+      <VaultBootGate>
+        <Layout
+          topBar={<TopBar />}
+          p1Icons={<NavIcons />}
+          p1List={<NavList />}
+          p2={p2Content}
+          p3={p3Content}
+          p4={p4Content}
+        />
+      </VaultBootGate>
     </ErrorBoundary>
   )
 }
