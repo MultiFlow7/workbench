@@ -24,8 +24,9 @@ import { useBackendHealth } from './hooks/useBackendHealth'
 import { useBackendSSE } from './hooks/useBackendSSE'
 import { useNotifications } from './hooks/useNotifications'
 import { hydrateSettingsFromFile } from './store/settingsSlice'
-// v0.16 R-3：Vault 配置启动门（FirstLaunchToast 在 R-5 节点接入）
+// v0.16 R-3 / R-4：Vault 配置启动门 + Settings 视图（FirstLaunchToast 在 R-5 节点接入）
 import { VaultBootGate } from './components/VaultBootGate'
+import { SettingsView } from './components/Settings/SettingsView'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
@@ -154,6 +155,7 @@ function App() {
     currentMode === 'decisions' ? <DecisionInbox /> :
     currentMode === 'analytics' ? <TokenAnalyticsPanel /> :
     currentMode === 'dashboard' ? <DashboardView /> :
+    currentMode === 'settings' ? <SettingsView /> :
     currentMode === 'console' ? (
       <ConsoleTabView onTriggerTask={() => setShowTriggerForm(true)} />
     ) :

@@ -54,6 +54,8 @@ function persistKeys(keys: StoredApiKey[], cachingEnabled: boolean) {
   }).catch(() => {})
 }
 
+export type SettingsActiveSection = 'vault' | 'apikey' | 'theme' | null
+
 export interface SettingsSlice {
   apiKeys: StoredApiKey[]
   cachingEnabled: boolean
@@ -61,6 +63,14 @@ export interface SettingsSlice {
   addApiKey: (entry: Omit<StoredApiKey, 'id'>) => void
   updateApiKey: (entry: StoredApiKey) => void
   removeApiKey: (id: string) => void
+  /**
+   * v0.16 R-4：Settings 视图当前激活分区（UI 锚点）。
+   * 由 R-5 FirstLaunchToast 「打开 Settings」入口写入 'vault'，
+   * SettingsView 据此 scrollIntoView 到对应分区。
+   * 不持久化（会话内瞬态状态，下次冷启动复位为 null）。
+   */
+  activeSection: SettingsActiveSection
+  setActiveSection: (section: SettingsActiveSection) => void
 }
 
 export const createSettingsSlice: StateCreator<SettingsSlice> = (set, get) => ({
@@ -96,6 +106,10 @@ export const createSettingsSlice: StateCreator<SettingsSlice> = (set, get) => ({
     persistKeys(next, get().cachingEnabled)
     set({ apiKeys: next })
   },
+
+  // v0.16 R-4：Settings 视图当前激活分区（不持久化）
+  activeSection: null,
+  setActiveSection: (section) => set({ activeSection: section }),
 })
 
 // Call this on app startup to hydrate from the durable file.

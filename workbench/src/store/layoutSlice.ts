@@ -16,12 +16,12 @@ export interface LayoutSlice {
   p2Visible: boolean
   p4Visible: boolean
   p2Width: number
-  currentMode: 'chat' | 'tools' | 'console' | 'decisions' | 'analytics' | 'dashboard'
+  currentMode: 'chat' | 'tools' | 'console' | 'decisions' | 'analytics' | 'dashboard' | 'settings'
   toggleP1List: () => void
   toggleP2: () => void
   toggleP4: () => void
   setP2Width: (w: number) => void
-  setMode: (mode: 'chat' | 'tools' | 'console' | 'decisions' | 'analytics' | 'dashboard') => void
+  setMode: (mode: 'chat' | 'tools' | 'console' | 'decisions' | 'analytics' | 'dashboard' | 'settings') => void
   // v0.2 新增字段
   pendingDecisionCount: number
   backendOnline: boolean
