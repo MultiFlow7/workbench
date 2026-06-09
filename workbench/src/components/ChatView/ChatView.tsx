@@ -6,7 +6,6 @@ import { useBasePath, useVaultPath, buildFilePath, toFilePathFromSnapshot } from
 import { getContextLimit } from '../../constants/modelLimits'
 import { ContextIndicator } from '../ContextIndicator/ContextIndicator'
 import { InterventionInline } from '../InterventionInline/InterventionInline'
-import { ChatInputVaultButton } from './ChatInputVaultButton'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -755,9 +754,6 @@ export function ChatView() {
       <div className="chat-footer">
         <ContextIndicator />
         <div className="chat-input-wrap">
-          <div className="chat-input-toolbar">
-            <ChatInputVaultButton />
-          </div>
           <div className="chat-input-row">
             <textarea
               className="chat-input"

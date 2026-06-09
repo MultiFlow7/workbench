@@ -1,7 +1,8 @@
 /**
- * pathDisplay.test.ts · v0.16 节点 R-6 纯函数单元测试
+ * pathDisplay.test.ts · 路径辅助纯函数单元测试
  *
- * 覆盖 T-V016-R6.1 ~ T-V016-R6.8（8 个用例）
+ * 覆盖 T-V016-R6.1 ~ T-V016-R6.8（8 个用例）。
+ * v0.16 R-6 已撤销，但纯函数保留服务 req-065（v0.17 任务 cwd 选择器）。
  */
 
 import { describe, it, expect } from 'vitest'

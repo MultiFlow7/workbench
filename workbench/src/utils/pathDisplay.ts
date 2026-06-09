@@ -1,8 +1,12 @@
 /**
- * pathDisplay.ts · v0.16 节点 R-6 路径辅助纯函数
+ * pathDisplay.ts · 路径辅助纯函数
  *
- * 用途：ChatInputVaultButton 显示路径时的截断与文件夹名提取。
- * 独立导出便于单元测试（T-V016-R6.1 ~ R6.8）。
+ * 历史：v0.16 R-6 节点首次引入（ChatInputVaultButton 已撤销）。
+ * 现状：纯函数保留以服务 req-065「任务 cwd 选择器」（v0.17 候选），
+ *       用于在 cwd 切换按钮 / 显示控件中截断长路径、提取文件夹名。
+ *       任何新增使用方仍可直接依赖本模块。
+ *
+ * 测试：见 __tests__/pathDisplay.test.ts（T-V016-R6.1 ~ R6.8 用例族）。
  */
 
 /**
