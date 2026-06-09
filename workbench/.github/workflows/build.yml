@@ -69,6 +69,17 @@ jobs:
         working-directory: ai-service
         run: pip install -r requirements.txt
 
+      # v0.16 CI-2 (req-063): 先 build renderer+main 产物，再扫泄露，最后 dist。
+      # 设计顺序：dist 是 electron-builder 打包（5-10 分钟），先用便宜的 build+scan
+      # 卡住「OSS 零个人信息泄露」原则破坏，节约 CI 时长。
+      - name: Build renderer + main artifacts
+        working-directory: workbench
+        run: pnpm build
+
+      - name: Verify no personal paths in build artifacts
+        working-directory: workbench
+        run: node scripts/scan-personal-paths.mjs
+
       - name: Build (macOS)
         if: matrix.platform == 'mac'
         working-directory: workbench
