@@ -13,10 +13,16 @@
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { join } from 'node:path'
 import {
+  getWorkspaceCwd,
   hasPersistedWorkspaceCwd,
   registerIpcHandlers,
   setWorkspaceCwd,
 } from '../ipc/handlers'
+import { registerVaultIpc, sendCompensationBroadcast } from '../ipc/vault'
+import {
+  ensureDefaultVault,
+  setWorkspaceSyncFns,
+} from './vaultBootstrap'
 import { setPersistedCwd } from '../store/workspaceStore'
 import { startAiService, stopAiService } from '../sidecar/aiService'
 import { initAutoUpdater } from '../updater/autoUpdater'
@@ -79,11 +85,34 @@ async function ensureWorkspaceCwd(win: BrowserWindow): Promise<void> {
   win.webContents.send('workspace:changed', { cwd })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // 节点 1.2：集中注册所有 IPC 通道
   registerIpcHandlers()
 
+  // v0.16 节点 M-3：vault IPC 注册（独立模块，与 handlers.ts 解耦）
+  registerVaultIpc()
+
+  // v0.16 节点 M-3 + M-4 + M-5：默认 vault 自动创建 / .env.local 兼容迁移
+  // 注入 workspace 同步函数（避免循环依赖：vaultBootstrap → handlers）
+  setWorkspaceSyncFns({
+    getCurrentCwd: getWorkspaceCwd,
+    setWorkspaceCwd,
+    setPersistedCwd,
+  })
+  try {
+    await ensureDefaultVault()
+  } catch (err) {
+    console.error('[main] ensureDefaultVault failed:', err)
+  }
+
   const win = createWindow()
+
+  // v0.16 节点 M-3：fallback / triggerSource 补偿广播
+  // 在 createWindow 之后立即发送一次 vault:config-changed，确保 renderer
+  // 即使错过 init 也能拿到 fallbackUsed / triggerSource 信息
+  win.once('ready-to-show', () => {
+    sendCompensationBroadcast(win)
+  })
 
   // 节点 1.4：首次启动检测并触发工作目录选择
   win.once('ready-to-show', () => {
