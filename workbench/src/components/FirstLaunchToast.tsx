@@ -14,7 +14,8 @@
  *   3. StrictMode 双 useEffect 防御：shouldActivate 内置 !activatedRef.current 守卫
  *
  * 文案：product.md 「Toast 规格」严格对齐
- * 5s 自动 dismiss + 「打开 Settings」联动（setMode('settings') + setActiveSection('vault'))
+ * 5s 自动 dismiss + 「打开 Settings」联动 setSettingsPanelOpen(true)
+ *   （v0.16 QA 决策：R-4 SettingsView 已撤销，Vault 配置塞进 NavIcons SettingsPanel overlay）
  */
 
 import { useEffect, useState, useRef } from 'react'
@@ -72,8 +73,7 @@ export function FirstLaunchToast() {
 
   function handleOpenSettings() {
     const store = useStore.getState()
-    store.setMode('settings')
-    store.setActiveSection('vault')
+    store.setSettingsPanelOpen(true)
     setVisible(false)
   }
 

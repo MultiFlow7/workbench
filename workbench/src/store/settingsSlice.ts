@@ -54,8 +54,6 @@ function persistKeys(keys: StoredApiKey[], cachingEnabled: boolean) {
   }).catch(() => {})
 }
 
-export type SettingsActiveSection = 'vault' | 'apikey' | 'theme' | null
-
 export interface SettingsSlice {
   apiKeys: StoredApiKey[]
   cachingEnabled: boolean
@@ -64,13 +62,15 @@ export interface SettingsSlice {
   updateApiKey: (entry: StoredApiKey) => void
   removeApiKey: (id: string) => void
   /**
-   * v0.16 R-4：Settings 视图当前激活分区（UI 锚点）。
-   * 由 R-5 FirstLaunchToast 「打开 Settings」入口写入 'vault'，
-   * SettingsView 据此 scrollIntoView 到对应分区。
-   * 不持久化（会话内瞬态状态，下次冷启动复位为 null）。
+   * v0.16 QA 决策：SettingsPanel overlay 全局可见性。
+   * 由 NavIcons 齿轮按钮 + FirstLaunchToast 「打开 Settings」联动设置为 true，
+   * NavIcons 内 SettingsPanel 据此渲染。不持久化（会话内瞬态状态）。
+   *
+   * 历史：v0.16 R-4 曾用 `activeSection: 'vault' | 'apikey' | 'theme' | null` 作为
+   * P3 SettingsView 的分区锚点；R-4 已撤销，改用 overlay 后无需分区锚点状态。
    */
-  activeSection: SettingsActiveSection
-  setActiveSection: (section: SettingsActiveSection) => void
+  settingsPanelOpen: boolean
+  setSettingsPanelOpen: (open: boolean) => void
 }
 
 export const createSettingsSlice: StateCreator<SettingsSlice> = (set, get) => ({
@@ -107,9 +107,9 @@ export const createSettingsSlice: StateCreator<SettingsSlice> = (set, get) => ({
     set({ apiKeys: next })
   },
 
-  // v0.16 R-4：Settings 视图当前激活分区（不持久化）
-  activeSection: null,
-  setActiveSection: (section) => set({ activeSection: section }),
+  // v0.16 QA 决策：SettingsPanel overlay 全局可见性（不持久化）
+  settingsPanelOpen: false,
+  setSettingsPanelOpen: (open) => set({ settingsPanelOpen: open }),
 })
 
 // Call this on app startup to hydrate from the durable file.

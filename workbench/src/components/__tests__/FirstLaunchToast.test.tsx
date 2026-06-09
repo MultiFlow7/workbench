@@ -7,7 +7,8 @@
  * - T-V016-R5.3 渲染即置位：模拟激活后调用 setVaultConfig({ hasShownFirstLaunchToast: true })
  * - T-V016-R5.4 自动 dismiss：TOAST_AUTO_DISMISS_MS 常量为 5000，fake timer 推进后 setTimeout 触发
  * - T-V016-R5.5 手动关闭：handleClose 触发 setVisible(false) 等价路径
- * - T-V016-R5.6 「打开 Settings」联动：setMode('settings') + setActiveSection('vault') 被调用
+ * - T-V016-R5.6 「打开 Settings」联动：setSettingsPanelOpen(true) 被调用
+ *   （v0.16 QA 决策：R-4 SettingsView 撤销，改用 NavIcons SettingsPanel overlay）
  *
  * 测试环境约束：项目 vitest environment=node，无 jsdom/@testing-library；
  * useRef/useState/useEffect 副作用无法直接验证。
@@ -58,13 +59,11 @@ describe('FirstLaunchToast', () => {
 
   describe('副作用语义（模拟组件 useEffect 行为）', () => {
     let setVaultConfigSpy: ReturnType<typeof vi.fn>
-    let setModeSpy: ReturnType<typeof vi.fn>
-    let setActiveSectionSpy: ReturnType<typeof vi.fn>
+    let setSettingsPanelOpenSpy: ReturnType<typeof vi.fn>
 
     beforeEach(() => {
       setVaultConfigSpy = vi.fn().mockResolvedValue(undefined)
-      setModeSpy = vi.fn()
-      setActiveSectionSpy = vi.fn()
+      setSettingsPanelOpenSpy = vi.fn()
     })
 
     afterEach(() => {
@@ -113,20 +112,18 @@ describe('FirstLaunchToast', () => {
       expect(setVisibleSpy).toHaveBeenCalledWith(false)
     })
 
-    it('T-V016-R5.6 「打开 Settings」联动：setMode("settings") + setActiveSection("vault")', () => {
+    it('T-V016-R5.6 「打开 Settings」联动：setSettingsPanelOpen(true)', () => {
       const setVisibleSpy = vi.fn()
       // 模拟组件 handleOpenSettings 行为
+      // v0.16 QA 决策：R-4 SettingsView 撤销 → 改打开 NavIcons SettingsPanel overlay
       const handleOpenSettings = () => {
-        setModeSpy('settings')
-        setActiveSectionSpy('vault')
+        setSettingsPanelOpenSpy(true)
         setVisibleSpy(false)
       }
       handleOpenSettings()
 
-      expect(setModeSpy).toHaveBeenCalledTimes(1)
-      expect(setModeSpy).toHaveBeenCalledWith('settings')
-      expect(setActiveSectionSpy).toHaveBeenCalledTimes(1)
-      expect(setActiveSectionSpy).toHaveBeenCalledWith('vault')
+      expect(setSettingsPanelOpenSpy).toHaveBeenCalledTimes(1)
+      expect(setSettingsPanelOpenSpy).toHaveBeenCalledWith(true)
       expect(setVisibleSpy).toHaveBeenCalledWith(false)
     })
   })

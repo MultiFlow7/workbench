@@ -24,9 +24,9 @@ import { useBackendHealth } from './hooks/useBackendHealth'
 import { useBackendSSE } from './hooks/useBackendSSE'
 import { useNotifications } from './hooks/useNotifications'
 import { hydrateSettingsFromFile } from './store/settingsSlice'
-// v0.16 R-3 / R-4 / R-5：Vault 配置启动门 + Settings 视图 + 首次启动 toast
+// v0.16 R-3 / R-5：Vault 配置启动门 + 首次启动 toast
+// R-4 SettingsView 已撤销（QA 阶段决策）：Vault 配置改塞进 NavIcons 既有 SettingsPanel overlay 作为首分区
 import { VaultBootGate } from './components/VaultBootGate'
-import { SettingsView } from './components/Settings/SettingsView'
 import { FirstLaunchToast } from './components/FirstLaunchToast'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -156,7 +156,6 @@ function App() {
     currentMode === 'decisions' ? <DecisionInbox /> :
     currentMode === 'analytics' ? <TokenAnalyticsPanel /> :
     currentMode === 'dashboard' ? <DashboardView /> :
-    currentMode === 'settings' ? <SettingsView /> :
     currentMode === 'console' ? (
       <ConsoleTabView onTriggerTask={() => setShowTriggerForm(true)} />
     ) :
