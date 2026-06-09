@@ -17,8 +17,15 @@ import type { Round, Intervention } from '../../../lib/atomParser'
 
 // 全局 mock 在 src/test-setup.ts 集中维护（window.api / localStorage）
 vi.mock('../../../utils/paths', () => ({
-  BASE_PATH: '/mock/base',
-  PROJECTS_PATH: '/mock/projects',
+  getBasePath: () => '/mock/base',
+  getProjectsPath: () => '/mock/projects',
+  getVaultPath: () => '/mock/vault',
+  getVaultConfig: () => null,
+  useBasePath: () => '/mock/base',
+  useProjectsPath: () => '/mock/projects',
+  useVaultPath: () => '/mock/vault',
+  buildFilePath: (b: string, i: string) => (b && i ? `${b}/${i}.md` : ''),
+  toFilePathFromSnapshot: (i: string) => (i ? `/mock/base/${i}.md` : ''),
 }))
 
 function resetStore() {

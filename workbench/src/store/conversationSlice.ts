@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand'
-import { BASE_PATH, PROJECTS_PATH } from '../utils/paths'
+import { getBasePath, getProjectsPath } from '../utils/paths'
 
 export interface TokenUsage {
   input_tokens: number
@@ -109,7 +109,7 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
 
   loadAtoms: async () => {
     const list = await window.api.invoke<QAAtomMeta[]>('list_qa_atoms', {
-      conversationDir: BASE_PATH,
+      conversationDir: getBasePath(),
     })
     const atomMap: Record<string, QAAtomMeta> = {}
     for (const atom of list) {
@@ -183,14 +183,14 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
 
   loadProjects: async () => {
     const list = await window.api.invoke<ProjectMeta[]>('list_projects', {
-      projectsDir: PROJECTS_PATH,
+      projectsDir: getProjectsPath(),
     })
     set({ projects: list })
   },
 
   createProject: async (name) => {
     const newProject = await window.api.invoke<ProjectMeta>('create_project', {
-      projectsDir: PROJECTS_PATH,
+      projectsDir: getProjectsPath(),
       name,
     })
     // 追加到本地状态并自动选中，避免再次 invoke list_projects（减少 I/O）
@@ -202,7 +202,7 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
 
   addAtomToProject: async (projectName, atomId) => {
     await window.api.invoke('add_atom_to_project', {
-      projectsDir: PROJECTS_PATH,
+      projectsDir: getProjectsPath(),
       projectName,
       atomId,
     })

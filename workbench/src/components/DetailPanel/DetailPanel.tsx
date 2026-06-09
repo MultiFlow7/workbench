@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../../store'
-import { toFilePath } from '../../utils/paths'
+import { useBasePath, buildFilePath } from '../../utils/paths'
 import { formatTokens } from '../../utils/tokenFormat'
 import './DetailPanel.css'
 
@@ -24,13 +24,15 @@ export function DetailPanel() {
   const setP4Mode = useStore((s) => s.setP4Mode)
   const expandedInput = useStore((s) => s.expandedInput)
   const setExpandedInput = useStore((s) => s.setExpandedInput)
+  // v0.16 R-2：vault 路径派生（替代旧 toFilePath 常量函数）
+  const basePath = useBasePath()
 
   useEffect(() => {
     if (!selectedAtomId) return
-    window.api.invoke<QAAtom>('read_qa_atom', { filePath: toFilePath(selectedAtomId) })
+    window.api.invoke<QAAtom>('read_qa_atom', { filePath: buildFilePath(basePath, selectedAtomId) })
       .then(setAtom)
       .catch(console.error)
-  }, [selectedAtomId])
+  }, [selectedAtomId, basePath])
 
   if (p4Mode === 'text-input') {
     return (

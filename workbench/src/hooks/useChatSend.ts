@@ -42,7 +42,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useStore } from '../store'
 import type { QAAtomMeta } from '../store/conversationSlice'
 import { findKeyForModel } from '../store/settingsSlice'
-import { toFilePath, VAULT_PATH, BASE_PATH } from '../utils/paths'
+import { useBasePath, useVaultPath, buildFilePath, toFilePathFromSnapshot } from '../utils/paths'
 import { parseAtom } from '../lib/atomParser'
 import type { ParsedAtom } from '../lib/atomParser'
 import {
@@ -50,8 +50,7 @@ import {
   setSessionQ as dispatcherSetSessionQ,
 } from '../lib/agentEventDispatcher'
 
-// VAULT_PATH 仍是工具 schema 默认参数；保留以避免未引用警告（也供未来工具配置使用）
-void VAULT_PATH
+// v0.16 R-2: VAULT_PATH 常量已重写为 useVaultPath hook，旧引用清理完成
 
 export interface ToolCallStatus {
   id: string
@@ -79,7 +78,7 @@ async function generateNewAtomId(parentId: string): Promise<string> {
     const date = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`
     const time = `${pad2(now.getHours())}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`
     const candidate = `${branchId}-${String(seqNum).padStart(3, '0')}-${date}-${time}`
-    const fileExists = await window.api.fsExists(toFilePath(candidate))
+    const fileExists = await window.api.fsExists(toFilePathFromSnapshot(candidate))
     if (!fileExists) return candidate
     seqNum++
   }
@@ -125,6 +124,12 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
   // useEffect 监听该字典变化触发 atomEntries 重载（从磁盘读到最终答案）。
   const atomDiskRevisions = useStore((s) => s.atomDiskRevisions)
 
+  // v0.16 R-2：vault 路径派生（替代旧 BASE_PATH / VAULT_PATH 常量）
+  const basePath = useBasePath()
+  // 保留以兼容未来工具默认参数使用
+  const vaultPath = useVaultPath()
+  void vaultPath
+
   const DEFAULT_MODELS = [
     'claude-sonnet-4-6',
     'claude-opus-4-7',
@@ -159,7 +164,7 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
     Promise.all(
       currentPath.map(async (m) => {
         const resp = await window.api.invoke<{ answer: string; raw?: string }>('read_qa_atom', {
-          filePath: toFilePath(m.id),
+          filePath: buildFilePath(basePath, m.id),
         })
         // v0.15.1 P3 r10：read_qa_atom 已结构化（解析 meta/question/answer），但 parseAtom 需要
         // 完整 markdown 文本以提取 ## Steps / ## Intervention，故优先用 resp.raw；
@@ -272,7 +277,7 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
     } else {
       if (!selectedProjectId) return
       if (!projects.find((p) => p.id === selectedProjectId)) return
-      const branchId = await window.api.invoke<string>('next_branch_id', { qaDir: BASE_PATH })
+      const branchId = await window.api.invoke<string>('next_branch_id', { qaDir: basePath })
       const now = new Date()
       const pad2 = (n: number) => String(n).padStart(2, '0')
       const dateStr = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`
@@ -290,7 +295,7 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
     // 在 result 事件时通过 _flushAtomToDisk 覆盖写入完整内容（Q / Steps / Intervention / A）
     const placeholderPrev = parentMeta ? `[[${parentMeta.id}]]` : null
     await window.api.invoke('write_qa_atom', {
-      filePath: toFilePath(newAtomId),
+      filePath: buildFilePath(basePath, newAtomId),
       atom: {
         meta: {
           id: newAtomId,
