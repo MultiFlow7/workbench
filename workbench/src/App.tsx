@@ -24,9 +24,10 @@ import { useBackendHealth } from './hooks/useBackendHealth'
 import { useBackendSSE } from './hooks/useBackendSSE'
 import { useNotifications } from './hooks/useNotifications'
 import { hydrateSettingsFromFile } from './store/settingsSlice'
-// v0.16 R-3 / R-4：Vault 配置启动门 + Settings 视图（FirstLaunchToast 在 R-5 节点接入）
+// v0.16 R-3 / R-4 / R-5：Vault 配置启动门 + Settings 视图 + 首次启动 toast
 import { VaultBootGate } from './components/VaultBootGate'
 import { SettingsView } from './components/Settings/SettingsView'
+import { FirstLaunchToast } from './components/FirstLaunchToast'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
@@ -243,6 +244,7 @@ function App() {
   return (
     <ErrorBoundary>
       <VaultBootGate>
+        <FirstLaunchToast />
         <Layout
           topBar={<TopBar />}
           p1Icons={<NavIcons />}
