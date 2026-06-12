@@ -106,6 +106,7 @@ function App() {
   const loadAtoms = useStore((s) => s.loadAtoms)
   const loadProjects = useStore((s) => s.loadProjects)
   const currentMode = useStore((s) => s.currentMode)
+  const vaultConfig = useStore((s) => s.vaultConfig)
 
   // v0.6: console mode — trigger form shown in P4
   const [showTriggerForm, setShowTriggerForm] = useState(false)
@@ -125,12 +126,23 @@ function App() {
   useEffect(() => {
     // Fallback: re-run settings hydration after mount in case bootstrap() failed before IPC was ready
     hydrateSettingsFromFile((partial) => useStore.setState(partial))
+  }, [])
+
+  useEffect(() => {
+    if (!vaultConfig?.vaultRoot) return
+
     loadAtoms().then(() => {
       const count = Object.keys(useStore.getState().atoms).length
       window.api.invoke('write_event_log', { event: { event: 'app_launch', timestamp: new Date().toISOString(), payload: { version: '0.6.0', qa_atom_count: count } } }).catch(() => {})
     }).catch(console.error)
     loadProjects().catch(console.error)
-  }, [loadAtoms, loadProjects])
+  }, [
+    loadAtoms,
+    loadProjects,
+    vaultConfig?.vaultRoot,
+    vaultConfig?.qaSubdir,
+    vaultConfig?.projectsSubdir,
+  ])
 
   // v0.6: P2 switches by mode
   // tools mode: P2 shows AgentList
