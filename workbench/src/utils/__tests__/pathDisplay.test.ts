@@ -16,7 +16,7 @@ describe('truncateMiddle', () => {
 
   it('T-V016-R6.2 超长路径中部省略：长度 ≤ maxLen 且含 "..." 且尾部含 vault 文件夹名', () => {
     const long =
-      '/Users/morgan/Desktop/Morgan工作仓库/Morgan工作仓库/01-Vibe项目区/工作台/workbench/Workbench-Vault'
+      '/Users/example/projects/workbench/workbench/Workbench-Vault'
     const result = truncateMiddle(long, 40)
     expect(result.length).toBeLessThanOrEqual(40)
     expect(result).toContain('...')
