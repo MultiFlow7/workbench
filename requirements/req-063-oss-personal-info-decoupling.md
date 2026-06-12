@@ -10,6 +10,26 @@ version: v0.16
 
 # req-063 · OSS 化改造 · 解耦个人化信息与发布产物
 
+## 完成记录（2026-06-12）
+
+**状态**：已完成主体实现与自动验证，进入 v0.16 发布收口。
+
+最终实现以以下文档为准：
+- 产品规划：`changelog/v0.16/product.md`
+- 技术执行：`changelog/v0.16/technical.md`
+- 发布记录：`changelog/release/v0.16.0.md`
+
+关键完成证据：
+- Vault 路径从 build-time `VITE_VAULT_*` 内联迁移为运行期配置读取。
+- 发布隐私扫描已接入根 `.github/workflows/cd.yml`，真实 tag 发布 workflow 在打包前扫描 `workbench/out` 与 `ai-service`。
+- `workbench/.env.example` 不再引导用户配置 `VITE_VAULT_*`。
+- README 与 release note 已明确当前为 `release-closeout / 发布收口中`，不是已 tag 发布。
+- 自动验证已通过：`vitest` 20 files / 185 tests、`tsc --noEmit`、`electron-vite build`、`scan-personal-paths`、scanner 自测 20 passed / 0 failed。
+
+正式打 `v0.16.0` tag 前仍需完成发布机人工首启验收与 dmg 解包扫描。
+
+> 下方内容保留为 req 创建时的原始需求草案与决策背景；字段名、UI 范围和验证方式的最终口径以后续 product / technical / release 文档为准。
+
 ## 背景
 
 2026-06-08 准备首次打包 mac dmg 发布到 GitHub Release 时，做了一次完整的隐私扫描，发现：
@@ -148,7 +168,7 @@ grep -r "/Users/" workbench/out/ && exit 1 || echo "✓ no personal paths in bui
 ```
 保证未来不会再次回归。
 
-## 验收标准
+## 原始验收标准（规划草案，最终结果见完成记录）
 
 ### 隐私零泄露（**核心硬指标**）
 - [ ] `pnpm build` 后，`grep -r "/Users/" workbench/out/` 返回空
