@@ -92,6 +92,18 @@ console.log('T-V016-U5 命中样本（macOS）')
   cleanup(dir)
 }
 
+// ─── Python sidecar: .py 文件个人路径命中 ─────────────────────────────────
+console.log('Python sidecar .py 文件命中')
+{
+  const dir = setupFixture()
+  writeFileSync(join(dir, 'service.py'), 'DEFAULT_MODEL_PATH = "/Users/pythonuser/models/local"\n')
+  const result = runScan(dir)
+  assert(result.code === 1, '退出码 1')
+  assert(result.stdout.includes('/Users/pythonuser'), 'stdout 含 Python 文件命中字符串')
+  assert(/service\.py:\d+/.test(result.stdout), 'stdout 含 .py 文件名:偏移格式')
+  cleanup(dir)
+}
+
 // ─── T-V016-U7: 三平台 pattern 同时识别 ────────────────────────────────────
 console.log('T-V016-U7 三平台 pattern')
 {

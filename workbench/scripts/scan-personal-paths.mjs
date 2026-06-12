@@ -47,6 +47,12 @@ const TEXT_EXTENSIONS = new Set([
   '.txt',
   '.md',
   '.map',
+  '.py',
+  '.toml',
+  '.yaml',
+  '.yml',
+  '.ini',
+  '.cfg',
 ])
 
 // 三平台用户家目录前缀正则
