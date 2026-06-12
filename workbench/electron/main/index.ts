@@ -27,6 +27,13 @@ import { setPersistedCwd } from '../store/workspaceStore'
 import { startAiService, stopAiService } from '../sidecar/aiService'
 import { initAutoUpdater } from '../updater/autoUpdater'
 
+let mainWindow: BrowserWindow | null = null
+const singleInstanceLock = app.requestSingleInstanceLock()
+
+if (!singleInstanceLock) {
+  app.exit(0)
+}
+
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1440,
@@ -47,6 +54,10 @@ function createWindow(): BrowserWindow {
 
   win.on('ready-to-show', () => {
     win.show()
+  })
+
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
   })
 
   // 外链在系统浏览器中打开（防止 BrowserWindow 内导航逃逸）
@@ -106,6 +117,7 @@ app.whenReady().then(async () => {
   }
 
   const win = createWindow()
+  mainWindow = win
 
   // v0.16 节点 M-3：fallback / triggerSource 补偿广播
   // 在 createWindow 之后立即发送一次 vault:config-changed，确保 renderer
@@ -128,8 +140,16 @@ app.whenReady().then(async () => {
   initAutoUpdater()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = createWindow()
+    }
   })
+})
+
+app.on('second-instance', () => {
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.focus()
 })
 
 app.on('window-all-closed', () => {
