@@ -23,6 +23,7 @@ workbench/node_modules/
 workbench/dist/
 workbench/dist-ssr/
 workbench/*.local
+*.tsbuildinfo
 workbench/src-tauri/target/
 workbench/src-tauri/gen/schemas/
 
