@@ -24,7 +24,7 @@ pnpm build
 
 完整启动说明见项目根目录 [README](../README.md)。
 
-## First Launch · Vault Configuration
+## 首次启动与 Vault 配置
 
 首次启动时，应用会自动在用户主目录下创建默认 vault：
 
@@ -36,8 +36,8 @@ pnpm build
 
 **Vault 结构约定**：根目录下固定包含 `QA/` 和 `Projects/` 两个子目录，应用读写均基于此约定。
 
-**Fallback 路径**：如果 `~/Workbench-Vault` 创建失败（例如权限问题或主目录不可写），应用会自动 fallback 到 Electron `userData` 目录下的 `Workbench-Vault/`（macOS 通常为 `~/Library/Application Support/workbench/Workbench-Vault/`），保证首次启动始终能拿到一个可用 vault。
+**备用路径**：如果 `~/Workbench-Vault` 创建失败（例如权限问题或主目录不可写），应用会自动使用 Electron `userData` 目录下的 `Workbench-Vault/`（macOS 通常为 `~/Library/Application Support/workbench/Workbench-Vault/`），保证首次启动始终能拿到一个可用 vault。
 
 **重新配置 Vault 路径**：可通过 Settings 重新配置 vault 路径。配置变更后立即生效，原有 vault 内容不会自动迁移。
 
-**dev 环境 `.env.local` 兼容**：如果开发者本地 `.env.local` 中存在历史的 `VITE_VAULT_ROOT` / `VITE_VAULT_QA_PATH` / `VITE_VAULT_PROJECTS_PATH` 配置，首次启动时会一次性迁移到 electron-store 持久化存储中，并在控制台输出弃用警告。后续重启不再读取 `.env.local` 中的 vault 配置——请通过 Settings 管理。
+**开发环境 `.env.local` 兼容**：如果开发者本地 `.env.local` 中存在历史的 `VITE_VAULT_ROOT` / `VITE_VAULT_QA_PATH` / `VITE_VAULT_PROJECTS_PATH` 配置，首次启动时会一次性迁移到 electron-store 持久化存储中，并在控制台输出弃用警告。后续重启不再读取 `.env.local` 中的 vault 配置，请通过 Settings 管理。
