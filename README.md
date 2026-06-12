@@ -40,7 +40,7 @@
 - **对话分叉** — 选择任意分支节点后，在主工作区展示从根到该节点的完整线性历史
 - **ProcessTrace 时间线** — 按 process / thinking / tool 三层查看执行过程
 - **多模型接入** — 通过本地服务连接 Claude、OpenAI、DeepSeek、Gemini 等模型
-- **本地 Vault** — 首次启动创建默认工作目录，并支持后续在设置中调整
+- **本地 Vault** — 首次启动创建默认工作目录，也支持在 Settings 中接回已有 QA / Projects 目录
 
 ### 环境要求
 
@@ -135,7 +135,7 @@ Workbench is a personal AI collaboration desktop app. The current implemented ba
 - **Conversation branching** — select a branch node and view the full linear history from root to that node
 - **ProcessTrace timeline** — inspect process, thinking, and tool execution layers
 - **Multi-model integration** — connect Claude, OpenAI, DeepSeek, Gemini, and other models through local services
-- **Local Vault** — create a default workspace on first launch and reconfigure it later in settings
+- **Local Vault** — create a default workspace on first launch, or reconnect existing QA / Projects directories in Settings
 
 ### Requirements
 

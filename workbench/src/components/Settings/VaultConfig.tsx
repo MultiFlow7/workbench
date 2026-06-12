@@ -1,15 +1,15 @@
 /**
- * VaultConfig · v0.16 (QA 阶段重塑)
+ * VaultConfig · v0.16
  *
  * NavIcons SettingsPanel overlay 内首分区。
- * 用户决策 (2026-06-08)：
+ * 用户决策：
  *   1. R-4 独立 SettingsView P3 视图撤销 → 改塞进既有 overlay
- *   2. QA / Projects 子目录字段砍掉（用户不会调） → 仅暴露 vault 根目录
- *      hardcode 默认值 'QA' / 'Projects' 写在 vaultStore 默认值层，UI 不再展示。
+ *   2. 默认新用户只需要 Vault 根目录；老用户可在高级路径里接回既有 QA / Projects 目录
  *
  * 保留：
  *   - vaultRoot 输入框 + 「选择文件夹」按钮
- *   - 「检测路径有效性」按钮（只验 vault 根目录可读性）
+ *   - QA / Projects 高级路径（可填相对子目录名或绝对路径）
+ *   - 「检测路径有效性」按钮（验 vault 根目录 + 派生 QA / Projects 目录）
  *   - 「保存」按钮（vault:set-config IPC，触发广播）
  *   - fallback warning bar（vaultFallbackInfo.used 时显示）
  *
@@ -32,6 +32,8 @@ export function VaultConfig() {
   const fallback = useStore((s) => s.vaultFallbackInfo)
 
   const [vaultRoot, setVaultRoot] = useState(config?.vaultRoot ?? '')
+  const [qaSubdir, setQaSubdir] = useState(config?.qaSubdir ?? 'QA')
+  const [projectsSubdir, setProjectsSubdir] = useState(config?.projectsSubdir ?? 'Projects')
   const [formError, setFormError] = useState<string | null>(null)
   const [validating, setValidating] = useState(false)
   const [validateResult, setValidateResult] = useState<string | null>(null)
@@ -42,24 +44,55 @@ export function VaultConfig() {
   useEffect(() => {
     if (config) {
       setVaultRoot(config.vaultRoot)
+      setQaSubdir(config.qaSubdir || 'QA')
+      setProjectsSubdir(config.projectsSubdir || 'Projects')
     }
   }, [config])
 
+  async function pickDirectory(title: string): Promise<string | null> {
+    return window.api.invoke<string | null>('vault:pick-folder', { title })
+  }
+
   async function handlePickFolder() {
     try {
-      const result = await window.api.invoke<string | null>('vault:pick-folder', {
-        title: '选择 Vault 根目录',
-      })
+      const result = await pickDirectory('选择 Vault 根目录')
       if (result && typeof result === 'string') setVaultRoot(result)
     } catch (e) {
       setFormError(`选择目录失败：${String(e)}`)
     }
   }
 
+  async function handlePickQaFolder() {
+    try {
+      const result = await pickDirectory('选择 QA 对话目录')
+      if (result && typeof result === 'string') setQaSubdir(result)
+    } catch (e) {
+      setFormError(`选择 QA 目录失败：${String(e)}`)
+    }
+  }
+
+  async function handlePickProjectsFolder() {
+    try {
+      const result = await pickDirectory('选择 Projects 项目目录')
+      if (result && typeof result === 'string') setProjectsSubdir(result)
+    } catch (e) {
+      setFormError(`选择 Projects 目录失败：${String(e)}`)
+    }
+  }
+
+  function deriveDir(root: string, subdir: string): string {
+    const trimmedSubdir = subdir.trim()
+    if (!trimmedSubdir) return ''
+    if (isAbsolutePath(trimmedSubdir)) return trimmedSubdir
+    return `${root.replace(/[/\\]+$/, '')}/${trimmedSubdir.replace(/^[/\\]+/, '')}`
+  }
+
   function validateForm(): string | null {
     const trimmed = vaultRoot.trim()
     if (!trimmed) return 'Vault 根目录不能为空'
     if (!isAbsolutePath(trimmed)) return 'Vault 根目录必须是绝对路径'
+    if (!qaSubdir.trim()) return 'QA 目录不能为空'
+    if (!projectsSubdir.trim()) return 'Projects 目录不能为空'
     return null
   }
 
@@ -72,8 +105,19 @@ export function VaultConfig() {
     setValidating(true)
     setValidateResult(null)
     try {
-      const exists = await window.api.fsExists(vaultRoot.trim())
-      setValidateResult(`${exists ? '✓' : '✗'} Vault 根目录：${vaultRoot.trim()}`)
+      const trimmedRoot = vaultRoot.trim()
+      const qaDir = deriveDir(trimmedRoot, qaSubdir)
+      const projectsDir = deriveDir(trimmedRoot, projectsSubdir)
+      const [rootExists, qaExists, projectsExists] = await Promise.all([
+        window.api.fsExists(trimmedRoot),
+        window.api.fsExists(qaDir),
+        window.api.fsExists(projectsDir),
+      ])
+      setValidateResult([
+        `${rootExists ? '✓' : '✗'} Vault 根目录：${trimmedRoot}`,
+        `${qaExists ? '✓' : '✗'} QA 对话目录：${qaDir}`,
+        `${projectsExists ? '✓' : '✗'} Projects 项目目录：${projectsDir}`,
+      ].join('\n'))
     } catch (e) {
       setValidateResult(`检测失败：${String(e)}`)
     } finally {
@@ -92,9 +136,10 @@ export function VaultConfig() {
     setSaving(true)
     setSaveOk(false)
     try {
-      // QA / Projects 子目录不再暴露给用户，保持 store 既有值（默认 'QA' / 'Projects'）
       await useStore.getState().setVaultConfig({
         vaultRoot: vaultRoot.trim(),
+        qaSubdir: qaSubdir.trim() || 'QA',
+        projectsSubdir: projectsSubdir.trim() || 'Projects',
       })
       setSaveOk(true)
     } catch (e) {
@@ -143,6 +188,52 @@ export function VaultConfig() {
           className="settings-panel__eye-btn"
           title="选择文件夹"
           aria-label="选择文件夹"
+        >
+          📁
+        </button>
+      </div>
+
+      <div className="settings-panel__hint" style={{ marginBottom: 6 }}>
+        默认使用根目录下的 <code>QA</code> 和 <code>Projects</code>。如果你已有旧目录，可在下面改成绝对路径。
+      </div>
+
+      <div className="settings-panel__input-row" style={{ marginBottom: 6 }}>
+        <input
+          id="vault-qa-subdir"
+          className="settings-panel__input"
+          type="text"
+          value={qaSubdir}
+          onChange={(e) => setQaSubdir(e.target.value)}
+          placeholder="QA 或旧 QA 目录绝对路径"
+          aria-label="QA 对话目录"
+        />
+        <button
+          type="button"
+          onClick={handlePickQaFolder}
+          className="settings-panel__eye-btn"
+          title="选择 QA 对话目录"
+          aria-label="选择 QA 对话目录"
+        >
+          📁
+        </button>
+      </div>
+
+      <div className="settings-panel__input-row" style={{ marginBottom: 6 }}>
+        <input
+          id="vault-projects-subdir"
+          className="settings-panel__input"
+          type="text"
+          value={projectsSubdir}
+          onChange={(e) => setProjectsSubdir(e.target.value)}
+          placeholder="Projects 或旧 Projects 目录绝对路径"
+          aria-label="Projects 项目目录"
+        />
+        <button
+          type="button"
+          onClick={handlePickProjectsFolder}
+          className="settings-panel__eye-btn"
+          title="选择 Projects 项目目录"
+          aria-label="选择 Projects 项目目录"
         >
           📁
         </button>
