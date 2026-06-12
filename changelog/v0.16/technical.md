@@ -14,7 +14,7 @@ pending_owners: []
 关联产品规划：[[changelog/v0.16/product]]
 关联需求：[[requirements/req-063-oss-personal-info-decoupling]]
 
-> **本稿状态**：r0 由 tauri-platform 起草 main 进程 + CI/打包章节；r1 由 frontend-ui 填充 renderer 章节（R-1 ~ R-5）实现细节 + renderer 测试清单。本稿为 main+CI+renderer 三方完整版本，待 review-agent 循环。
+> **本稿状态**：r0 由 tauri-platform 起草 main 进程 + CI/打包章节；r1 由 frontend-ui 填充 renderer 章节（R-1 ~ R-5）实现细节 + renderer 测试清单。本稿为 main+CI+renderer 三方完整版本，已通过 review-agent 循环；当前处于发布治理收口。
 >
 > **本稿规则**：所有字段命名以 product.md「设计方案 · 1」`vaultRoot / qaSubdir / projectsSubdir / hasShownFirstLaunchToast` 为准；req-063 原文 `qaPath / projectsPath` 不再使用。
 
@@ -1084,245 +1084,18 @@ function deriveProjectsDir(config: VaultConfigSchema['vaultConfig']): string {
 - [❌] **节点 R-6 实现** · **已撤销**（v0.16 doc_rev=11 / 2026-06-08 用户决策，详见 [[changelog/v0.16/product]] doc_rev=9）：
   > **撤销原因**：用户在 QA 阶段澄清——R-6 输入框上方文件夹按钮的「原意」是**任务 cwd 切换**（类 Claude Code 的工作目录切换），不是 vault 切换。当前 v0.16 实现把它误做成了 vault 切换，功能定位错误。
   > **撤销范围**：
-  >   - 删除 `workbench/src/components/ChatView/ChatInputVaultButton.tsx` 及其单测
-  >   - `ChatView.tsx` 移除 `<ChatInputVaultButton />` 挂载 + `chat-input-toolbar` div + import
+  >   - 删除输入框 Vault 按钮组件及其单测
+  >   - `ChatView.tsx` 移除对应按钮挂载、工具栏 div 与 import
   >   - `ChatView.css` 移除 `.chat-input-toolbar` 样式
   > **保留资产**：`workbench/src/utils/pathDisplay.ts` 纯函数（`truncateMiddle` / `getVaultFolderName`）及其单测，服务 req-065「任务 cwd 选择器」（v0.17 候选），文件头注释已标注。
   > **后续承接**：[[requirements/req-065-task-cwd-selector]] 接 v0.17 重新设计任务 cwd 切换控件（语义与 vault 切换完全独立）。
-  > **下方原 R-6 实现章节归档不删**，作为决策考古资料。
+  > **历史归档摘要**：原 R-6 曾规划为输入框上方 Vault 文件夹按钮，但该方向已撤销，不纳入 v0.16 交付或验收。req-065 将在后续版本重新承接“任务 cwd 选择器”语义；仅 `workbench/src/utils/pathDisplay.ts` 作为可复用资产保留。
 
-- [x] **节点 R-6 实现**（历史归档 · 已撤销，见上方说明）：Chat 输入框上方 Vault 文件夹按钮（ChatInputVaultButton）
-  - **设计来源**：product.md doc_revision 6 「设计方案 · 6 Chat 输入框上方 Vault 文件夹按钮（R-6）」+「架构方向 · 实现顺序 [11]」+「验收标准 · 5」
-  - **既有代码基础（grep 结论 · 必读）**：
-    - 图标库：项目无 lucide-react 依赖，既有 NavIcons.tsx / SettingsIcon / DashboardIcon 等均为**内联 SVG**（18×18 viewBox、`currentColor` 描边/填充），R-6 直接复用此模式新增 `FolderIcon`，不引入新依赖
-    - Toast 系统：`workbench/src/store/notificationsSlice.ts` 已有 `ToastNotification { id, type: 'success' | 'error' | 'info', message, autoDismiss }` schema + `addToast` / `removeToast` actions；TopBar.tsx L24-83 已有 autoDismiss 3s 渲染与定时清理逻辑——R-6 切换 toast **直接复用 `addToast({ autoDismiss: true })`**，不新建独立组件、不改 TopBar
-    - Chat 输入框容器：`workbench/src/components/ChatView/ChatView.tsx` L748-781，结构为 `<div className="chat-footer"> → <ContextIndicator /> → <div className="chat-input-wrap"> → <div className="chat-input-row"> → <textarea> + <button>`。R-6.4 挂载位置选定在 `chat-input-wrap` 内 `chat-input-row` **之前**作为新增工具栏行（不动 ContextIndicator 与 input-row 结构）
-    - FirstLaunchToast 互斥：R-5 FirstLaunchToast 由独立组件持有 `visible` 本地态，**不进入 notificationsSlice.toasts 数组**；R-6 切换 toast 走 notificationsSlice。R-6.3 互斥需在按钮点击成功后通过 R-5 暴露的「dismiss 钩子」或全局 ref 联动——见下方 R-6.3 实现要点
-  - **R-6.1 新建 `workbench/src/components/ChatView/ChatInputVaultButton.tsx`**
-    - 文件路径：`workbench/src/components/ChatView/ChatInputVaultButton.tsx`（与 ChatView 同目录便于 import）
-    - 组件依赖：
-      ```ts
-      import { useState } from 'react'
-      import { useVaultRoot } from '../../store/vaultSlice'
-      import { useStore } from '../../store'
-      import { truncateMiddle, getVaultFolderName } from '../../utils/pathDisplay'
-      ```
-    - 内联 SVG FolderIcon（仿 NavIcons.tsx 风格，14×14，`currentColor` 描边）：
-      ```tsx
-      function FolderIcon() {
-        return (
-          <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2 5.5a1 1 0 0 1 1-1h3.6l1.4 1.5h6.5a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5.5Z"
-                  stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-          </svg>
-        )
-      }
-      ```
-      尺寸 14×14 比 NavIcons 略小（适配输入框上方工具栏行高），viewBox 仍 18×18 保留描边一致性
-    - 渲染主体（含两态分支）：
-      ```tsx
-      export function ChatInputVaultButton() {
-        const vaultRoot = useVaultRoot()
-        const setVaultConfig = useStore((s) => s.setVaultConfig)
-        const addToast = useStore((s) => s.addToast)
-        const [hovering, setHovering] = useState(false)
-
-        const isConfigured = vaultRoot !== ''
-        const folderName = isConfigured ? getVaultFolderName(vaultRoot) : '未配置'
-        const tooltipText = isConfigured ? truncateMiddle(vaultRoot, 40) : '点击配置 Vault'
-
-        async function handleClick() {
-          try {
-            const result = await window.api.invoke<string | { cancelled: true } | null>(
-              'vault:pick-folder',
-              { title: '切换 Vault 根目录' }
-            )
-            // 取消：result === null 或 { cancelled: true } —— 静默返回，不 toast、不 error
-            if (result === null || (typeof result === 'object' && result !== null && 'cancelled' in result)) return
-            if (typeof result !== 'string') return  // 防御性
-            // 显式调 setVaultConfig 写入 store + 广播（与 M-2 契约对齐：vault:pick-folder 不写 store）
-            await setVaultConfig({ vaultRoot: result })
-            // 显示切换 toast
-            const newFolderName = getVaultFolderName(result)
-            const newPath = truncateMiddle(result, 40)
-            addToast({
-              id: `vault-switched-${Date.now()}`,
-              type: 'success',
-              message: `Vault 已切换到 ${newFolderName}(${newPath})`,
-              autoDismiss: true,  // 复用 TopBar 既有 3s 自动 dismiss
-            })
-          } catch (e) {
-            // 无访问权限 / 无效目录 / setVaultConfig 失败 等错误：显示错误 toast
-            addToast({
-              id: `vault-switch-error-${Date.now()}`,
-              type: 'error',
-              message: `Vault 切换失败：${String(e)}`,
-              autoDismiss: true,
-            })
-          }
-        }
-
-        return (
-          <button
-            type="button"
-            className="chat-input-vault-btn"
-            onClick={handleClick}
-            onMouseEnter={() => setHovering(true)}
-            onMouseLeave={() => setHovering(false)}
-            aria-label="切换 Vault 根目录"
-            title={tooltipText}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'transparent',
-              border: 'none',
-              padding: '4px 8px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontFamily: 'var(--font-ui)',
-              color: hovering ? 'var(--accent)' : 'var(--text-secondary)',
-              transition: 'color 0.15s ease',
-              borderRadius: '4px',
-            }}
-          >
-            <FolderIcon />
-            <span>{folderName}</span>
-          </button>
-        )
-      }
-      ```
-    - **设计 token 引用**：
-      - `--text-secondary`（默认 muted 灰）/ `--accent`（hover 升蓝）—— v0.15 Design Token 已铺；双主题（浅色/暗色）对比度由 Token 双主题机制自动满足
-      - `--font-ui`（Inter）—— CLAUDE.md「字体」段
-    - **`title` 属性 tooltip 兜底**：浏览器原生 tooltip 在多数桌面环境足够；R-6 不依赖第三方 tooltip 组件（项目内尚无统一 tooltip 抽象，避免本节点引入新依赖）。**自动 fallback 到下方**：原生 title tooltip 由浏览器决定位置，小屏遮挡风险天然由浏览器规避（与产品规格「fallback 到下方」语义实质对齐）
-  - **R-6.2 点击行为细节（已合入 R-6.1 handleClick）**
-    - 调用 `window.api.invoke('vault:pick-folder', { title: '切换 Vault 根目录' })`
-    - **R-6 与 M-2 现有契约的对齐策略**：M-2 r0 章节明确 `vault:pick-folder` 「不写 store；由 renderer 拿到路径后再调 set-config」。R-6 收到返回路径后，**显式调 `setVaultConfig({ vaultRoot: result })`**（透传 vaultSlice action → vault:set-config IPC → main 写 store + 广播），保持与 M-2 现有契约 100% 对齐、**不要求 M-2 改写**。
-    - 这样 R-6 实现完全在 renderer 内闭环，不打扰 tauri-platform 已完成的 M-2 文档
-    - vaultSlice 同时会收到 vault:set-config 的 IPC response 与 vault:config-changed 广播（双源幂等，R-1 已声明 __applyVaultConfig 重复 apply 无副作用）
-  - **R-6.3 切换反馈 toast 实现细节**
-    - 复用 notificationsSlice `addToast`，type: 'success'，autoDismiss: true（TopBar.tsx L69-83 既有 3s 定时器自动 dismiss——本节点不改 TopBar）
-    - 文案：``Vault 已切换到 `${newFolderName}`(`${truncateMiddle(newPath, 40)}`)``（用 vault 文件夹名 + 完整路径截断显示，与 hover tooltip 相同规则）
-    - **与 FirstLaunchToast 互斥（决策）**：
-      - FirstLaunchToast 在场景 D 下渲染（独立组件 + 本地 `visible` state），用户在 5s 窗口期内点击 R-6 切换 Vault 时，两个 toast 的 DOM 位置实际**不重叠**：R-5 FirstLaunchToast 在**右下角浮现**（fixed bottom-24/right-24），R-6 通过 notificationsSlice 在 TopBar 顶部浮现
-      - **v0.16 拍板**：**不实现强互斥机制**。理由：① DOM 位置不重叠不构成视觉冲突；② 强行加耦合（需在 layoutSlice 增 `firstLaunchToastForceDismiss` 字段 / FirstLaunchToast 监听）违反「面板职责排他」原则；③ 实际场景中用户在 FirstLaunchToast 5s 窗口内主动切换 Vault 概率极低
-      - **Flag for review**：若 QA 验收发现实际重叠体验问题，按以下方案追加（不进 v0.16 实现）：layoutSlice 新增 `firstLaunchToastForceDismiss: boolean`，R-6 切换成功后置 true，R-5 FirstLaunchToast useEffect 监听该字段为 true 时 setVisible(false)
-    - 暗色主题对比度：TopBar toast 已用 Design Token 渲染，R-6 仅向 notificationsSlice 推消息，渲染由 TopBar 既有逻辑保证（双主题对比度跟随 v0.15 Token 自动满足）
-  - **R-6.4 挂载位置细节**
-    - 修改 `workbench/src/components/ChatView/ChatView.tsx` L750（即 `<div className="chat-input-wrap">` 内部第一行）：
-      ```tsx
-      <div className="chat-input-wrap">
-        <div className="chat-input-toolbar">
-          <ChatInputVaultButton />
-        </div>
-        <div className="chat-input-row">
-          <textarea ... />
-          ...
-        </div>
-        <div className="chat-input-meta">...</div>
-      </div>
-      ```
-    - 新增 `.chat-input-toolbar` CSS 类到 `ChatView.css`：
-      ```css
-      .chat-input-toolbar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 8px 2px;
-        /* 工具栏区域，为未来扩展（如附件按钮、模式切换等）留位 */
-      }
-      ```
-    - **不动既有 textarea / 发送按钮结构**：保持原 `chat-input-row` 完整不变
-    - import 追加：`import { ChatInputVaultButton } from './ChatInputVaultButton'`
-  - **R-6.5 路径辅助纯函数 `workbench/src/utils/pathDisplay.ts`（新建）**
-    ```ts
-    /**
-     * 中部省略：超长路径头尾保留、中部用「...」省略
-     * @param path 完整路径
-     * @param maxLen 触发阈值；<= maxLen 时原样返回，> maxLen 时截断
-     * @returns 截断后的字符串
-     *
-     * 例子：
-     *   truncateMiddle('/short', 40) === '/short'
-     *   truncateMiddle('/Users/morgan/Desktop/.../Workbench-Vault', 40) 概念返回头部+...+尾部
-     */
-    export function truncateMiddle(path: string, maxLen: number): string {
-      if (!path) return ''
-      if (path.length <= maxLen) return path
-      // 头部保留 maxLen 的 40%，尾部保留 maxLen 的 50%（尾部更重要，含 vault 文件夹名）
-      const ellipsis = '...'
-      const headLen = Math.floor((maxLen - ellipsis.length) * 0.4)
-      const tailLen = maxLen - ellipsis.length - headLen
-      return `${path.slice(0, headLen)}${ellipsis}${path.slice(-tailLen)}`
-    }
-
-    /**
-     * 取路径最后一段作为「文件夹名」
-     * 兼容 mac/linux ('/') 与 windows ('\\') 路径分隔符
-     * @param vaultRoot 完整路径
-     * @returns 文件夹名；vaultRoot 为空返回 ''；以分隔符结尾时去尾
-     *
-     * 例子：
-     *   getVaultFolderName('/Users/m/Workbench-Vault') === 'Workbench-Vault'
-     *   getVaultFolderName('/Users/m/Workbench-Vault/') === 'Workbench-Vault'
-     *   getVaultFolderName('C:\\Users\\m\\Workbench-Vault') === 'Workbench-Vault'
-     *   getVaultFolderName('') === ''
-     */
-    export function getVaultFolderName(vaultRoot: string): string {
-      if (!vaultRoot) return ''
-      // 去除尾部分隔符
-      const trimmed = vaultRoot.replace(/[/\\]+$/, '')
-      // 用 / 或 \ 切分，取最后一段
-      const parts = trimmed.split(/[/\\]/)
-      return parts[parts.length - 1] || ''
-    }
-    ```
-  - **R-6.6 边界 case 处理**
-    - **未配置态**：`vaultRoot === ''` 时按钮显示 `未配置`，hover tooltip 显示 `点击配置 Vault`（已在 R-6.1 分支处理）；点击仍然走 `vault:pick-folder` → setVaultConfig 流程，自然完成首次配置
-    - **取消选目录**：`vault:pick-folder` 返回 `null` 或 `{ cancelled: true }` 时静默 return，不弹 toast、不显示错误
-    - **无访问权限**：`vault:pick-folder` 内部抛错（按 M-2 契约可能 reject）→ handleClick try/catch 捕获 → 推 error toast `Vault 切换失败：<err>`
-    - **setVaultConfig 失败**：如 IPC 写 store 失败 / partial merge 异常 → 同样被 try/catch 捕获 → 推 error toast，UI 状态保持原 vaultRoot（vaultSlice 不更新）
-  - **接口契约对齐 M-2**：
-    - **vault:pick-folder 出参兼容**：本节点按 M-2 r0 章节契约表实现 —— `string | null`。若 main 进程将来扩展返回 `{ cancelled: true }` 对象形式，handleClick 内 `typeof result === 'object' && 'cancelled' in result` 分支已兼容，无需改 renderer
-    - **错误码语义**：按 product.md 任务定义的 `permission-denied` / `invalid-path` 错误码，main 进程通过 IPC reject 抛出，error message 含明确字符串；renderer 端不解析错误码、统一以 `String(e)` 友好展示（用户能截图反馈，不强求技术细节）
-  - **完成标志**：
-    - `pnpm tsc --noEmit` 零错误
-    - `pnpm test` 通过（含新增 R-6 测试用例 16 个 · 见下方测试清单）
-    - 手动启动 dev：从默认 `~/Workbench-Vault` 切换到自定义路径，验证 ChatView/DetailPanel/useChatSend/agentEventDispatcher/conversationSlice 五个消费方均实时切换（vaultSlice 广播）
-    - 按钮在未配置态、已配置态、hover 态三种渲染分支均可观察
-    - 暗色主题切换后按钮配色对比度合规（Design Token 自动满足）
-    - 取消选目录 / 选无效目录 两种边界 case 行为符合预期
-
----
-
-## R-6 测试清单（追加到 renderer 单元 + 组件测试）
-
-### R-6 纯函数单元测试（pathDisplay.ts）
-
-- [ ] **T-V016-R6.1** truncateMiddle 短路径不截断：`truncateMiddle('/Users/m/v', 40) === '/Users/m/v'`
-- [ ] **T-V016-R6.2** truncateMiddle 超长路径中部省略：`truncateMiddle('/Users/morgan/Desktop/Morgan工作仓库/Morgan工作仓库/01-Vibe项目区/工作台/workbench/Workbench-Vault', 40)` 返回长度 ≤ 40 + 含 `...` + 头尾各保留特征字符（断言尾部含 `Workbench-Vault`）
-- [ ] **T-V016-R6.3** truncateMiddle 边界（恰等 maxLen）：长度 === maxLen 的路径原样返回；长度 === maxLen + 1 的路径触发截断
-- [ ] **T-V016-R6.4** truncateMiddle 空字符串：`truncateMiddle('', 40) === ''`
-- [ ] **T-V016-R6.5** getVaultFolderName mac 路径：`getVaultFolderName('/Users/m/Workbench-Vault') === 'Workbench-Vault'`
-- [ ] **T-V016-R6.6** getVaultFolderName 尾部斜杠：`getVaultFolderName('/Users/m/Workbench-Vault/') === 'Workbench-Vault'`
-- [ ] **T-V016-R6.7** getVaultFolderName win 路径：`getVaultFolderName('C:\\Users\\m\\Workbench-Vault') === 'Workbench-Vault'`
-- [ ] **T-V016-R6.8** getVaultFolderName 空 / 单段：`getVaultFolderName('') === ''`、`getVaultFolderName('/') === ''`
-
-### R-6 组件测试（ChatInputVaultButton.tsx）
-
-- [ ] **T-V016-R6.9** 未配置态渲染：mock vaultSlice `vaultRoot=''`，button 文本含「未配置」、`title` 属性为「点击配置 Vault」
-- [ ] **T-V016-R6.10** 已配置态渲染：mock vaultSlice `vaultRoot='/Users/m/Workbench-Vault'`，button 文本含「Workbench-Vault」、`title` 属性含完整路径或截断版（按长度 40 阈值）
-- [ ] **T-V016-R6.11** 点击触发 IPC + setVaultConfig：mock `window.api.invoke('vault:pick-folder', ...)` 返回 `/picked/new-vault`，spy `useStore.getState().setVaultConfig`；点击后断言两个 mock 各被调用一次、参数正确
-- [ ] **T-V016-R6.12** vaultSlice 广播后按钮文字实时更新：渲染按钮 → 触发 `__applyVaultConfig({ vaultRoot: '/new/Path-X', ... })` → 断言按钮文本变为「Path-X」（React Testing Library renderHook + rerender）
-- [ ] **T-V016-R6.13** 取消选目录不显示 toast（null）：mock invoke 返回 null，点击后 spy addToast 未被调用、setVaultConfig 未被调用
-- [ ] **T-V016-R6.14** 取消选目录不显示 toast（对象形式）：mock invoke 返回 `{ cancelled: true }`，点击后 spy addToast 未被调用、setVaultConfig 未被调用
-- [ ] **T-V016-R6.15** 选无效目录显示错误 toast：mock invoke reject 抛 'permission-denied'，点击后 spy addToast 被调用一次，type='error'，message 含「Vault 切换失败」
-- [ ] **T-V016-R6.16** setVaultConfig 失败显示错误 toast：mock invoke 成功返回路径，但 setVaultConfig reject，点击后 spy addToast 调用且 type='error'
-
-### R-6 端到端测试（人工验收）
-
-- [ ] **T-V016-R6-E1**：dev 环境从 `~/Workbench-Vault` 切到自定义路径，验证 R-2 改造的 5 个消费方（ChatView / DetailPanel / useChatSend / agentEventDispatcher / conversationSlice）全部实时切到新路径（创建新 atom、写入文件验证落到新 vault 下）
+- [x] **节点 R-6 历史归档摘要**（已撤销，不纳入 active scope）：
+  - 不交付输入框 Vault 按钮 UI。
+  - 不保留 R-6 active 测试清单或验收项。
+  - 不进入 v0.16 风险矩阵、依赖图或里程碑统计。
+  - `pathDisplay.ts` 纯函数资产保留，供 req-065 后续复用。
 
 ---
 
@@ -1334,7 +1107,7 @@ function deriveProjectsDir(config: VaultConfigSchema['vaultConfig']): string {
 - [ ] **T-V016-U2** vaultStore partial merge：先调 `setVaultConfig({ vaultRoot: '/tmp/v1' })`，再调 `setVaultConfig({ qaSubdir: 'Notes' })`，最后 `getVaultConfig()` 必须同时含 vaultRoot 与 qaSubdir 更新值（不丢字段）
 - [ ] **T-V016-U3** isVaultConfigured：vaultRoot 为空 / 非空两态分别返回 false / true
 - [ ] **T-V016-U4** markFirstLaunchToastShown：调用后 `getVaultConfig().hasShownFirstLaunchToast === true`
-- [ ] **T-V016-U5** scan-personal-paths.mjs 命中：fixture 含 `/Users/morgan/test.txt` 字符串，扫描后退出码 1 + stdout 含路径 + 字节偏移
+- [ ] **T-V016-U5** scan-personal-paths.mjs 命中：fixture 含 `/Users/example/test.txt` 字符串，扫描后退出码 1 + stdout 含路径 + 字节偏移
 - [ ] **T-V016-U6** scan-personal-paths.mjs 通过：clean fixture 无任何匹配，扫描后退出码 0
 - [ ] **T-V016-U7** scan-personal-paths.mjs 三平台 pattern：fixture 同时含 `/Users/` `C:\\Users\\` `/home/` 三种字符串，扫描后均被识别（输出含三个 `[platform]` 标记）
 
@@ -1428,9 +1201,8 @@ function deriveProjectsDir(config: VaultConfigSchema['vaultConfig']): string {
 | 5 | CI verification step 影响发布速度 | scan 脚本设计为「先 build 再 scan 再 dist」，build + scan 一起 < 1min；dist 是耗时部分（5-10min），失败时不进入 dist 节约时长 |
 | 6 | electron-builder 打包后 dmg 内 renderer JS 可能含异常字符串泄露（非 build 阶段引入） | CI-5 dmg 解包验证 + RELEASE.md checklist 双重保险；每次 release 必跑 verify-dmg.sh |
 | 7 | workspace.cwd 与 vaultRoot 语义重叠造成 fsGuard 双源 | M-4 完成时若 vaultRoot 与已持久化 cwd 不同，触发一次 `setWorkspaceCwd(vaultRoot)` 同步；v0.17+ 视情况合并语义（v0.16 不做） |
-| 8 | R-6 切换 Vault 跨 chat session 时 atom 文件读写跨 vault 串扰 | **决策定档**：仅切 vault 不切已加载会话——R-6 切换后，已 mount 的 ChatView 组件持有的 currentPath / parentMeta 等 atom 引用按加载时的路径 resolve（不重新计算）；后续新建/分叉 atom 落到新 vault。`conversationSlice` 不在 R-6 切换瞬间 reset，避免用户当前对话被强制清空。如果需要严格的「切 vault 即重置会话」语义，待 v0.17 单独 backlog（不进 v0.16） |
-| 9 | R-6 tooltip 在小屏可能被输入框上沿遮挡 | 使用浏览器原生 `title` 属性 tooltip（浏览器自动选择不被遮挡的方向），不依赖第三方 tooltip 组件；与产品规格「fallback 到下方」语义实质等价。若 QA 验收发现实际遮挡，待 v0.17 引入统一 tooltip 抽象层时统一处理 |
-| 10 | R-6 与 R-5 FirstLaunchToast 视觉重叠 | **决策定档**：不强互斥（DOM 位置不重叠：R-5 右下角 vs R-6 TopBar 顶部 · 强行加耦合违反「面板职责排他」 · 实际场景中 5s 窗口内切换概率极低）。Flag 在 R-6.3 实现要点段：若 QA 验收发现重叠体验问题，按 layoutSlice 增 `firstLaunchToastForceDismiss` 字段方案追加（不进 v0.16 实现） |
+
+R-6 相关风险已随撤销移出本版本范围；任务 cwd 切换风险由 req-065 后续承接。
 
 ---
 
@@ -1457,10 +1229,7 @@ function deriveProjectsDir(config: VaultConfigSchema['vaultConfig']): string {
 **软依赖**：CI-2 需 CI-1；CI-3 需 CI-2；CI-5 需 CI-1；其余 CI 节点独立
 **跨工作流握手点**：M-2 完成后（IPC 4 channel 接口签名锁定），frontend-ui 启动 R-x 实现
 
-**R-6 节点依赖与并行性**：
-- 硬依赖：R-1（vaultSlice 已暴露 useVaultRoot + setVaultConfig + addToast）+ M-2（`vault:pick-folder` IPC 已注册并满足现有契约 `string | null`）
-- 与 R-2 ~ R-5 关系：**完全可并行**（不共享文件 · ChatInputVaultButton 独立组件 · 仅在 ChatView.tsx 挂载位置追加一行 import + 一个 toolbar div · 不动 R-2 paths.ts / R-3 BootGate / R-4 Settings / R-5 FirstLaunchToast 任何代码）
-- 与 notificationsSlice / TopBar 关系：**只调 addToast**，不改 TopBar 渲染 / 不改 notificationsSlice schema，零侵入
+**R-6 依赖状态**：R-6 已撤销，无当前依赖；任务 cwd 选择器由 req-065 后续重新设计。
 
 ### 里程碑
 
@@ -1470,7 +1239,7 @@ function deriveProjectsDir(config: VaultConfigSchema['vaultConfig']): string {
 | MS-B | M-3 + M-4 + M-5 完成 | main 进程 vault 闭环 |
 | MS-C | CI-1 + CI-2 完成（CI verification 上线）| 与 MS-A/B 并行 |
 | MS-D | CI-3 + CI-5 + CI-4 完成（发布前 checklist 闭环）| MS-C 之后 |
-| MS-E | R-1 ~ R-6 完成 + renderer 全测试通过（R-1 × 7 + R-2 × 8 + R-3 × 4 + R-4 × 6 + R-5 × 6 + R-6 × 16 = 47 单元/组件测试 + 3 集成 + 3 e2e + R-6-E1 e2e = 53 个测试用例）| 依赖 MS-A；由 frontend-ui 主导 |
+| MS-E | R-1 ~ R-5 完成 + renderer 相关测试通过 | 依赖 MS-A；由 frontend-ui 主导 |
 | MS-F | 发布 v0.16 tag + dmg/exe 通过 GitHub Release | 所有 MS 完成 + 人工验收 |
 
 ---
@@ -1486,8 +1255,8 @@ function deriveProjectsDir(config: VaultConfigSchema['vaultConfig']): string {
 | 关联产品文档 | [[changelog/v0.16/product]] |
 | 关联需求 | [[requirements/req-063-oss-personal-info-decoupling]] |
 | 复用 v0.15 模块 | `workspaceStore.ts` 模式 / `handlers.ts` IPC 注册模式 / `dialog.showOpenDialog` 链路 / electron-store v11 |
-| 新建模块 | `vaultStore.ts` / `vault.ts` (IPC) / `scan-personal-paths.mjs` / `verify-dmg.sh` / `RELEASE.md` / `src/types/vault.ts` (类型别名) / `vaultSlice.ts` (R-1) / paths.ts 重写 (R-2) / `VaultBootGate.tsx` (R-3) / `Settings/VaultConfig.tsx` (R-4) / `FirstLaunchToast.tsx` (R-5) / `ChatView/ChatInputVaultButton.tsx` (R-6) / `utils/pathDisplay.ts` (R-6) |
-| 复用既有模块 | R-6 复用：notificationsSlice.addToast / TopBar autoDismiss 3s 渲染 / NavIcons 内联 SVG 模式 / ChatView.tsx chat-input-wrap 容器（仅新增 chat-input-toolbar 子 div）/ vaultSlice useVaultRoot + setVaultConfig action（无新增 IPC channel）|
+| 新建模块 | `vaultStore.ts` / `vault.ts` (IPC) / `scan-personal-paths.mjs` / `verify-dmg.sh` / `RELEASE.md` / `src/types/vault.ts` (类型别名) / `vaultSlice.ts` (R-1) / paths.ts 重写 (R-2) / `VaultBootGate.tsx` (R-3) / `Settings/VaultConfig.tsx` (R-4) / `FirstLaunchToast.tsx` (R-5) / `utils/pathDisplay.ts`（保留资产，供 req-065 复用，不纳入 v0.16 active UI） |
+| 复用既有模块 | 无 R-6 active 复用项 |
 | Token 复用 | Settings overlay / toast 样式复用 v0.15 已有 Design Token（`--surface` / `--text-2` / `--bd` / `--accent`）|
 | 无变更项 | 数据 schema（atom frontmatter / `## Steps` / `## Intervention`）/ 后端 API / SDK 调用链 / fsGuard 越界逻辑（除 M-4 同步触发）/ npm 依赖包列表（不新增）|
 | 副产物清理 | `workbench/src/lib/agentEventDispatcher.ts` comment 字面量（`VITE_VAULT_QA_PATH` / `07-AI知识库/L1-原始对话/QA` 等 historical context 注释），属 R-2.5 节点 OSS 化精神延伸；不进 scan-personal-paths.mjs 扫描范围但代码 review 阶段必清理 |
