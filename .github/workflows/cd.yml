@@ -79,14 +79,14 @@ jobs:
 
       - name: Build (macOS)
         if: matrix.platform == 'mac'
-        run: pnpm run dist:mac
+        run: pnpm run dist:mac:package
         working-directory: workbench
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build (Windows)
         if: matrix.platform == 'win'
-        run: pnpm run dist:win
+        run: pnpm run dist:win:package
         working-directory: workbench
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

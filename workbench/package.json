@@ -12,7 +12,9 @@
     "pack": "electron-vite build && electron-builder --dir",
     "dist": "electron-vite build && electron-builder",
     "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:mac:package": "electron-builder --mac",
     "dist:win": "electron-vite build && electron-builder --win",
+    "dist:win:package": "electron-builder --win",
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest"
