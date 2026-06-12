@@ -69,6 +69,14 @@ jobs:
         run: pip install -r requirements.txt
         working-directory: ai-service
 
+      - name: Build renderer + main artifacts
+        run: pnpm build
+        working-directory: workbench
+
+      - name: Verify no personal paths in build artifacts
+        run: node scripts/scan-personal-paths.mjs
+        working-directory: workbench
+
       - name: Build (macOS)
         if: matrix.platform == 'mac'
         run: pnpm run dist:mac
