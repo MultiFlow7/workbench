@@ -69,6 +69,7 @@ uvicorn main:app --reload --port 8000
 
 ```bash
 cd backend
+cp .env.example .env        # 填入配置
 cargo run
 # 默认监听 :8081
 ```
@@ -163,6 +164,7 @@ uvicorn main:app --reload --port 8000
 
 ```bash
 cd backend
+cp .env.example .env        # fill in your config
 cargo run
 # listens on :8081 by default
 ```
