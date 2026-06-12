@@ -160,6 +160,38 @@ const api = {
     },
   },
 
+  // ── vault.* Vault 配置（v0.16 节点 M-2，req-063）─────────────────────────
+  // renderer 通过 window.api.vault.* 便捷方法或 window.api.invoke('vault:*') 双路径访问。
+  // 双路径保持与 v0.15.1 既有 fsExists / fs.exists 风格一致：便捷方法供常用调用，
+  // invoke channel 供动态场景兜底（如测试 mock）。
+  vault: {
+    /** 获取完整 vault 配置（含 4 字段 + 边带 __fallbackInfo）。 */
+    getConfig: (): Promise<{
+      vaultRoot: string
+      qaSubdir: string
+      projectsSubdir: string
+      hasShownFirstLaunchToast: boolean
+      __fallbackInfo?: { used: boolean; reason: string }
+    }> => ipcRenderer.invoke('vault:get-config'),
+
+    /** Partial 更新 vault 配置；返回合并后的完整对象。同步触发 vault:config-changed 广播。 */
+    setConfig: (patch: Partial<{
+      vaultRoot: string
+      qaSubdir: string
+      projectsSubdir: string
+      hasShownFirstLaunchToast: boolean
+    }>): Promise<{
+      vaultRoot: string
+      qaSubdir: string
+      projectsSubdir: string
+      hasShownFirstLaunchToast: boolean
+    }> => ipcRenderer.invoke('vault:set-config', patch),
+
+    /** 弹出系统目录选择对话框。用户取消返回 null。不写 store。 */
+    pickFolder: (options?: { title?: string }): Promise<string | null> =>
+      ipcRenderer.invoke('vault:pick-folder', options),
+  },
+
   // 占位字段（hello-world 验证）
   version: '0.15.0-dev',
   ping: () => ipcRenderer.invoke('ping') as Promise<string>,

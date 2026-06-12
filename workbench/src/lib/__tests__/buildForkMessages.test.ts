@@ -41,7 +41,7 @@ describe('buildForkMessages - 测试 A：3 轮工具调用无干预', () => {
   const atom = makeAtom('a1', '执行三步流程', '完成。', [
     { thinking: '第一步', tools: [{ name: 'bash', input: 'ls', result: 'foo', status: 'done' }] },
     { thinking: '第二步', tools: [{ name: 'bash', input: 'pwd', result: '/tmp', status: 'done' }] },
-    { thinking: '第三步', tools: [{ name: 'bash', input: 'whoami', result: 'morgan', status: 'done' }] },
+    { thinking: '第三步', tools: [{ name: 'bash', input: 'whoami', result: 'testuser', status: 'done' }] },
   ])
 
   it('所有 tool_use 有匹配 tool_result', () => {

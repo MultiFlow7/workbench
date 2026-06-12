@@ -8,6 +8,7 @@ import { createAppearanceSlice, AppearanceSlice } from './appearanceSlice'
 import { createCanvasSlice, CanvasSlice } from './canvasSlice'
 import { createTraceSlice, TraceSlice } from './traceSlice'
 import { createServerSlice, ServerSlice } from './serverSlice'
+import { createVaultSlice, VaultSlice } from './vaultSlice'
 
 export type StoreState = LayoutSlice
   & ConversationSlice
@@ -18,6 +19,7 @@ export type StoreState = LayoutSlice
   & CanvasSlice
   & TraceSlice
   & ServerSlice
+  & VaultSlice
 
 export const useStore = create<StoreState>()((...a) => ({
   ...createLayoutSlice(...a),
@@ -29,4 +31,5 @@ export const useStore = create<StoreState>()((...a) => ({
   ...createCanvasSlice(...a),
   ...createTraceSlice(...a),
   ...createServerSlice(...a),
+  ...createVaultSlice(...a),
 }))

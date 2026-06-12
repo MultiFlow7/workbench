@@ -69,16 +69,28 @@ jobs:
         run: pip install -r requirements.txt
         working-directory: ai-service
 
+      - name: Build renderer + main artifacts
+        run: pnpm build
+        working-directory: workbench
+
+      - name: Verify no personal paths in build artifacts
+        run: node scripts/scan-personal-paths.mjs
+        working-directory: workbench
+
+      - name: Verify no personal paths in bundled ai-service
+        run: node scripts/scan-personal-paths.mjs ../ai-service
+        working-directory: workbench
+
       - name: Build (macOS)
         if: matrix.platform == 'mac'
-        run: pnpm run dist:mac
+        run: pnpm run dist:mac:package
         working-directory: workbench
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build (Windows)
         if: matrix.platform == 'win'
-        run: pnpm run dist:win
+        run: pnpm run dist:win:package
         working-directory: workbench
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

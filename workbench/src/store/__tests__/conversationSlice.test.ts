@@ -7,9 +7,16 @@ import type { ConversationSlice } from '../conversationSlice'
 ;(globalThis as unknown as { window: { api: { invoke: ReturnType<typeof vi.fn> } } }).window = {
   api: { invoke: vi.fn().mockResolvedValue(undefined) },
 }
-vi.mock('../../../utils/paths', () => ({
-  BASE_PATH: '/mock/base',
-  PROJECTS_PATH: '/mock/projects',
+vi.mock('../../utils/paths', () => ({
+  getBasePath: () => '/mock/base',
+  getProjectsPath: () => '/mock/projects',
+  getVaultPath: () => '/mock/vault',
+  getVaultConfig: () => null,
+  useBasePath: () => '/mock/base',
+  useProjectsPath: () => '/mock/projects',
+  useVaultPath: () => '/mock/vault',
+  buildFilePath: (b: string, i: string) => (b && i ? `${b}/${i}.md` : ''),
+  toFilePathFromSnapshot: (i: string) => (i ? `/mock/base/${i}.md` : ''),
 }))
 
 function makeStore() {

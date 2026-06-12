@@ -61,6 +61,16 @@ export interface SettingsSlice {
   addApiKey: (entry: Omit<StoredApiKey, 'id'>) => void
   updateApiKey: (entry: StoredApiKey) => void
   removeApiKey: (id: string) => void
+  /**
+   * v0.16 QA 决策：SettingsPanel overlay 全局可见性。
+   * 由 NavIcons 齿轮按钮 + FirstLaunchToast 「打开 Settings」联动设置为 true，
+   * NavIcons 内 SettingsPanel 据此渲染。不持久化（会话内瞬态状态）。
+   *
+   * 历史：v0.16 R-4 曾用 `activeSection: 'vault' | 'apikey' | 'theme' | null` 作为
+   * P3 SettingsView 的分区锚点；R-4 已撤销，改用 overlay 后无需分区锚点状态。
+   */
+  settingsPanelOpen: boolean
+  setSettingsPanelOpen: (open: boolean) => void
 }
 
 export const createSettingsSlice: StateCreator<SettingsSlice> = (set, get) => ({
@@ -96,6 +106,10 @@ export const createSettingsSlice: StateCreator<SettingsSlice> = (set, get) => ({
     persistKeys(next, get().cachingEnabled)
     set({ apiKeys: next })
   },
+
+  // v0.16 QA 决策：SettingsPanel overlay 全局可见性（不持久化）
+  settingsPanelOpen: false,
+  setSettingsPanelOpen: (open) => set({ settingsPanelOpen: open }),
 })
 
 // Call this on app startup to hydrate from the durable file.

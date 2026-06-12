@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import { useStore } from '../../store'
 import type { QAAtomMeta } from '../../store/conversationSlice'
 import { findKeyForModel } from '../../store/settingsSlice'
-import { toFilePath, VAULT_PATH, BASE_PATH } from '../../utils/paths'
+import { useBasePath, useVaultPath, buildFilePath, toFilePathFromSnapshot } from '../../utils/paths'
 import { getContextLimit } from '../../constants/modelLimits'
 import { ContextIndicator } from '../ContextIndicator/ContextIndicator'
 import { InterventionInline } from '../InterventionInline/InterventionInline'
@@ -31,7 +31,7 @@ const TOOL_SCHEMAS = [
       type: 'object',
       properties: {
         keyword: { type: 'string', description: '搜索关键词' },
-        vault_path: { type: 'string', description: `Vault 根目录，默认 ${VAULT_PATH}` },
+        vault_path: { type: 'string', description: '运行期由 Vault 配置决定的根目录' },
       },
       required: ['keyword'],
     },
@@ -88,7 +88,7 @@ async function generateNewAtomId(parentId: string): Promise<string> {
     const date = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`
     const time = `${pad2(now.getHours())}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`
     const candidate = `${branchId}-${String(seqNum).padStart(3, '0')}-${date}-${time}`
-    const fileExists = await window.api.fsExists(toFilePath(candidate))
+    const fileExists = await window.api.fsExists(toFilePathFromSnapshot(candidate))
     if (!fileExists) return candidate
     seqNum++
   }
@@ -145,6 +145,12 @@ export function ChatView() {
   const expandedInput = useStore((s) => s.expandedInput)
   const setExpandedInput = useStore((s) => s.setExpandedInput)
   const setP4Mode = useStore((s) => s.setP4Mode)
+
+  // v0.16 R-2：vault 路径派生（替代旧 BASE_PATH / VAULT_PATH 常量）
+  const basePath = useBasePath()
+  // 保留以兼容未来工具默认参数使用；当前仅用于 useEffect 依赖追踪
+  const vaultPath = useVaultPath()
+  void vaultPath
 
   const DEFAULT_MODELS = [
     'claude-sonnet-4-6',
@@ -206,7 +212,7 @@ export function ChatView() {
     let cancelled = false
     Promise.all(
       currentPath.map((m) =>
-        window.api.invoke<QAAtom>('read_qa_atom', { filePath: toFilePath(m.id) })
+        window.api.invoke<QAAtom>('read_qa_atom', { filePath: buildFilePath(basePath, m.id) })
       )
     )
       .then((atoms) => {
@@ -216,7 +222,7 @@ export function ChatView() {
       })
       .catch((e) => console.error('[ChatView] read atoms error:', e))
     return () => { cancelled = true }
-  }, [currentPath])
+  }, [currentPath, basePath])
 
   const shouldScrollRef = useRef(false)
   useEffect(() => {
@@ -353,7 +359,7 @@ export function ChatView() {
 
       // Overwrite placeholder file with actual answer
       await window.api.invoke('write_qa_atom', {
-        filePath: toFilePath(atom_id),
+        filePath: buildFilePath(basePath, atom_id),
         atom: {
           meta: {
             id: atom_id,
@@ -518,7 +524,7 @@ export function ChatView() {
     } else {
       if (!selectedProjectId) return
       if (!projects.find((p) => p.id === selectedProjectId)) return
-      const branchId = await window.api.invoke<string>('next_branch_id', { qaDir: BASE_PATH })
+      const branchId = await window.api.invoke<string>('next_branch_id', { qaDir: basePath })
       const now = new Date()
       const pad2 = (n: number) => String(n).padStart(2, '0')
       const dateStr = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`
@@ -542,7 +548,7 @@ export function ChatView() {
     // Step 4: Node-F-051-B-4 — write placeholder atom file (answer: '')
     const placeholderPrev = parentMeta ? `[[${parentMeta.id}]]` : null
     await window.api.invoke('write_qa_atom', {
-      filePath: toFilePath(newAtomId),
+      filePath: buildFilePath(basePath, newAtomId),
       atom: {
         meta: {
           id: newAtomId,

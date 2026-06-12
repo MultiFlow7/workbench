@@ -13,13 +13,26 @@
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { join } from 'node:path'
 import {
+  getWorkspaceCwd,
   hasPersistedWorkspaceCwd,
   registerIpcHandlers,
   setWorkspaceCwd,
 } from '../ipc/handlers'
+import { registerVaultIpc, sendCompensationBroadcast } from '../ipc/vault'
+import {
+  ensureDefaultVault,
+  setWorkspaceSyncFns,
+} from './vaultBootstrap'
 import { setPersistedCwd } from '../store/workspaceStore'
 import { startAiService, stopAiService } from '../sidecar/aiService'
 import { initAutoUpdater } from '../updater/autoUpdater'
+
+let mainWindow: BrowserWindow | null = null
+const singleInstanceLock = app.requestSingleInstanceLock()
+
+if (!singleInstanceLock) {
+  app.exit(0)
+}
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -41,6 +54,10 @@ function createWindow(): BrowserWindow {
 
   win.on('ready-to-show', () => {
     win.show()
+  })
+
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
   })
 
   // 外链在系统浏览器中打开（防止 BrowserWindow 内导航逃逸）
@@ -79,11 +96,35 @@ async function ensureWorkspaceCwd(win: BrowserWindow): Promise<void> {
   win.webContents.send('workspace:changed', { cwd })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // 节点 1.2：集中注册所有 IPC 通道
   registerIpcHandlers()
 
+  // v0.16 节点 M-3：vault IPC 注册（独立模块，与 handlers.ts 解耦）
+  registerVaultIpc()
+
+  // v0.16 节点 M-3 + M-4 + M-5：默认 vault 自动创建 / .env.local 兼容迁移
+  // 注入 workspace 同步函数（避免循环依赖：vaultBootstrap → handlers）
+  setWorkspaceSyncFns({
+    getCurrentCwd: getWorkspaceCwd,
+    setWorkspaceCwd,
+    setPersistedCwd,
+  })
+  try {
+    await ensureDefaultVault()
+  } catch (err) {
+    console.error('[main] ensureDefaultVault failed:', err)
+  }
+
   const win = createWindow()
+  mainWindow = win
+
+  // v0.16 节点 M-3：fallback / triggerSource 补偿广播
+  // 在 createWindow 之后立即发送一次 vault:config-changed，确保 renderer
+  // 即使错过 init 也能拿到 fallbackUsed / triggerSource 信息
+  win.once('ready-to-show', () => {
+    sendCompensationBroadcast(win)
+  })
 
   // 节点 1.4：首次启动检测并触发工作目录选择
   win.once('ready-to-show', () => {
@@ -99,8 +140,16 @@ app.whenReady().then(() => {
   initAutoUpdater()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = createWindow()
+    }
   })
+})
+
+app.on('second-instance', () => {
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.focus()
 })
 
 app.on('window-all-closed', () => {
