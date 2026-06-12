@@ -44,15 +44,10 @@ backend/*.db-wal
 *.sw?
 
 # ── 本地个人文件（不提交）─────────────────────────────
-agent-roster.md
-团队章程.md
+agent-roster.local.md
+团队章程.local.md
 记忆/
-changelog/
-requirements/
-产品方向.md
-原型设计意图.md
-CLAUDE.md
-prototype.html
+CLAUDE.local.md
 project-intro.html
 prototype-v0.15.html
 decision-compare.html
