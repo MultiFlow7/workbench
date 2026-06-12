@@ -1255,7 +1255,8 @@ R-6 相关风险已随撤销移出本版本范围；任务 cwd 切换风险由 r
 | 关联产品文档 | [[changelog/v0.16/product]] |
 | 关联需求 | [[requirements/req-063-oss-personal-info-decoupling]] |
 | 复用 v0.15 模块 | `workspaceStore.ts` 模式 / `handlers.ts` IPC 注册模式 / `dialog.showOpenDialog` 链路 / electron-store v11 |
-| 新建模块 | `vaultStore.ts` / `vault.ts` (IPC) / `scan-personal-paths.mjs` / `verify-dmg.sh` / `RELEASE.md` / `src/types/vault.ts` (类型别名) / `vaultSlice.ts` (R-1) / paths.ts 重写 (R-2) / `VaultBootGate.tsx` (R-3) / `Settings/VaultConfig.tsx` (R-4) / `FirstLaunchToast.tsx` (R-5) / `utils/pathDisplay.ts`（保留资产，供 req-065 复用，不纳入 v0.16 active UI） |
+| 新建模块 | `vaultStore.ts` / `vault.ts` (IPC) / `scan-personal-paths.mjs` / `verify-dmg.sh` / `RELEASE.md` / `src/types/vault.ts` (类型别名) / `vaultSlice.ts` (R-1) / paths.ts 重写 (R-2) / `VaultBootGate.tsx` (R-3) / `Settings/VaultConfig.tsx` (R-4) / `FirstLaunchToast.tsx` (R-5) |
+| 撤销后保留资产 | `utils/pathDisplay.ts` 仅供 req-065 后续复用，不纳入 v0.16 active UI / active module 统计 |
 | 复用既有模块 | 无 R-6 active 复用项 |
 | Token 复用 | Settings overlay / toast 样式复用 v0.15 已有 Design Token（`--surface` / `--text-2` / `--bd` / `--accent`）|
 | 无变更项 | 数据 schema（atom frontmatter / `## Steps` / `## Intervention`）/ 后端 API / SDK 调用链 / fsGuard 越界逻辑（除 M-4 同步触发）/ npm 依赖包列表（不新增）|
