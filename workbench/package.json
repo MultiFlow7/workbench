@@ -39,8 +39,15 @@
         "filter": [
           "**/*",
           "!**/__pycache__",
+          "!.env*",
           "!**/.env",
-          "!**/logs/**"
+          "!**/.pytest_cache/**",
+          "!**/.gitignore",
+          "!**/logs/**",
+          "!pytest.ini",
+          "!README.md",
+          "!tests/**",
+          "!**/tests/**"
         ]
       }
     ],
