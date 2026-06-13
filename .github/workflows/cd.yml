@@ -106,8 +106,12 @@ jobs:
         with:
           files: |
             workbench/release/*.dmg
+            workbench/release/*.dmg.blockmap
             workbench/release/*.exe
+            workbench/release/*.exe.blockmap
             workbench/release/*.AppImage
+            workbench/release/*.AppImage.blockmap
+            workbench/release/latest*.yml
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

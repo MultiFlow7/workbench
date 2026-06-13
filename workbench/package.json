@@ -12,9 +12,9 @@
     "pack": "electron-vite build && electron-builder --dir",
     "dist": "electron-vite build && electron-builder",
     "dist:mac": "electron-vite build && electron-builder --mac",
-    "dist:mac:package": "electron-builder --mac",
+    "dist:mac:package": "electron-builder --mac --publish never",
     "dist:win": "electron-vite build && electron-builder --win",
-    "dist:win:package": "electron-builder --win",
+    "dist:win:package": "electron-builder --win --publish never",
     "privacy:scan": "node scripts/preflight-public-cleanliness.mjs --tracked",
     "privacy:scan:staged": "node scripts/preflight-public-cleanliness.mjs --staged",
     "privacy:scan:build": "node scripts/preflight-public-cleanliness.mjs --build",
@@ -24,6 +24,7 @@
   },
   "build": {
     "extends": null,
+    "artifactName": "workbench-${version}-${arch}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -81,6 +82,7 @@
       ]
     },
     "nsis": {
+      "artifactName": "workbench-setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
