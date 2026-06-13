@@ -1,0 +1,57 @@
+# ── macOS ─────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# ── Rust 构建产物 ──────────────────────────────────────
+backend/target/
+
+# ── Python ─────────────────────────────────────────────
+ai-service/.env
+ai-service/__pycache__/
+ai-service/*.pyc
+ai-service/*.pyo
+ai-service/.venv/
+ai-service/venv/
+ai-service/logs/
+ai-service/*.jsonl
+
+# ── Node / Tauri 前端 ───────────────────────────────────
+workbench/node_modules/
+workbench/dist/
+workbench/dist-ssr/
+workbench/*.local
+*.tsbuildinfo
+workbench/src-tauri/target/
+workbench/src-tauri/gen/schemas/
+
+# ── Electron（v0.15 起）─────────────────────────────────
+workbench/out/
+workbench/release/
+workbench/.vite/
+
+# ── 后端本地配置 ────────────────────────────────────────
+backend/.env
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+
+# ── 编辑器 ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.sw?
+
+# ── 本地个人文件（不提交）─────────────────────────────
+agent-roster.local.md
+团队章程.local.md
+记忆/
+CLAUDE.local.md
+project-intro.html
+prototype-v0.15.html
+decision-compare.html
+ui-compare.html
+v0151-decision-compare.html
+workbench/src-tauri/.env

@@ -1,0 +1,28 @@
+/* TokenLine — v0.15.1 节点 1.5 */
+
+.token-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.token-line__item {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.token-line__label {
+  color: var(--text-4);
+}
+
+.token-line__value {
+  color: var(--text-2);
+}
+
+.token-line__sep {
+  color: var(--text-4);
+}

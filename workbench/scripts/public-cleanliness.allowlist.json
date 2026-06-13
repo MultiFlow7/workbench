@@ -1,0 +1,51 @@
+[
+  {
+    "ruleId": "personal_path",
+    "path": "workbench/**/__tests__/**",
+    "reason": "Scanner fixtures intentionally contain synthetic home paths.",
+    "owner": "release-security",
+    "reviewedAt": "2026-06-13"
+  },
+  {
+    "ruleId": "public_ip",
+    "path": "workbench/**/__tests__/**",
+    "reason": "Scanner fixtures intentionally contain synthetic public IPs.",
+    "owner": "release-security",
+    "reviewedAt": "2026-06-13"
+  },
+  {
+    "ruleId": "secret_pattern",
+    "path": "workbench/**/__tests__/**",
+    "reason": "Scanner fixtures intentionally contain synthetic token shapes.",
+    "owner": "release-security",
+    "reviewedAt": "2026-06-13"
+  },
+  {
+    "ruleId": "forbidden_file",
+    "path": "workbench/**/__tests__/**",
+    "reason": "Scanner fixtures may create forbidden filenames inside temporary directories.",
+    "owner": "release-security",
+    "reviewedAt": "2026-06-13"
+  },
+  {
+    "ruleId": "private_keyword",
+    "path": "workbench/**/__tests__/**",
+    "reason": "Scanner fixtures intentionally contain private keyword examples.",
+    "owner": "release-security",
+    "reviewedAt": "2026-06-13"
+  },
+  {
+    "ruleId": "private_keyword",
+    "path": "workbench/scripts/public-cleanliness.config.mjs",
+    "reason": "The scanner rule configuration must name the public private-keyword examples it blocks.",
+    "owner": "release-security",
+    "reviewedAt": "2026-06-13"
+  },
+  {
+    "ruleId": "secret_pattern",
+    "path": "ai-service/tests/**",
+    "reason": "Python redaction tests intentionally include synthetic bearer tokens and key-like strings.",
+    "owner": "runtime-security",
+    "reviewedAt": "2026-06-13"
+  }
+]

@@ -1,0 +1,112 @@
+.detail-panel {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.detail-meta__id {
+  font-family: var(--font-mono);
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.detail-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 12px 0;
+}
+
+.detail-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.detail-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.detail-children-count {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.detail-token-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 12px 8px;
+}
+.detail-token-item {
+  font-size: 11px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  color: var(--text-3);
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.detail-token-model {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.p4-text-input {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+}
+.p4-text-input__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.p4-text-input__area {
+  flex: 1;
+  resize: none;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  border: 1px solid var(--border, var(--border));
+  border-radius: 4px;
+  padding: 8px;
+  outline: none;
+}
+.p4-text-input__footer {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted, #9ca3af);
+  text-align: right;
+}

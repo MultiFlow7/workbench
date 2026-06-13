@@ -1,0 +1,310 @@
+.capability-token-tab {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* 过滤栏 */
+.token-filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.token-filter-bar input,
+.token-filter-bar select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.token-filter-bar input:focus,
+.token-filter-bar select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.token-filter-bar input {
+  width: 110px;
+}
+
+.token-active-only {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.token-filter-bar button {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.token-filter-bar button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.token-filter-bar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.token-grant-btn {
+  margin-left: auto;
+  padding: 6px 14px !important;
+  background: var(--accent) !important;
+  color: var(--accent-fg) !important;
+  border: none !important;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s ease !important;
+}
+
+.token-grant-btn:hover {
+  background: var(--accent-h) !important;
+}
+
+/* 令牌表格 */
+.token-list {
+  min-height: 200px;
+}
+
+.token-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.token-table th,
+.token-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--surface-3);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.token-table th {
+  background: var(--surface-2);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+
+.token-table tr:hover td {
+  background: var(--surface-2);
+}
+
+.token-revoked-row td {
+  opacity: 0.5;
+}
+
+/* 令牌类型 Badge */
+.token-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.token-type-badge--deliverable {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.token-type-badge--approved {
+  background: var(--done-bg);
+  color: var(--done);
+}
+
+.token-type-badge--mergeable {
+  background: var(--pause-bg);
+  color: var(--pause);
+}
+
+/* 令牌状态 Badge */
+.token-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.token-status-badge--active {
+  background: var(--done-bg);
+  color: var(--done);
+}
+
+.token-status-badge--revoked {
+  background: var(--surface-3);
+  color: var(--text-4);
+}
+
+.token-status-badge--expired {
+  background: var(--pause-bg);
+  color: var(--pause);
+}
+
+/* 撤销按钮 */
+.token-revoke-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--err-bd);
+  border-radius: 4px;
+  color: var(--err);
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.1s ease;
+}
+
+.token-revoke-btn:hover {
+  background: var(--err-bg);
+}
+
+/* 空状态 */
+.token-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  font-size: 14px;
+  color: var(--text-4);
+}
+
+/* 弹窗 */
+.token-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.token-modal-content {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 24px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.token-modal-content h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.token-modal-warning {
+  background: var(--pause-bg);
+  border: 1px solid var(--pause-bd);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--pause);
+  margin-bottom: 16px;
+}
+
+.token-form-group {
+  margin-bottom: 12px;
+}
+
+.token-form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--text-2);
+}
+
+.token-form-group input,
+.token-form-group select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.token-form-group input:focus,
+.token-form-group select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.token-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.token-modal-actions button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  transition: background 0.1s ease;
+}
+
+.token-modal-actions button:hover {
+  background: var(--surface-2);
+}
+
+.token-modal-confirm-btn {
+  background: var(--accent) !important;
+  color: var(--accent-fg) !important;
+  border: none !important;
+}
+
+.token-modal-confirm-btn:hover {
+  background: var(--accent-h) !important;
+}
+
+.token-modal-danger-btn {
+  background: var(--err) !important;
+  color: var(--accent-fg) !important;
+  border: none !important;
+}
+
+.token-modal-danger-btn:hover {
+  background: var(--err) !important;
+}
