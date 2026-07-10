@@ -67,12 +67,15 @@ export function NavList() {
     selectedConversationId,
     selectedAtomId,
     createConversation,
+    readCodexSession,
     selectConversation,
     selectAtom,
   } = useStore()
 
   const [newProjectError, setNewProjectError] = useState<string | null>(null)
   const [newProjectLoading, setNewProjectLoading] = useState(false)
+  const [relayLoading, setRelayLoading] = useState(false)
+  const [relayError, setRelayError] = useState<string | null>(null)
   const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(new Set())
   const [expandedConversationIds, setExpandedConversationIds] = useState<Set<string>>(new Set())
 
@@ -104,6 +107,24 @@ export function NavList() {
       setNewProjectError(String(e))
     } finally {
       setNewProjectLoading(false)
+    }
+  }
+
+  const handleReadCodexSession = async () => {
+    const input = window.prompt('输入 Codex session id 或 ~/.codex/sessions 下的 jsonl 路径')
+    const value = input?.trim()
+    if (!value) return
+    setRelayLoading(true)
+    setRelayError(null)
+    try {
+      const looksLikePath = value.includes('/') || value.endsWith('.jsonl')
+      const result = await readCodexSession(looksLikePath ? { sourcePath: value } : { sessionId: value })
+      setExpandedConversationIds((prev) => new Set(prev).add(result.conversation.id))
+      setMode('chat')
+    } catch (e) {
+      setRelayError(String(e))
+    } finally {
+      setRelayLoading(false)
     }
   }
 
@@ -248,7 +269,15 @@ export function NavList() {
         <button className="nav-list__new-btn" onClick={handleNewConversation}>
           + 新建对话
         </button>
+        <button className="nav-list__relay-btn" onClick={handleReadCodexSession} disabled={relayLoading}>
+          {relayLoading ? '读取中…' : '读取 Codex 会话'}
+        </button>
       </div>
+      {relayError && (
+        <div className="nav-list__error" onClick={() => setRelayError(null)}>
+          {relayError}
+        </div>
+      )}
 
       <section className="nav-list__section">
         <div className="nav-list__section-header">

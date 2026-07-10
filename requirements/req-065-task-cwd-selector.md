@@ -5,7 +5,7 @@ status: confirmed
 priority: high
 source: 2026-06-08 · v0.16 QA 阶段澄清 R-6 需求时识别。用户原意是"在输入框上方加个文件夹按钮，类似 Claude Code 启动时选 cwd"——选择本次对话/任务的工作目录，让 AI 知道在哪个文件夹操作。v0.16 R-6 被误解为 Vault 切换并已撤销，需求纯粹化后立此新 req。
 created: 2026-06-08
-version: v0.17
+version: ~
 ---
 
 # req-065 · Chat 输入框任务 cwd 选择器
@@ -52,7 +52,7 @@ v0.16 已实装的 `workspaceStore.cwd`（v0.15.1 引入）是该概念的现状
 - 优点：兼顾默认便利与并发独立
 - 缺点：双 cwd 状态机复杂
 
-**待 product.md 规划阶段评估。**
+**待后续 product.md 规划阶段评估。v0.17 中 cwd 只作为对话来源和 Handoff Packet 的上下文字段使用，不开发独立选择器 UI。**
 
 ## UI 规格（继承 v0.16 R-6 已通过 taste skill 审查的设计精神）
 

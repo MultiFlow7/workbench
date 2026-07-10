@@ -121,6 +121,111 @@
   white-space: nowrap;
 }
 
+.detail-relay-controls {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.detail-relay-controls label {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.detail-relay-controls select {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.detail-relay-checkbox {
+  grid-template-columns: 18px minmax(0, 1fr) !important;
+}
+
+.detail-relay-checkbox input {
+  margin: 0;
+}
+
+.detail-relay-button {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--accent);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.detail-relay-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.detail-relay-error {
+  margin-top: 8px;
+  color: var(--pause);
+  background: var(--pause-bg);
+  border: 1px solid var(--pause-bd);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.detail-handoff-preview {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.detail-handoff-preview__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.detail-handoff-preview__bar button {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 11px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+
+.detail-handoff-preview textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  border: none;
+  outline: none;
+  padding: 8px;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .p4-text-input {
   display: flex;
   flex-direction: column;
