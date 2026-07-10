@@ -21,7 +21,14 @@ export function DetailPanel() {
   const selectedConversationId = useStore((s) => s.selectedConversationId)
   const conversations = useStore((s) => s.conversations)
   const atoms = useStore((s) => s.atoms)
+  const generateHandoffPacket = useStore((s) => s.generateHandoffPacket)
   const [atom, setAtom] = useState<QAAtom | null>(null)
+  const [targetPlatform, setTargetPlatform] = useState<'codex' | 'claude' | 'generic'>('generic')
+  const [handoffMode, setHandoffMode] = useState<'continue' | 'reference' | 'execute'>('continue')
+  const [includeLocalSourceDetails, setIncludeLocalSourceDetails] = useState(false)
+  const [handoffMarkdown, setHandoffMarkdown] = useState('')
+  const [handoffError, setHandoffError] = useState<string | null>(null)
+  const [handoffLoading, setHandoffLoading] = useState(false)
   const p4Mode = useStore((s) => s.p4Mode)
   const setP4Mode = useStore((s) => s.setP4Mode)
   const expandedInput = useStore((s) => s.expandedInput)
@@ -69,6 +76,30 @@ export function DetailPanel() {
     const updatedAt = selectedConversation.updatedAt
       ? new Date(selectedConversation.updatedAt).toLocaleString('zh-CN')
       : '-'
+    const readAt = selectedConversation.readAt
+      ? new Date(selectedConversation.readAt).toLocaleString('zh-CN')
+      : '-'
+    const handleGenerateHandoff = async () => {
+      setHandoffLoading(true)
+      setHandoffError(null)
+      try {
+        const result = await generateHandoffPacket({
+          conversationId: selectedConversation.id,
+          targetPlatform,
+          handoffMode,
+          includeLocalSourceDetails,
+        })
+        setHandoffMarkdown(result.markdown)
+      } catch (e) {
+        setHandoffError(String(e))
+      } finally {
+        setHandoffLoading(false)
+      }
+    }
+    const handleCopyHandoff = async () => {
+      if (!handoffMarkdown) return
+      await navigator.clipboard.writeText(handoffMarkdown)
+    }
     return (
       <div className="detail-panel">
         <div className="detail-section-label">对话</div>
@@ -102,7 +133,55 @@ export function DetailPanel() {
               <code>{selectedConversation.sourcePath ?? '-'}</code>
               <span>CWD</span>
               <code>{selectedConversation.sourceCwd ?? '-'}</code>
+              <span>标题</span>
+              <strong>{selectedConversation.sourceTitle ?? '-'}</strong>
+              <span>读取</span>
+              <strong>{readAt}</strong>
+              <span>状态</span>
+              <strong>{selectedConversation.relayStatus ?? '-'}</strong>
+              <span>未映射</span>
+              <strong>{selectedConversation.unmappedEventCount ?? 0}</strong>
             </div>
+
+            <div className="detail-relay-controls">
+              <label>
+                <span>目标</span>
+                <select value={targetPlatform} onChange={(e) => setTargetPlatform(e.target.value as 'codex' | 'claude' | 'generic')}>
+                  <option value="generic">Generic</option>
+                  <option value="codex">Codex</option>
+                  <option value="claude">Claude</option>
+                </select>
+              </label>
+              <label>
+                <span>模式</span>
+                <select value={handoffMode} onChange={(e) => setHandoffMode(e.target.value as 'continue' | 'reference' | 'execute')}>
+                  <option value="continue">继续对话</option>
+                  <option value="reference">作为参考</option>
+                  <option value="execute">执行任务</option>
+                </select>
+              </label>
+              <label className="detail-relay-checkbox">
+                <input
+                  type="checkbox"
+                  checked={includeLocalSourceDetails}
+                  onChange={(e) => setIncludeLocalSourceDetails(e.target.checked)}
+                />
+                <span>包含本地来源细节</span>
+              </label>
+              <button className="detail-relay-button" onClick={handleGenerateHandoff} disabled={handoffLoading}>
+                {handoffLoading ? '生成中…' : '生成接力包'}
+              </button>
+            </div>
+            {handoffError && <div className="detail-relay-error">{handoffError}</div>}
+            {handoffMarkdown && (
+              <div className="detail-handoff-preview">
+                <div className="detail-handoff-preview__bar">
+                  <span>Handoff Packet</span>
+                  <button onClick={handleCopyHandoff}>复制</button>
+                </div>
+                <textarea readOnly value={handoffMarkdown} />
+              </div>
+            )}
           </>
         )}
       </div>

@@ -18,6 +18,18 @@ export interface QAAtomMeta {
   usage?: TokenUsage
   context_tokens_used?: number
   context_window_limit?: number
+  source_platform?: 'workbench' | 'codex' | 'claude'
+  source_session_id?: string
+  source_session_hash?: string
+  source_path?: string
+  source_path_display?: string
+  source_path_hash?: string
+  source_cwd?: string
+  source_cwd_display?: string
+  source_cwd_hash?: string
+  source_title?: string
+  source_key?: string
+  source_event_type?: string
 }
 
 export interface ProjectMeta {
@@ -56,7 +68,36 @@ export interface ConversationMeta {
   sourceSessionId?: string
   sourcePath?: string
   sourceCwd?: string
+  sourceTitle?: string
+  readAt?: string
+  readCheckpoint?: string
+  unmappedEventCount?: number
+  relayStatus?: 'readable' | 'partial' | 'unmapped'
   legacy?: boolean
+}
+
+export interface RelayReadResult {
+  conversation: ConversationMeta
+  atomIds: string[]
+  createdAtomCount: number
+  skippedAtomCount: number
+  markers: Array<{
+    type: string
+    sourceKey: string
+    timestamp?: string
+    reason: string
+  }>
+}
+
+export interface HandoffPacketResult {
+  markdown: string
+  handoffRecord: {
+    id: string
+    createdAt: string
+    conversationId: string
+    targetPlatform: string
+    handoffMode: string
+  }
 }
 
 // v0.2: SSE 暂存事件类型
@@ -334,6 +375,14 @@ export interface ConversationSlice {
   loadConversations: () => Promise<void>
   createProject: (name: string, folderPath: string) => Promise<void>
   createConversation: (title?: string, projectId?: string | null) => Promise<ConversationMeta>
+  readCodexSession: (input: { sessionId?: string; sourcePath?: string }) => Promise<RelayReadResult>
+  generateHandoffPacket: (input: {
+    conversationId: string
+    atomIds?: string[]
+    targetPlatform?: 'codex' | 'claude' | 'generic'
+    handoffMode?: 'continue' | 'reference' | 'execute'
+    includeLocalSourceDetails?: boolean
+  }) => Promise<HandoffPacketResult>
   selectConversation: (id: string) => void
   returnToConversationList: () => void
   addAtomToConversation: (conversationId: string, atomId: string, rootAtomId?: string | null) => Promise<ConversationMeta | null>
@@ -520,6 +569,39 @@ export const createConversationSlice: StateCreator<ConversationSlice> = (set, ge
     }))
     return conversation
   },
+
+  readCodexSession: async (input) => {
+    const result = await window.api.invoke<RelayReadResult>('relay:readCodexSession', {
+      ...input,
+      qaDir: getBasePath(),
+      conversationsDir: getConversationsPath(),
+      projectsDir: getProjectsPath(),
+      projectId: get().selectedProjectId,
+    })
+    await get().loadAtoms()
+    await get().loadConversations()
+    set((state) => ({
+      selectedConversationId: result.conversation.id,
+      selectedProjectId: result.conversation.projectId,
+      selectedAtomId: result.conversation.rootAtomId,
+      currentPath: result.conversation.rootAtomId
+        ? buildPathWithinConversation(
+          result.conversation.rootAtomId,
+          state.atoms,
+          result.conversation,
+        )
+        : [],
+      conversationPanelMode: 'tree',
+    }))
+    return result
+  },
+
+  generateHandoffPacket: async (input) =>
+    window.api.invoke<HandoffPacketResult>('relay:generateHandoffPacket', {
+      ...input,
+      qaDir: getBasePath(),
+      conversationsDir: getConversationsPath(),
+    }),
 
   selectConversation: (id) => {
     set((state) => {

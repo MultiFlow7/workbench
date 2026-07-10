@@ -1,6 +1,6 @@
 ---
 project: 工作台
-updated: 2026-07-09 (v0.16.2 req-067 完成；req-066 状态账收口)
+updated: 2026-07-10 (v0.17 req-068 对话接力 MVP 完成)
 ---
 
 # 需求状态看板 · 工作台
@@ -24,12 +24,12 @@ Agent Team 经验进入工作台需求池前，必须先翻译成对超级个体
 
 | 统计 | 数量 |
 |------|------|
-| 总需求数 | 67 |
+| 总需求数 | 68 |
 | backlog | 7 |
 | confirmed | 1 |
 | planned | 0 |
 | in-progress | 0 |
-| done | 56 |
+| done | 57 |
 | dropped | 3 |
 
 ---
@@ -38,9 +38,11 @@ Agent Team 经验进入工作台需求池前，必须先翻译成对超级个体
 
 | ID | 标题 | 优先级 | 状态 | 版本 |
 |----|------|--------|------|------|
-| [req-065](req-065-task-cwd-selector.md) | Chat 输入框任务 cwd 选择器（类 Claude Code 风格） | high | confirmed | v0.17 |
+| [req-065](req-065-task-cwd-selector.md) | Chat 输入框任务 cwd 选择器（类 Claude Code 风格） | high | confirmed | ~ |
 
-> 📌 **req-065 背景**：v0.16 R-6 被误解为切换 Vault，已撤销。用户真实需求是切换任务工作目录（类 Claude Code 启动时选 cwd），独立立项走 v0.17。
+> 📌 **req-065 背景**：v0.16 R-6 被误解为切换 Vault，已撤销。用户真实需求是切换任务工作目录（类 Claude Code 启动时选 cwd）。v0.17 暂不开发独立 cwd selector UI，仅在对话接力中把 cwd 作为 source metadata / handoff context 使用。
+>
+> 📌 **req-068 背景**：工作台作为协调层，不要求所有主对话发生在工作台内；Claude / Codex 等外部 Agent 入口的对话应能读取为 QA 协议，并以 Handoff Packet 形式传递到目标入口继续使用。
 
 ---
 
@@ -134,6 +136,7 @@ Agent Team 经验进入工作台需求池前，必须先翻译成对超级个体
 | [req-063](req-063-oss-personal-info-decoupling.md) | OSS 化改造 · 解耦个人化信息与发布产物 | high | done | v0.16 |
 | [req-066](req-066-public-cleanliness-patch.md) | 公开产品洁净度补丁 | critical | done | v0.16.1 |
 | [req-067](req-067-project-conversation-qa-hierarchy.md) | 项目-对话-QA 树三层结构 | high | done | v0.16.2 |
+| [req-068](req-068-conversation-relay.md) | 对话中继：多 Agent 入口的 QA 协议读写与传递 | high | done | v0.17 |
 
 > 📌 **v0.16 发布说明**：req-063 自动验证已通过并记录在 `changelog/release/v0.16.0.md`。正式打 `v0.16.0` tag 前仍需完成发布机人工首启验收与 dmg 解包扫描。
 

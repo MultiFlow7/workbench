@@ -14,6 +14,7 @@
 
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { join, resolve } from 'node:path'
+import { createHash } from 'node:crypto'
 import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
@@ -34,6 +35,8 @@ import { createRunner } from '../sdk/runnerFactory'
 import type { ServerConfig } from '../sdk/RemoteRunner'
 import type { AgentRunner } from '../sdk/AgentRunner'
 import { readApiKeysFromDisk, findKeyForModel } from '../store/settingsKeys'
+import { getVaultConfig } from '../store/vaultStore'
+import { readCodexSession } from '../relay/codexSessionReader'
 
 // ─── 工作区 cwd 状态（节点 1.4 已接入 electron-store 持久化）─────────────────
 //
@@ -96,7 +99,35 @@ type ConversationMeta = {
   sourceSessionId?: string
   sourcePath?: string
   sourceCwd?: string
+  sourceTitle?: string
+  readAt?: string
+  readCheckpoint?: string
+  readRecordId?: string
+  unmappedEventCount?: number
+  relayStatus?: 'readable' | 'partial' | 'unmapped'
   legacy?: boolean
+}
+
+type QAAtomMetaForWrite = {
+  id: string
+  prev: string | null
+  children: string[]
+  summary?: string
+  timestamp: string
+  model?: string
+  usage?: { input_tokens: number; output_tokens: number }
+  context_tokens_used?: number
+  context_window_limit?: number
+  source_platform?: SourcePlatform
+  source_session_id?: string
+  source_session_hash?: string
+  source_path_display?: string
+  source_path_hash?: string
+  source_cwd_display?: string
+  source_cwd_hash?: string
+  source_title?: string
+  source_key?: string
+  source_event_type?: string
 }
 
 function scalarFromFrontmatter(fm: string, key: string): string | undefined {
@@ -120,6 +151,110 @@ function optionalScalar(value: string | undefined): string | undefined {
 function yamlScalar(value: string | null | undefined): string {
   if (value === null || value === undefined || value === '') return 'null'
   return JSON.stringify(value)
+}
+
+function hashValue(value: string): string {
+  return createHash('sha256').update(value).digest('hex').slice(0, 16)
+}
+
+function isAbsolutePath(p: string): boolean {
+  return p.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(p)
+}
+
+function deriveVaultDir(subdir: string, fallback: string): string {
+  const config = getVaultConfig()
+  const sub = subdir || fallback
+  if (isAbsolutePath(sub)) return sub
+  return config.vaultRoot ? join(config.vaultRoot, sub) : ''
+}
+
+function getVaultDerivedDirs(): { qaDir: string; projectsDir: string; conversationsDir: string } {
+  const config = getVaultConfig()
+  const qaDir = deriveVaultDir(config.qaSubdir, 'QA')
+  const projectsDir = deriveVaultDir(config.projectsSubdir, 'Projects')
+  let conversationsDir = deriveVaultDir(config.conversationsSubdir, 'Conversations')
+  if (
+    config.conversationsSubdir === 'Conversations' &&
+    isAbsolutePath(config.qaSubdir) &&
+    isAbsolutePath(config.projectsSubdir)
+  ) {
+    const qaParent = resolve(config.qaSubdir, '..')
+    const projectsParent = resolve(config.projectsSubdir, '..')
+    if (qaParent === projectsParent) conversationsDir = join(qaParent, 'Conversations')
+  }
+  return { qaDir, projectsDir, conversationsDir }
+}
+
+async function assertMatchesVaultDir(actual: string, expected: string, label: string): Promise<string> {
+  if (!actual || !expected) throw new Error(`${label} 未配置`)
+  await fsp.mkdir(expected, { recursive: true }).catch(() => {})
+  const actualReal = await fsp.realpath(actual)
+  const expectedReal = await fsp.realpath(expected)
+  if (actualReal !== expectedReal) throw new Error(`${label} 不匹配当前 Vault 配置`)
+  return actualReal
+}
+
+function relayRecordsRoot(): string {
+  return join(os.homedir(), '.workbench', 'relay-records')
+}
+
+async function writeRelayRecord(kind: 'read' | 'handoff', id: string, record: unknown): Promise<void> {
+  const dir = join(relayRecordsRoot(), kind)
+  await fsp.mkdir(dir, { recursive: true })
+  const filePath = join(dir, `${id}.json`)
+  const tmpPath = `${filePath}.tmp-${process.pid}`
+  await fsp.writeFile(tmpPath, JSON.stringify(record, null, 2), 'utf-8')
+  await fsp.rename(tmpPath, filePath)
+}
+
+async function deleteRelayRecord(kind: 'read' | 'handoff', id: string): Promise<void> {
+  await fsp.unlink(join(relayRecordsRoot(), kind, `${id}.json`)).catch(() => {})
+}
+
+async function readRelayRecord(kind: 'read' | 'handoff', id: string): Promise<Record<string, unknown> | null> {
+  const filePath = join(relayRecordsRoot(), kind, `${id}.json`)
+  const raw = await fsp.readFile(filePath, 'utf-8').catch(() => '')
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : null
+  } catch {
+    return null
+  }
+}
+
+function scalarSourceFields(fm: string): Partial<QAAtomMetaForWrite> {
+  const sourcePlatform = scalarFromFrontmatter(fm, 'source_platform')
+  const safePlatform = sourcePlatform === 'workbench' || sourcePlatform === 'codex' || sourcePlatform === 'claude'
+    ? sourcePlatform
+    : undefined
+  return {
+    ...(safePlatform ? { source_platform: safePlatform } : {}),
+    ...(scalarFromFrontmatter(fm, 'source_session_id') ? { source_session_id: scalarFromFrontmatter(fm, 'source_session_id') } : {}),
+    ...(scalarFromFrontmatter(fm, 'source_session_hash') ? { source_session_hash: scalarFromFrontmatter(fm, 'source_session_hash') } : {}),
+    ...(scalarFromFrontmatter(fm, 'source_path_display') ? { source_path_display: scalarFromFrontmatter(fm, 'source_path_display') } : {}),
+    ...(scalarFromFrontmatter(fm, 'source_path_hash') ? { source_path_hash: scalarFromFrontmatter(fm, 'source_path_hash') } : {}),
+    ...(scalarFromFrontmatter(fm, 'source_cwd_display') ? { source_cwd_display: scalarFromFrontmatter(fm, 'source_cwd_display') } : {}),
+    ...(scalarFromFrontmatter(fm, 'source_cwd_hash') ? { source_cwd_hash: scalarFromFrontmatter(fm, 'source_cwd_hash') } : {}),
+    ...(scalarFromFrontmatter(fm, 'source_title') ? { source_title: scalarFromFrontmatter(fm, 'source_title') } : {}),
+    ...(scalarFromFrontmatter(fm, 'source_key') ? { source_key: scalarFromFrontmatter(fm, 'source_key') } : {}),
+    ...(scalarFromFrontmatter(fm, 'source_event_type') ? { source_event_type: scalarFromFrontmatter(fm, 'source_event_type') } : {}),
+  }
+}
+
+function serializeAtomSourceFields(meta: QAAtomMetaForWrite): string {
+  const lines: string[] = []
+  if (meta.source_platform) lines.push(`source_platform: ${yamlScalar(meta.source_platform)}`)
+  if (meta.source_session_id) lines.push(`source_session_id: ${yamlScalar(meta.source_session_id)}`)
+  if (meta.source_session_hash) lines.push(`source_session_hash: ${yamlScalar(meta.source_session_hash)}`)
+  if (meta.source_path_display) lines.push(`source_path_display: ${yamlScalar(meta.source_path_display)}`)
+  if (meta.source_path_hash) lines.push(`source_path_hash: ${yamlScalar(meta.source_path_hash)}`)
+  if (meta.source_cwd_display) lines.push(`source_cwd_display: ${yamlScalar(meta.source_cwd_display)}`)
+  if (meta.source_cwd_hash) lines.push(`source_cwd_hash: ${yamlScalar(meta.source_cwd_hash)}`)
+  if (meta.source_title) lines.push(`source_title: ${yamlScalar(meta.source_title)}`)
+  if (meta.source_key) lines.push(`source_key: ${yamlScalar(meta.source_key)}`)
+  if (meta.source_event_type) lines.push(`source_event_type: ${yamlScalar(meta.source_event_type)}`)
+  return lines.length > 0 ? `${lines.join('\n')}\n` : ''
 }
 
 function extractWikiRefs(raw: string, sectionTitle: string): string[] {
@@ -155,6 +290,14 @@ function parseConversationFile(raw: string, fallbackId: string): ConversationMet
     ...(scalarFromFrontmatter(fm, 'sourceSessionId') ? { sourceSessionId: scalarFromFrontmatter(fm, 'sourceSessionId') } : {}),
     ...(scalarFromFrontmatter(fm, 'sourcePath') ? { sourcePath: scalarFromFrontmatter(fm, 'sourcePath') } : {}),
     ...(scalarFromFrontmatter(fm, 'sourceCwd') ? { sourceCwd: scalarFromFrontmatter(fm, 'sourceCwd') } : {}),
+    ...(scalarFromFrontmatter(fm, 'sourceTitle') ? { sourceTitle: scalarFromFrontmatter(fm, 'sourceTitle') } : {}),
+    ...(scalarFromFrontmatter(fm, 'readAt') ? { readAt: scalarFromFrontmatter(fm, 'readAt') } : {}),
+    ...(scalarFromFrontmatter(fm, 'readCheckpoint') ? { readCheckpoint: scalarFromFrontmatter(fm, 'readCheckpoint') } : {}),
+    ...(scalarFromFrontmatter(fm, 'readRecordId') ? { readRecordId: scalarFromFrontmatter(fm, 'readRecordId') } : {}),
+    ...(scalarFromFrontmatter(fm, 'unmappedEventCount') ? { unmappedEventCount: Number(scalarFromFrontmatter(fm, 'unmappedEventCount')) || 0 } : {}),
+    ...(scalarFromFrontmatter(fm, 'relayStatus') === 'readable' || scalarFromFrontmatter(fm, 'relayStatus') === 'partial' || scalarFromFrontmatter(fm, 'relayStatus') === 'unmapped'
+      ? { relayStatus: scalarFromFrontmatter(fm, 'relayStatus') as 'readable' | 'partial' | 'unmapped' }
+      : {}),
   }
 }
 
@@ -172,6 +315,12 @@ function serializeConversation(conversation: ConversationMeta): string {
   if (conversation.sourceSessionId) lines.push(`sourceSessionId: ${yamlScalar(conversation.sourceSessionId)}`)
   if (conversation.sourcePath) lines.push(`sourcePath: ${yamlScalar(conversation.sourcePath)}`)
   if (conversation.sourceCwd) lines.push(`sourceCwd: ${yamlScalar(conversation.sourceCwd)}`)
+  if (conversation.sourceTitle) lines.push(`sourceTitle: ${yamlScalar(conversation.sourceTitle)}`)
+  if (conversation.readAt) lines.push(`readAt: ${yamlScalar(conversation.readAt)}`)
+  if (conversation.readCheckpoint) lines.push(`readCheckpoint: ${yamlScalar(conversation.readCheckpoint)}`)
+  if (conversation.readRecordId) lines.push(`readRecordId: ${yamlScalar(conversation.readRecordId)}`)
+  if (conversation.unmappedEventCount !== undefined) lines.push(`unmappedEventCount: ${conversation.unmappedEventCount}`)
+  if (conversation.relayStatus) lines.push(`relayStatus: ${conversation.relayStatus}`)
   lines.push(`createdAt: ${conversation.createdAt}`)
   lines.push(`updatedAt: ${conversation.updatedAt}`)
   lines.push('---', '', '## QA 索引', '')
@@ -208,6 +357,70 @@ async function appendProjectIndexRef(projectsDir: string, projectId: string | nu
     await fsp.rename(tmpPath, filePath)
     return
   }
+}
+
+async function scanSourceKeyIndex(qaDir: string): Promise<Map<string, string>> {
+  const index = new Map<string, string>()
+  const files = await fsp.readdir(qaDir).catch(() => [] as string[])
+  for (const file of files) {
+    if (!file.endsWith('.md')) continue
+    const filePath = join(qaDir, file)
+    const raw = await fsp.readFile(filePath, 'utf-8').catch(() => '')
+    const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+    if (!fmMatch) continue
+    const fm = fmMatch[1]
+    const platform = scalarFromFrontmatter(fm, 'source_platform')
+    const sessionHash = scalarFromFrontmatter(fm, 'source_session_hash')
+    const sourceKey = scalarFromFrontmatter(fm, 'source_key')
+    if (!platform || !sessionHash || !sourceKey) continue
+    index.set(`${platform}:${sessionHash}:${sourceKey}`, file.replace(/\.md$/, ''))
+  }
+  return index
+}
+
+function buildRelayAtomId(sourceKey: string): string {
+  return `relay-${hashValue(sourceKey)}`
+}
+
+function sectionPreview(text: string, fallback: string): string {
+  return text.split('\n').map((line) => line.trim()).find(Boolean)?.slice(0, 80) || fallback
+}
+
+function serializeQaAtomFile(atom: { meta: QAAtomMetaForWrite; question: string; answer: string }): string {
+  const prevYaml = atom.meta.prev ? yamlScalar(atom.meta.prev) : 'null'
+  const childrenStr = atom.meta.children && atom.meta.children.length > 0
+    ? `children:\n${atom.meta.children.map((c) => `  - ${yamlScalar(c)}`).join('\n')}`
+    : 'children: []'
+  const tokenYaml = atom.meta.usage
+    ? `model: ${yamlScalar(atom.meta.model ?? '')}\ninput_tokens: ${atom.meta.usage.input_tokens}\noutput_tokens: ${atom.meta.usage.output_tokens}\ncontext_tokens_used: ${atom.meta.context_tokens_used ?? 0}\ncontext_window_limit: ${atom.meta.context_window_limit ?? 0}\n`
+    : ''
+  return `---\nid: ${atom.meta.id}\nprev: ${prevYaml}\n${childrenStr}\nsummary: ${yamlScalar(atom.meta.summary ?? '')}\ntimestamp: ${yamlScalar(atom.meta.timestamp)}\n${tokenYaml}${serializeAtomSourceFields(atom.meta)}status: done\n---\n\n## Q\n\n${atom.question}\n\n## A\n\n${atom.answer}\n`
+}
+
+async function writeQaAtomFile(qaDir: string, atom: { meta: QAAtomMetaForWrite; question: string; answer: string }): Promise<void> {
+  await fsp.mkdir(qaDir, { recursive: true })
+  const filePath = join(qaDir, `${atom.meta.id}.md`)
+  const tmpPath = `${filePath}.tmp-${process.pid}`
+  await fsp.writeFile(tmpPath, serializeQaAtomFile(atom), 'utf-8')
+  await fsp.rename(tmpPath, filePath)
+}
+
+async function readAtomSections(qaDir: string, atomId: string): Promise<{ question: string; answer: string } | null> {
+  const filePath = join(qaDir, `${atomId}.md`)
+  const raw = await fsp.readFile(filePath, 'utf-8').catch(() => '')
+  if (!raw) return null
+  const body = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '')
+  const extract = (header: 'Q' | 'A') => {
+    const m = body.match(new RegExp(`(?:^|\\n)## ${header}\\s*\\n([\\s\\S]*?)(?=\\n## [A-Za-z\\u4e00-\\u9fa5]|$)`))
+    return m ? m[1].trim() : ''
+  }
+  return { question: extract('Q'), answer: extract('A') }
+}
+
+function redactSource(value: string | undefined): string {
+  if (!value) return '-'
+  if (value.startsWith('~') || value.startsWith('.../')) return value
+  return `<redacted:${hashValue(value)}>`
 }
 
 // ─── 注册函数（由 main/index.ts 在 app.whenReady 后调用）────────────────────
@@ -413,7 +626,16 @@ export function registerIpcHandlers(): void {
             ? aPart.split('\n').slice(1).map((l) => l.trim()).find((l) => l.length > 0)?.slice(0, 80) ?? ''
             : ''
 
-          atoms.push({ id: atomId, prev, children, summary, aPreview, timestamp, model })
+          atoms.push({
+            id: atomId,
+            prev,
+            children,
+            summary,
+            aPreview,
+            timestamp,
+            model,
+            ...scalarSourceFields(fm),
+          })
         } catch { /* skip bad file */ }
       }
       return atoms
@@ -504,6 +726,7 @@ export function registerIpcHandlers(): void {
           ...(usage ? { usage } : {}),
           ...(contextTokensUsed !== undefined ? { context_tokens_used: contextTokensUsed } : {}),
           ...(contextWindowLimit !== undefined ? { context_window_limit: contextWindowLimit } : {}),
+          ...scalarSourceFields(fm),
         },
         question,
         answer,
@@ -518,17 +741,7 @@ export function registerIpcHandlers(): void {
   // v0.15.1 P2 验收修订（2026-06-02）：原 noop stub 导致新对话不落盘 → 重新打开看不到历史。
   // 写入历史 atom 文件格式，并保持原子写入语义。
   ipcMain.handle('write_qa_atom', async (_e, args: { filePath: string; atom: {
-    meta: {
-      id: string
-      prev: string | null
-      children: string[]
-      summary?: string
-      timestamp: string
-      model?: string
-      usage?: { input_tokens: number; output_tokens: number }
-      context_tokens_used?: number
-      context_window_limit?: number
-    }
+    meta: QAAtomMetaForWrite
     question: string
     answer: string
   } }) => {
@@ -541,7 +754,8 @@ export function registerIpcHandlers(): void {
     const tokenYaml = atom.meta.usage
       ? `model: "${atom.meta.model ?? ''}"\ninput_tokens: ${atom.meta.usage.input_tokens}\noutput_tokens: ${atom.meta.usage.output_tokens}\ncontext_tokens_used: ${atom.meta.context_tokens_used ?? 0}\ncontext_window_limit: ${atom.meta.context_window_limit ?? 0}\n`
       : ''
-    const content = `---\nid: ${atom.meta.id}\nprev: ${prevYaml}\n${childrenStr}\ntimestamp: "${atom.meta.timestamp}"\n${tokenYaml}status: done\n---\n\n## Q\n\n${atom.question}\n\n## A\n\n${atom.answer}\n`
+    const sourceYaml = serializeAtomSourceFields(atom.meta)
+    const content = `---\nid: ${atom.meta.id}\nprev: ${prevYaml}\n${childrenStr}\ntimestamp: "${atom.meta.timestamp}"\n${tokenYaml}${sourceYaml}status: done\n---\n\n## Q\n\n${atom.question}\n\n## A\n\n${atom.answer}\n`
     // 原子写入：tmp → rename
     const tmpPath = `${filePath}.tmp`
     try {
@@ -773,6 +987,287 @@ export function registerIpcHandlers(): void {
     await fsp.writeFile(tmpPath, next, 'utf-8')
     await fsp.rename(tmpPath, filePath)
     return null
+  })
+
+  // ── v0.17 Conversation Relay：读取 Codex session ───────────────────────
+  ipcMain.handle('relay:readCodexSession', async (_e, args: {
+    sessionId?: string
+    sourcePath?: string
+    qaDir?: string
+    conversationsDir?: string
+    projectsDir?: string
+    projectId?: string | null
+  }) => {
+    const configured = getVaultDerivedDirs()
+    const qaDir = await assertMatchesVaultDir(args?.qaDir ?? configured.qaDir, configured.qaDir, 'QA 目录')
+    const conversationsDir = await assertMatchesVaultDir(
+      args?.conversationsDir ?? configured.conversationsDir,
+      configured.conversationsDir,
+      'Conversations 目录',
+    )
+    const projectsDir = await assertMatchesVaultDir(
+      args?.projectsDir ?? configured.projectsDir,
+      configured.projectsDir,
+      'Projects 目录',
+    )
+
+    const read = await readCodexSession({ sessionId: args?.sessionId, sourcePath: args?.sourcePath })
+    const now = new Date().toISOString()
+    const sourceIndex = await scanSourceKeyIndex(qaDir)
+    const atomIds: string[] = []
+    let createdAtomCount = 0
+    let skippedAtomCount = 0
+    let prevAtomId: string | null = null
+    const createdAtomIds: string[] = []
+    let createdConversationId: string | null = null
+    let previousConversationRaw: string | null = null
+    let readRecordIdForRollback: string | null = null
+
+    try {
+      for (const pair of read.pairs) {
+        const indexKey = `codex:${read.meta.sourceSessionHash}:${pair.sourceKey}`
+        const existingId = sourceIndex.get(indexKey)
+        if (existingId) {
+          atomIds.push(existingId)
+          prevAtomId = existingId
+          skippedAtomCount++
+          continue
+        }
+
+        const atomId = buildRelayAtomId(`${read.meta.sourceSessionHash}:${pair.sourceKey}`)
+        const atom = {
+          meta: {
+            id: atomId,
+            prev: prevAtomId,
+            children: [],
+            summary: sectionPreview(pair.question, atomId),
+            timestamp: pair.timestamp || now,
+            source_platform: 'codex' as const,
+            source_session_hash: read.meta.sourceSessionHash,
+            source_path_display: read.meta.sourcePathDisplay,
+            source_path_hash: read.meta.sourcePathHash,
+            ...(read.meta.sourceCwdDisplay ? { source_cwd_display: read.meta.sourceCwdDisplay } : {}),
+            ...(read.meta.sourceCwdHash ? { source_cwd_hash: read.meta.sourceCwdHash } : {}),
+            ...(read.meta.sourceTitle ? { source_title: read.meta.sourceTitle } : {}),
+            source_key: pair.sourceKey,
+          },
+          question: pair.question,
+          answer: pair.answer,
+        }
+        await writeQaAtomFile(qaDir, atom)
+        createdAtomIds.push(atomId)
+        sourceIndex.set(indexKey, atomId)
+        atomIds.push(atomId)
+        prevAtomId = atomId
+        createdAtomCount++
+      }
+
+      const readRecordId = `read-${read.meta.sourceSessionHash}-${hashValue(read.meta.readCheckpoint)}`
+      const conversationId = `conv-relay-${read.meta.sourceSessionHash}`
+      createdConversationId = conversationId
+      const conversationPath = join(conversationsDir, `${conversationId}.md`)
+      previousConversationRaw = await fsp.readFile(conversationPath, 'utf-8').catch(() => null)
+      const relayStatus = read.pairs.length === 0
+        ? 'unmapped'
+        : read.markers.length > 0
+          ? 'partial'
+          : 'readable'
+      const conversation: ConversationMeta = {
+        id: conversationId,
+        title: read.meta.sourceTitle || `Codex ${read.meta.sourceSessionHash}`,
+        projectId: args?.projectId ?? null,
+        rootAtomId: atomIds[0] ?? null,
+        atomIds,
+        status: atomIds.length > 0 ? 'active' : 'draft',
+        createdAt: now,
+        updatedAt: now,
+        sourcePlatform: 'codex',
+        sourceSessionId: read.meta.sourceSessionHash,
+        sourcePath: read.meta.sourcePathDisplay,
+        ...(read.meta.sourceCwdDisplay ? { sourceCwd: read.meta.sourceCwdDisplay } : {}),
+        ...(read.meta.sourceTitle ? { sourceTitle: read.meta.sourceTitle } : {}),
+        readAt: now,
+        readCheckpoint: read.meta.readCheckpoint,
+        readRecordId,
+        unmappedEventCount: read.markers.length,
+        relayStatus,
+      }
+
+      await writeConversationFile(conversationsDir, conversation)
+      const readRecord = {
+        id: readRecordId,
+        createdAt: now,
+        sourcePlatform: 'codex',
+        sourceSessionId: read.meta.sessionId,
+        sourceSessionHash: read.meta.sourceSessionHash,
+        sourcePath: read.meta.sourcePath,
+        sourcePathDisplay: read.meta.sourcePathDisplay,
+        sourcePathHash: read.meta.sourcePathHash,
+        sourceCwd: read.meta.sourceCwd,
+        sourceCwdDisplay: read.meta.sourceCwdDisplay,
+        sourceCwdHash: read.meta.sourceCwdHash,
+        readCheckpoint: read.meta.readCheckpoint,
+        conversationId,
+        atomIds,
+        createdAtomCount,
+        skippedAtomCount,
+        markers: read.markers,
+      }
+      await writeRelayRecord('read', readRecordId, readRecord)
+      readRecordIdForRollback = readRecordId
+      await appendProjectIndexRef(projectsDir, conversation.projectId, conversation.id)
+
+      return {
+        conversation,
+        readRecord: {
+          ...readRecord,
+          sourceSessionId: read.meta.sourceSessionHash,
+          sourcePath: read.meta.sourcePathDisplay,
+          sourceCwd: read.meta.sourceCwdDisplay,
+        },
+        atomIds,
+        createdAtomCount,
+        skippedAtomCount,
+        markers: read.markers,
+      }
+    } catch (error) {
+      await Promise.all(createdAtomIds.map((id) => fsp.unlink(join(qaDir, `${id}.md`)).catch(() => {})))
+      if (createdConversationId) {
+        const conversationPath = join(conversationsDir, `${createdConversationId}.md`)
+        if (previousConversationRaw !== null) {
+          const tmpPath = `${conversationPath}.tmp-${process.pid}`
+          await fsp.writeFile(tmpPath, previousConversationRaw, 'utf-8').catch(() => {})
+          await fsp.rename(tmpPath, conversationPath).catch(() => {})
+        } else {
+          await fsp.unlink(conversationPath).catch(() => {})
+        }
+      }
+      if (readRecordIdForRollback) await deleteRelayRecord('read', readRecordIdForRollback)
+      throw error
+    }
+  })
+
+  // ── v0.17 Conversation Relay：生成 Handoff Packet ──────────────────────
+  ipcMain.handle('relay:generateHandoffPacket', async (_e, args: {
+    conversationId: string
+    atomIds?: string[]
+    targetPlatform?: 'codex' | 'claude' | 'generic'
+    handoffMode?: 'continue' | 'reference' | 'execute'
+    includeLocalSourceDetails?: boolean
+    qaDir?: string
+    conversationsDir?: string
+  }) => {
+    const configured = getVaultDerivedDirs()
+    const qaDir = await assertMatchesVaultDir(args?.qaDir ?? configured.qaDir, configured.qaDir, 'QA 目录')
+    const conversationsDir = await assertMatchesVaultDir(
+      args?.conversationsDir ?? configured.conversationsDir,
+      configured.conversationsDir,
+      'Conversations 目录',
+    )
+    const conversationId = args?.conversationId
+    if (!conversationId) throw new Error('conversationId 不能为空')
+    const raw = await fsp.readFile(join(conversationsDir, `${conversationId}.md`), 'utf-8')
+    const conversation = parseConversationFile(raw, conversationId)
+    if (!conversation) throw new Error('对话文件格式无效')
+
+    const selectedAtomIds = (args?.atomIds && args.atomIds.length > 0)
+      ? args.atomIds
+      : conversation.atomIds
+    const sections = []
+    for (const atomId of selectedAtomIds) {
+      const atom = await readAtomSections(qaDir, atomId)
+      if (!atom) continue
+      sections.push({ atomId, ...atom })
+    }
+
+    const now = new Date().toISOString()
+    const targetPlatform = args?.targetPlatform ?? 'generic'
+    const handoffMode = args?.handoffMode ?? 'continue'
+    const handoffRecordId = `handoff-${hashValue(`${conversationId}:${now}:${selectedAtomIds.join(',')}`)}`
+    const readRecord = args?.includeLocalSourceDetails && conversation.readRecordId
+      ? await readRelayRecord('read', conversation.readRecordId)
+      : null
+    const localSourceSession = typeof readRecord?.sourceSessionId === 'string'
+      ? readRecord.sourceSessionId
+      : conversation.sourceSessionId
+    const localSourcePath = typeof readRecord?.sourcePath === 'string'
+      ? readRecord.sourcePath
+      : conversation.sourcePath
+    const localSourceCwd = typeof readRecord?.sourceCwd === 'string'
+      ? readRecord.sourceCwd
+      : conversation.sourceCwd
+    const sourceSession = args?.includeLocalSourceDetails ? localSourceSession : conversation.sourceSessionId
+    const sourcePath = args?.includeLocalSourceDetails ? localSourcePath : redactSource(conversation.sourcePath)
+    const sourceCwd = args?.includeLocalSourceDetails ? localSourceCwd : redactSource(conversation.sourceCwd)
+
+    const markdown = [
+      '# Conversation Handoff Packet',
+      '',
+      '## Target',
+      '',
+      `- target_platform: ${targetPlatform}`,
+      `- handoff_mode: ${handoffMode}`,
+      '- user_confirmation: required_before_send',
+      '',
+      '## Source',
+      '',
+      `- conversation_id: ${conversation.id}`,
+      `- source_platform: ${conversation.sourcePlatform ?? 'workbench'}`,
+      `- source_session: ${sourceSession ?? '-'}`,
+      `- source_path: ${sourcePath ?? '-'}`,
+      `- source_cwd: ${sourceCwd ?? '-'}`,
+      `- source_title: ${conversation.sourceTitle ?? conversation.title}`,
+      `- handoff_record_id: ${handoffRecordId}`,
+      '',
+      '## QA Path',
+      '',
+      ...sections.flatMap((section, index) => [
+        `### ${index + 1}. ${section.atomId}`,
+        '',
+        '**Q**',
+        '',
+        section.question || '<empty>',
+        '',
+        '**A**',
+        '',
+        section.answer || '<empty>',
+        '',
+      ]),
+      '## Human Review Fields',
+      '',
+      '- 已确认判断：<待人工确认>',
+      '- 未决问题：<待人工确认>',
+      '- 约束：<待人工确认>',
+      '- 下一步：<待人工确认>',
+      '',
+    ].join('\n')
+
+    const handoffRecord = {
+      id: handoffRecordId,
+      createdAt: now,
+      conversationId: conversation.id,
+      targetPlatform,
+      handoffMode,
+      includedAtomIds: selectedAtomIds,
+      userConfirmation: 'required_before_send',
+      includeLocalSourceDetails: !!args?.includeLocalSourceDetails,
+      sourcePlatform: conversation.sourcePlatform,
+      sourceSessionId: conversation.sourceSessionId,
+      sourcePath: conversation.sourcePath,
+      sourceCwd: conversation.sourceCwd,
+    }
+    await writeRelayRecord('handoff', handoffRecordId, handoffRecord)
+    return {
+      markdown,
+      handoffRecord,
+      source: {
+        conversationId: conversation.id,
+        sourcePlatform: conversation.sourcePlatform,
+        sourceSessionId: conversation.sourceSessionId,
+        sourcePath: conversation.sourcePath,
+        sourceCwd: conversation.sourceCwd,
+      },
+    }
   })
 
   // ── 分支 ID 生成 ────────────────────────────────────────────────────────
