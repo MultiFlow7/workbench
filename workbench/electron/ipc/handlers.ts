@@ -79,6 +79,137 @@ function stubEmpty<T>(channel: string, empty: T) {
   ipcMain.handle(channel, () => empty)
 }
 
+type ConversationStatus = 'draft' | 'active'
+type SourcePlatform = 'workbench' | 'codex' | 'claude'
+
+type ConversationMeta = {
+  id: string
+  title: string
+  projectId: string | null
+  groupId?: string | null
+  rootAtomId: string | null
+  atomIds: string[]
+  status: ConversationStatus
+  createdAt: string
+  updatedAt: string
+  sourcePlatform?: SourcePlatform
+  sourceSessionId?: string
+  sourcePath?: string
+  sourceCwd?: string
+  legacy?: boolean
+}
+
+function scalarFromFrontmatter(fm: string, key: string): string | undefined {
+  const m = fm.match(new RegExp(`^${key}:\\s*(.*)$`, 'm'))
+  if (!m) return undefined
+  const value = m[1].trim()
+  if (value === '') return ''
+  return value.replace(/^['"]|['"]$/g, '')
+}
+
+function nullableScalar(value: string | undefined): string | null {
+  if (!value || value === 'null') return null
+  return value
+}
+
+function optionalScalar(value: string | undefined): string | undefined {
+  if (!value || value === 'null' || value === 'undefined') return undefined
+  return value
+}
+
+function yamlScalar(value: string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return 'null'
+  return JSON.stringify(value)
+}
+
+function extractWikiRefs(raw: string, sectionTitle: string): string[] {
+  const parts = ('\n' + raw).split(/\n## /)
+  const section = parts.find((p) => p.startsWith(sectionTitle))
+  return section
+    ? [...section.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1].trim())
+    : []
+}
+
+function parseConversationFile(raw: string, fallbackId: string): ConversationMeta | null {
+  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+  if (!fmMatch) return null
+  const fm = fmMatch[1]
+  const id = scalarFromFrontmatter(fm, 'id') ?? fallbackId
+  const statusRaw = scalarFromFrontmatter(fm, 'status')
+  const status: ConversationStatus = statusRaw === 'active' ? 'active' : 'draft'
+  const sourcePlatformRaw = scalarFromFrontmatter(fm, 'sourcePlatform')
+  const sourcePlatform = sourcePlatformRaw === 'codex' || sourcePlatformRaw === 'claude' || sourcePlatformRaw === 'workbench'
+    ? sourcePlatformRaw
+    : undefined
+  return {
+    id,
+    title: scalarFromFrontmatter(fm, 'title') ?? '新对话',
+    projectId: nullableScalar(scalarFromFrontmatter(fm, 'projectId')),
+    groupId: nullableScalar(scalarFromFrontmatter(fm, 'groupId')),
+    rootAtomId: nullableScalar(scalarFromFrontmatter(fm, 'rootAtomId')),
+    atomIds: extractWikiRefs(raw, 'QA 索引'),
+    status,
+    createdAt: scalarFromFrontmatter(fm, 'createdAt') ?? '',
+    updatedAt: scalarFromFrontmatter(fm, 'updatedAt') ?? '',
+    ...(sourcePlatform ? { sourcePlatform } : {}),
+    ...(scalarFromFrontmatter(fm, 'sourceSessionId') ? { sourceSessionId: scalarFromFrontmatter(fm, 'sourceSessionId') } : {}),
+    ...(scalarFromFrontmatter(fm, 'sourcePath') ? { sourcePath: scalarFromFrontmatter(fm, 'sourcePath') } : {}),
+    ...(scalarFromFrontmatter(fm, 'sourceCwd') ? { sourceCwd: scalarFromFrontmatter(fm, 'sourceCwd') } : {}),
+  }
+}
+
+function serializeConversation(conversation: ConversationMeta): string {
+  const lines = [
+    '---',
+    `id: ${conversation.id}`,
+    `title: ${yamlScalar(conversation.title)}`,
+    `projectId: ${yamlScalar(conversation.projectId)}`,
+    `groupId: ${yamlScalar(conversation.groupId ?? null)}`,
+    `rootAtomId: ${yamlScalar(conversation.rootAtomId)}`,
+    `status: ${conversation.status}`,
+  ]
+  if (conversation.sourcePlatform) lines.push(`sourcePlatform: ${conversation.sourcePlatform}`)
+  if (conversation.sourceSessionId) lines.push(`sourceSessionId: ${yamlScalar(conversation.sourceSessionId)}`)
+  if (conversation.sourcePath) lines.push(`sourcePath: ${yamlScalar(conversation.sourcePath)}`)
+  if (conversation.sourceCwd) lines.push(`sourceCwd: ${yamlScalar(conversation.sourceCwd)}`)
+  lines.push(`createdAt: ${conversation.createdAt}`)
+  lines.push(`updatedAt: ${conversation.updatedAt}`)
+  lines.push('---', '', '## QA 索引', '')
+  for (const atomId of conversation.atomIds) {
+    lines.push(`- [[${atomId}]]`)
+  }
+  lines.push('')
+  return lines.join('\n')
+}
+
+async function writeConversationFile(conversationsDir: string, conversation: ConversationMeta): Promise<void> {
+  await fsp.mkdir(conversationsDir, { recursive: true }).catch(() => {})
+  const filePath = join(conversationsDir, `${conversation.id}.md`)
+  const tmpPath = `${filePath}.tmp-${process.pid}`
+  await fsp.writeFile(tmpPath, serializeConversation(conversation), 'utf-8')
+  await fsp.rename(tmpPath, filePath)
+}
+
+async function appendProjectIndexRef(projectsDir: string, projectId: string | null, refId: string): Promise<void> {
+  if (!projectId || !projectsDir || !refId) return
+  const files = await fsp.readdir(projectsDir).catch(() => [] as string[])
+  for (const file of files) {
+    if (!file.endsWith('.md')) continue
+    const filePath = join(projectsDir, file)
+    const raw = await fsp.readFile(filePath, 'utf-8').catch(() => '')
+    const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+    if (!fmMatch) continue
+    if (scalarFromFrontmatter(fmMatch[1], 'id') !== projectId) continue
+    const refs = extractWikiRefs(raw, '对话索引')
+    if (refs.includes(refId)) return
+    const next = raw.endsWith('\n') ? `${raw}- [[${refId}]]\n` : `${raw}\n- [[${refId}]]\n`
+    const tmpPath = `${filePath}.tmp-${process.pid}`
+    await fsp.writeFile(tmpPath, next, 'utf-8')
+    await fsp.rename(tmpPath, filePath)
+    return
+  }
+}
+
 // ─── 注册函数（由 main/index.ts 在 app.whenReady 后调用）────────────────────
 
 export function registerIpcHandlers(): void {
@@ -423,7 +554,107 @@ export function registerIpcHandlers(): void {
     return null
   })
 
-  // ── 项目管理 ──────────────────────────────────────────────────────────────
+  // ── Conversation / 项目管理 ───────────────────────────────────────────────
+  // list_conversations: 扫描 Conversations 下 .md 文件，返回 ConversationMeta[]
+  ipcMain.handle('list_conversations', async (_e, args: { conversationsDir: string }) => {
+    const dir = args?.conversationsDir
+    if (!dir) return []
+    try {
+      const files = await fsp.readdir(dir).catch(() => [] as string[])
+      const conversations: ConversationMeta[] = []
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue
+        try {
+          const raw = await fsp.readFile(join(dir, file), 'utf-8')
+          const parsed = parseConversationFile(raw, file.replace(/\.md$/, ''))
+          if (parsed) conversations.push(parsed)
+        } catch { /* skip bad file */ }
+      }
+      return conversations
+    } catch { return [] }
+  })
+
+  // create_conversation: 写 Conversation 文件，并在 projectId 非空时同步写 Project 对话索引
+  ipcMain.handle('create_conversation', async (_e, args: {
+    conversationsDir: string
+    projectsDir?: string
+    title?: string
+    projectId?: string | null
+    sourcePlatform?: SourcePlatform
+    sourceSessionId?: string
+    sourcePath?: string
+    sourceCwd?: string
+  }) => {
+    const conversationsDir = args?.conversationsDir
+    if (!conversationsDir) throw new Error('conversationsDir 不能为空')
+    const now = new Date().toISOString()
+    const id = `conv-${Date.now()}`
+    const conversation: ConversationMeta = {
+      id,
+      title: args?.title?.trim() || '新对话',
+      projectId: args?.projectId ?? null,
+      rootAtomId: null,
+      atomIds: [],
+      status: 'draft',
+      createdAt: now,
+      updatedAt: now,
+      sourcePlatform: args?.sourcePlatform ?? 'workbench',
+      ...(args?.sourceSessionId ? { sourceSessionId: args.sourceSessionId } : {}),
+      ...(args?.sourcePath ? { sourcePath: args.sourcePath } : {}),
+      ...(args?.sourceCwd ? { sourceCwd: args.sourceCwd } : {}),
+    }
+    await writeConversationFile(conversationsDir, conversation)
+    await appendProjectIndexRef(args?.projectsDir ?? '', conversation.projectId, conversation.id)
+    return conversation
+  })
+
+  // update_conversation: 覆盖写完整 ConversationMeta
+  ipcMain.handle('update_conversation', async (_e, args: { conversationsDir: string; conversation: ConversationMeta }) => {
+    const { conversationsDir, conversation } = args ?? {}
+    if (!conversationsDir || !conversation?.id) return null
+    const next: ConversationMeta = {
+      ...conversation,
+      updatedAt: conversation.updatedAt || new Date().toISOString(),
+      status: conversation.rootAtomId || conversation.atomIds.length > 0 ? 'active' : conversation.status,
+    }
+    await writeConversationFile(conversationsDir, next)
+    return next
+  })
+
+  // add_atom_to_conversation: 追加 atom，必要时把 draft conversation 激活
+  ipcMain.handle('add_atom_to_conversation', async (_e, args: {
+    conversationsDir: string
+    conversationId: string
+    atomId: string
+    rootAtomId?: string | null
+  }) => {
+    const { conversationsDir, conversationId, atomId } = args ?? {}
+    if (!conversationsDir || !conversationId || !atomId) return null
+    const filePath = join(conversationsDir, `${conversationId}.md`)
+    if (!fs.existsSync(filePath)) throw new Error(`对话文件不存在: ${conversationId}`)
+    const raw = await fsp.readFile(filePath, 'utf-8')
+    const current = parseConversationFile(raw, conversationId)
+    if (!current) throw new Error(`对话文件格式无效: ${conversationId}`)
+    const atomIds = current.atomIds.includes(atomId) ? current.atomIds : [...current.atomIds, atomId]
+    const rootAtomId = current.rootAtomId ?? args?.rootAtomId ?? atomIds[0] ?? null
+    const next: ConversationMeta = {
+      ...current,
+      rootAtomId,
+      atomIds,
+      status: rootAtomId ? 'active' : current.status,
+      updatedAt: new Date().toISOString(),
+    }
+    await writeConversationFile(conversationsDir, next)
+    return next
+  })
+
+  // add_conversation_to_project: 显式兼容 channel；新建 conversation 时 create_conversation 已同步写入
+  ipcMain.handle('add_conversation_to_project', async (_e, args: { projectsDir: string; projectId: string; conversationId: string }) => {
+    const { projectsDir, projectId, conversationId } = args ?? {}
+    await appendProjectIndexRef(projectsDir, projectId, conversationId)
+    return null
+  })
+
   // list_projects: 扫描 projectsDir 下 .md 文件，atomIds 从 ## 对话索引 提取
   ipcMain.handle('list_projects', async (_e, args: { projectsDir: string }) => {
     const dir = args?.projectsDir
@@ -448,15 +679,30 @@ export function registerIpcHandlers(): void {
           const name = scalar('name') ?? file.replace(/\.md$/, '')
           const rootBranchId = scalar('rootBranchId') ?? ''
           const createdAt = scalar('createdAt') ?? ''
+          const folderPath = optionalScalar(scalar('folderPath'))
+          const source = optionalScalar(scalar('source'))
 
-          // atomIds: split by ## and find 对话索引 section, extract [[xxx]] refs
+          // 对话索引：v0.16.2 起新写入 conv-*；旧项目里可能仍是 atom id
           const sectionParts = ('\n' + raw).split(/\n## /)
           const dialogPart = sectionParts.find((p) => p.startsWith('\u5bf9\u8bdd\u7d22\u5f15'))
-          const atomIds = dialogPart
+          const refs = dialogPart
             ? [...dialogPart.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1].trim())
             : []
+          const conversationIds = refs.filter((id) => id.startsWith('conv-'))
+          const legacyAtomIds = refs.filter((id) => !id.startsWith('conv-'))
+          const atomIds = legacyAtomIds
 
-          projects.push({ id, name, rootBranchId, createdAt, atomIds })
+          projects.push({
+            id,
+            name,
+            rootBranchId,
+            createdAt,
+            ...(folderPath ? { folderPath } : {}),
+            ...(source ? { source } : {}),
+            conversationIds,
+            legacyAtomIds,
+            atomIds,
+          })
         } catch { /* skip bad file */ }
       }
       return projects
@@ -467,13 +713,15 @@ export function registerIpcHandlers(): void {
   // 且后续 add_atom_to_project（同样 stub noop）无法把新 atom 追加进 `## 对话索引`，导致：
   //   ① 新建项目后画布空白；② 老项目里"在工作台里发起"的新对话也无法被项目过滤到 → 「有的项目画布没显示节点」。
   // 创建项目文件，保留与历史项目文件相同的 frontmatter 形态。
-  // args: { projectsDir: string; name: string }
-  ipcMain.handle('create_project', async (_e, args: { projectsDir: string; name: string }) => {
+  // args: { projectsDir: string; name: string; folderPath: string }
+  ipcMain.handle('create_project', async (_e, args: { projectsDir: string; name: string; folderPath: string }) => {
     const projectsDir = args?.projectsDir
     const rawName = args?.name ?? ''
+    const folderPath = args?.folderPath?.trim() ?? ''
     const name = rawName.trim()
     if (!projectsDir) throw new Error('projectsDir 不能为空')
     if (!name) throw new Error('项目名称不能为空')
+    if (!folderPath) throw new Error('项目文件夹不能为空')
     // 确保目录存在
     await fsp.mkdir(projectsDir, { recursive: true }).catch(() => {})
     const filePath = join(projectsDir, `${name}.md`)
@@ -483,15 +731,18 @@ export function registerIpcHandlers(): void {
     const id = `proj-${Date.now()}`
     const createdAt = new Date().toISOString()
     // 与历史项目文件格式保持一致：frontmatter 后空行 + `## 对话索引` + 空行（后续 add 时追加）
-    const content = `---\nid: ${id}\nname: ${name}\nrootBranchId: ""\ncreatedAt: ${createdAt}\n---\n\n## 对话索引\n\n`
+    const content = `---\nid: ${id}\nname: ${name}\nfolderPath: ${JSON.stringify(folderPath)}\nrootBranchId: ""\ncreatedAt: ${createdAt}\ntype: project\n---\n\n## 对话索引\n\n`
     const tmpPath = `${filePath}.tmp-${process.pid}`
     await fsp.writeFile(tmpPath, content, 'utf-8')
     await fsp.rename(tmpPath, filePath)
     return {
       id,
       name,
+      folderPath,
       rootBranchId: '',
       createdAt,
+      conversationIds: [],
+      legacyAtomIds: [],
       atomIds: [],
     }
   })

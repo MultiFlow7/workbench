@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import { useStore } from '../../store'
-import type { QAAtomMeta } from '../../store/conversationSlice'
+import type { ConversationMeta, QAAtomMeta } from '../../store/conversationSlice'
 import { formatTokens } from '../../utils/tokenFormat'
 import { CanvasCard, type NodeData } from './CanvasCard'
 import './BranchTree.css'
@@ -93,6 +93,11 @@ function collectEdges(roots: LayoutNode[]): Array<{ from: LayoutNode; to: Layout
   return edges
 }
 
+function formatConversationTitle(conversation: ConversationMeta): string {
+  const title = conversation.title?.trim() || '新对话'
+  return title.length > 34 ? `${title.slice(0, 34)}...` : title
+}
+
 /**
  * 把 QAAtomMeta + LayoutNode 转换成规范化 NodeData。
  * 状态推断：streamingAtoms 包含 → 'running'，否则默认 'done'。
@@ -129,26 +134,28 @@ export function BranchTree() {
   const selectedNodeId = useStore((s) => s.selectedNodeId)
   const selectAtom = useStore((s) => s.selectAtom)
   const setSelectedNode = useStore((s) => s.setSelectedNode)
-  const selectedProjectId = useStore((s) => s.selectedProjectId)
-  const projects = useStore((s) => s.projects)
+  const conversations = useStore((s) => s.conversations)
+  const selectedConversationId = useStore((s) => s.selectedConversationId)
   // Node-F-051-C-1: subscribe to streaming atoms for spinner display
   const streamingAtoms = useStore((s) => s.streamingAtoms)
   // canvas 视图变换持久化到 store（模式切换后位置保留）
   const canvasTransform = useStore((s) => s.canvasTransform)
   const updateCanvasTransform = useStore((s) => s.updateCanvasTransform)
 
-  // Project filtering
+  const selectedConversation = selectedConversationId
+    ? conversations[selectedConversationId] ?? null
+    : null
+
+  // Conversation filtering
   const filteredAtoms = useMemo<Record<string, QAAtomMeta>>(() => {
-    if (!selectedProjectId) return atoms
-    const proj = projects.find((p) => p.id === selectedProjectId)
-    if (!proj) return atoms
-    const allowed = new Set(proj.atomIds)
+    if (!selectedConversation) return {}
+    const allowed = new Set(selectedConversation.atomIds)
     const filtered: Record<string, QAAtomMeta> = {}
     for (const [id, atom] of Object.entries(atoms)) {
       if (allowed.has(id)) filtered[id] = atom
     }
     return filtered
-  }, [atoms, selectedProjectId, projects])
+  }, [atoms, selectedConversation])
 
   const allAtomsArr = useMemo(
     () => Object.values(filteredAtoms),
@@ -296,7 +303,14 @@ export function BranchTree() {
   if (allNodes.length === 0) {
     return (
       <div className="bt-container">
-        <div className="bt-empty">暂无对话节点</div>
+        {selectedConversation && (
+          <div className="bt-tree-header">
+            <span className="bt-tree-title">{formatConversationTitle(selectedConversation)}</span>
+          </div>
+        )}
+        <div className="bt-empty">
+          {selectedConversation ? '暂无对话节点' : '从左侧选择对话'}
+        </div>
       </div>
     )
   }
@@ -311,6 +325,12 @@ export function BranchTree() {
       onMouseLeave={stopDrag}
       onWheel={onWheel}
     >
+      {selectedConversation && (
+        <div className="bt-tree-header">
+          <span className="bt-tree-title">{formatConversationTitle(selectedConversation)}</span>
+        </div>
+      )}
+
       {/* Inner canvas */}
       <div
         className="bt-canvas"

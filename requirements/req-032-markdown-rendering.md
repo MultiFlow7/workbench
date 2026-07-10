@@ -1,7 +1,7 @@
 ---
 id: req-032
 title: ChatView Markdown 渲染（对话内容格式化显示）
-status: in-progress
+status: done
 priority: high
 source: CEO 需求打包 2026-05-20（用户报告对话显示问题触发）
 created: 2026-05-20

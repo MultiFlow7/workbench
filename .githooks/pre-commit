@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT/workbench"
+
+if ! command -v node >/dev/null 2>&1; then
+  PNPM_BIN="$(command -v pnpm || true)"
+  PNPM_DIR="$(cd "$(dirname "$PNPM_BIN")" && pwd)"
+  if [ -n "$PNPM_BIN" ] && [ -x "$PNPM_DIR/../node/bin/node" ]; then
+    export PATH="$PNPM_DIR/../node/bin:$PATH"
+  fi
+fi
+
+pnpm privacy:scan:staged

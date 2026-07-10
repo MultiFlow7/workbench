@@ -1,14 +1,18 @@
 ---
 id: req-022
 title: Agent 沙盒（隔离执行环境）
-status: in-progress
+status: backlog
 priority: high
 source: 对话讨论 2026-05-18
 created: 2026-05-18
-version: v0.8
+version: ~
 ---
 
 # req-022 · Agent 沙盒
+
+## 状态说明（2026-06-13）
+
+本需求后推。当前版本先以 Claude Code SDK / PreToolUse / ProcessTrace 主路径承载执行体验；Agent 沙盒后续将围绕新的执行栈与权限边界重新规划，不按 v0.8 旧方案继续追账。
 
 ## 需求描述
 

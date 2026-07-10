@@ -40,7 +40,7 @@ export function ChatInputV2(props: ChatInputV2Props) {
   const setCachingEnabled = useStore((s) => s.setCachingEnabled)
   const setP4Mode = useStore((s) => s.setP4Mode)
   const currentPath = useStore((s) => s.currentPath)
-  const selectedProjectId = useStore((s) => s.selectedProjectId)
+  const selectedConversationId = useStore((s) => s.selectedConversationId)
 
   // 按钮派生逻辑（technical.md 节点 2.1 三态判定）
   const isIdle =
@@ -51,7 +51,7 @@ export function ChatInputV2(props: ChatInputV2Props) {
   const isPaused = streamingState === 'paused'
 
   const inputDisabledByState = isRunning || isPaused
-  const inputDisabledByContext = !currentPath.length && !selectedProjectId
+  const inputDisabledByContext = !currentPath.length && !selectedConversationId
   const inputDisabled = inputDisabledByState || inputDisabledByContext
 
   // 行为表派生：onClick / 图标 / 禁用
@@ -102,9 +102,9 @@ export function ChatInputV2(props: ChatInputV2Props) {
                   ? 'Agent 已暂停，请在上方干预卡片操作'
                   : currentPath.length
                     ? '输入消息…'
-                    : selectedProjectId
+                    : selectedConversationId
                       ? '输入消息，自动开始新对话…'
-                      : '请先在左侧选择项目'
+                      : '请先在左侧新建或选择对话'
             }
             disabled={inputDisabled}
             rows={1}

@@ -15,7 +15,7 @@
  */
 
 import { app } from 'electron'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import {
@@ -109,16 +109,23 @@ function tryMkdir(p: string): string | null {
 }
 
 /**
- * 在 vaultRoot 下创建 QA / Projects 子目录（已存在则 no-op）。
+ * 在 vaultRoot 下创建 QA / Projects / Conversations 子目录（已存在则 no-op）。
  */
-function ensureSubdirs(vaultRoot: string, qaSub: string, projSub: string): void {
-  // qaSub / projSub 可能是绝对路径或相对名；仅当为相对名时拼接到 vaultRoot
+function ensureSubdirs(vaultRoot: string, qaSub: string, projSub: string, convSub: string): void {
+  // 子目录可能是绝对路径或相对名；仅当为相对名时拼接到 vaultRoot
   const qaIsAbs = /^([a-zA-Z]:[\\/]|[/\\])/.test(qaSub)
   const projIsAbs = /^([a-zA-Z]:[\\/]|[/\\])/.test(projSub)
+  const convIsAbs = /^([a-zA-Z]:[\\/]|[/\\])/.test(convSub)
   const qaDir = qaIsAbs ? qaSub : join(vaultRoot, qaSub)
   const projDir = projIsAbs ? projSub : join(vaultRoot, projSub)
+  const convDir = convIsAbs
+    ? convSub
+    : convSub === 'Conversations' && qaIsAbs && projIsAbs && dirname(qaSub) === dirname(projSub)
+      ? join(dirname(qaSub), 'Conversations')
+      : join(vaultRoot, convSub)
   tryMkdir(qaDir)
   tryMkdir(projDir)
+  tryMkdir(convDir)
 }
 
 /**
@@ -149,7 +156,7 @@ export async function ensureDefaultVault(): Promise<void> {
   if (dirExists(defaultRoot)) {
     setVaultConfig({ vaultRoot: defaultRoot })
     const cfg = getVaultConfig()
-    ensureSubdirs(defaultRoot, cfg.qaSubdir, cfg.projectsSubdir)
+    ensureSubdirs(defaultRoot, cfg.qaSubdir, cfg.projectsSubdir, cfg.conversationsSubdir)
     syncCwdToVaultRoot(defaultRoot)
     return
   }
@@ -159,7 +166,7 @@ export async function ensureDefaultVault(): Promise<void> {
   const primaryErr = tryMkdir(defaultRoot)
   if (primaryErr === null) {
     // 主路径成功
-    ensureSubdirs(defaultRoot, cfg.qaSubdir, cfg.projectsSubdir)
+    ensureSubdirs(defaultRoot, cfg.qaSubdir, cfg.projectsSubdir, cfg.conversationsSubdir)
     setVaultConfig({ vaultRoot: defaultRoot })
     __lastTriggerSource = 'fresh-install'
     syncCwdToVaultRoot(defaultRoot)
@@ -170,7 +177,7 @@ export async function ensureDefaultVault(): Promise<void> {
   const fallbackRoot = join(app.getPath('userData'), 'Workbench-Vault')
   const fallbackErr = tryMkdir(fallbackRoot)
   if (fallbackErr === null) {
-    ensureSubdirs(fallbackRoot, cfg.qaSubdir, cfg.projectsSubdir)
+    ensureSubdirs(fallbackRoot, cfg.qaSubdir, cfg.projectsSubdir, cfg.conversationsSubdir)
     setVaultConfig({ vaultRoot: fallbackRoot })
     __lastFallbackInfo = {
       used: true,

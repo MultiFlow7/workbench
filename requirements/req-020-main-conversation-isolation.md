@@ -1,7 +1,7 @@
 ---
 id: req-020
 title: 主对话保护（独立于后台任务）
-status: in-progress
+status: done
 priority: high
 source: 对话讨论 2026-05-18
 created: 2026-05-18

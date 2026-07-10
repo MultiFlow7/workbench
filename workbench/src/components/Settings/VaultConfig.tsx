@@ -8,8 +8,8 @@
  *
  * 保留：
  *   - vaultRoot 输入框 + 「选择文件夹」按钮
- *   - QA / Projects 高级路径（可填相对子目录名或绝对路径）
- *   - 「检测路径有效性」按钮（验 vault 根目录 + 派生 QA / Projects 目录）
+ *   - QA / Projects / Conversations 高级路径（可填相对子目录名或绝对路径）
+ *   - 「检测路径有效性」按钮（验 vault 根目录 + 派生 QA / Projects / Conversations 目录）
  *   - 「保存」按钮（vault:set-config IPC，触发广播）
  *   - fallback warning bar（vaultFallbackInfo.used 时显示）
  *
@@ -26,6 +26,12 @@ function isAbsolutePath(p: string): boolean {
   return false
 }
 
+function parentDir(p: string): string {
+  const trimmed = p.replace(/[/\\]+$/, '')
+  const idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
+  return idx > 0 ? trimmed.slice(0, idx) : ''
+}
+
 export function VaultConfig() {
   const config = useVaultConfig()
   const error = useVaultConfigError()
@@ -34,6 +40,7 @@ export function VaultConfig() {
   const [vaultRoot, setVaultRoot] = useState(config?.vaultRoot ?? '')
   const [qaSubdir, setQaSubdir] = useState(config?.qaSubdir ?? 'QA')
   const [projectsSubdir, setProjectsSubdir] = useState(config?.projectsSubdir ?? 'Projects')
+  const [conversationsSubdir, setConversationsSubdir] = useState(config?.conversationsSubdir ?? 'Conversations')
   const [formError, setFormError] = useState<string | null>(null)
   const [validating, setValidating] = useState(false)
   const [validateResult, setValidateResult] = useState<string | null>(null)
@@ -46,6 +53,7 @@ export function VaultConfig() {
       setVaultRoot(config.vaultRoot)
       setQaSubdir(config.qaSubdir || 'QA')
       setProjectsSubdir(config.projectsSubdir || 'Projects')
+      setConversationsSubdir(config.conversationsSubdir || 'Conversations')
     }
   }, [config])
 
@@ -80,11 +88,33 @@ export function VaultConfig() {
     }
   }
 
+  async function handlePickConversationsFolder() {
+    try {
+      const result = await pickDirectory('选择 Conversations 对话目录')
+      if (result && typeof result === 'string') setConversationsSubdir(result)
+    } catch (e) {
+      setFormError(`选择 Conversations 目录失败：${String(e)}`)
+    }
+  }
+
   function deriveDir(root: string, subdir: string): string {
     const trimmedSubdir = subdir.trim()
     if (!trimmedSubdir) return ''
     if (isAbsolutePath(trimmedSubdir)) return trimmedSubdir
     return `${root.replace(/[/\\]+$/, '')}/${trimmedSubdir.replace(/^[/\\]+/, '')}`
+  }
+
+  function deriveConversationsDir(root: string): string {
+    const trimmedSubdir = conversationsSubdir.trim()
+    if (
+      trimmedSubdir === 'Conversations'
+      && isAbsolutePath(qaSubdir)
+      && isAbsolutePath(projectsSubdir)
+      && parentDir(qaSubdir) === parentDir(projectsSubdir)
+    ) {
+      return `${parentDir(qaSubdir)}/Conversations`
+    }
+    return deriveDir(root, conversationsSubdir)
   }
 
   function validateForm(): string | null {
@@ -93,6 +123,7 @@ export function VaultConfig() {
     if (!isAbsolutePath(trimmed)) return 'Vault 根目录必须是绝对路径'
     if (!qaSubdir.trim()) return 'QA 目录不能为空'
     if (!projectsSubdir.trim()) return 'Projects 目录不能为空'
+    if (!conversationsSubdir.trim()) return 'Conversations 目录不能为空'
     return null
   }
 
@@ -108,15 +139,18 @@ export function VaultConfig() {
       const trimmedRoot = vaultRoot.trim()
       const qaDir = deriveDir(trimmedRoot, qaSubdir)
       const projectsDir = deriveDir(trimmedRoot, projectsSubdir)
-      const [rootExists, qaExists, projectsExists] = await Promise.all([
+      const conversationsDir = deriveConversationsDir(trimmedRoot)
+      const [rootExists, qaExists, projectsExists, conversationsExists] = await Promise.all([
         window.api.fsExists(trimmedRoot),
         window.api.fsExists(qaDir),
         window.api.fsExists(projectsDir),
+        window.api.fsExists(conversationsDir),
       ])
       setValidateResult([
         `${rootExists ? '✓' : '✗'} Vault 根目录：${trimmedRoot}`,
         `${qaExists ? '✓' : '✗'} QA 对话目录：${qaDir}`,
         `${projectsExists ? '✓' : '✗'} Projects 项目目录：${projectsDir}`,
+        `${conversationsExists ? '✓' : '✗'} Conversations 对话目录：${conversationsDir}`,
       ].join('\n'))
     } catch (e) {
       setValidateResult(`检测失败：${String(e)}`)
@@ -140,6 +174,7 @@ export function VaultConfig() {
         vaultRoot: vaultRoot.trim(),
         qaSubdir: qaSubdir.trim() || 'QA',
         projectsSubdir: projectsSubdir.trim() || 'Projects',
+        conversationsSubdir: conversationsSubdir.trim() || 'Conversations',
       })
       setSaveOk(true)
     } catch (e) {
@@ -194,7 +229,7 @@ export function VaultConfig() {
       </div>
 
       <div className="settings-panel__hint" style={{ marginBottom: 6 }}>
-        默认使用根目录下的 <code>QA</code> 和 <code>Projects</code>。如果你已有旧目录，可在下面改成绝对路径。
+        默认使用根目录下的 <code>QA</code>、<code>Projects</code> 和 <code>Conversations</code>。如果你已有旧目录，可在下面改成绝对路径。
       </div>
 
       <div className="settings-panel__input-row" style={{ marginBottom: 6 }}>
@@ -234,6 +269,27 @@ export function VaultConfig() {
           className="settings-panel__eye-btn"
           title="选择 Projects 项目目录"
           aria-label="选择 Projects 项目目录"
+        >
+          📁
+        </button>
+      </div>
+
+      <div className="settings-panel__input-row" style={{ marginBottom: 6 }}>
+        <input
+          id="vault-conversations-subdir"
+          className="settings-panel__input"
+          type="text"
+          value={conversationsSubdir}
+          onChange={(e) => setConversationsSubdir(e.target.value)}
+          placeholder="Conversations 或旧 Conversations 目录绝对路径"
+          aria-label="Conversations 对话目录"
+        />
+        <button
+          type="button"
+          onClick={handlePickConversationsFolder}
+          className="settings-panel__eye-btn"
+          title="选择 Conversations 对话目录"
+          aria-label="选择 Conversations 对话目录"
         >
           📁
         </button>

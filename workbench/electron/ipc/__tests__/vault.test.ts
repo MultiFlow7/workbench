@@ -100,12 +100,14 @@ describe('T-V016-I1 vault:get-config 完整 4 字段', () => {
       vaultRoot: '/my/vault',
       qaSubdir: 'Q',
       projectsSubdir: 'P',
+      conversationsSubdir: 'C',
     })
     const handler = _ipcHandlers.get('vault:get-config')!
     const result = (await handler({}, undefined)) as Record<string, unknown>
     expect(result.vaultRoot).toBe('/my/vault')
     expect(result.qaSubdir).toBe('Q')
     expect(result.projectsSubdir).toBe('P')
+    expect(result.conversationsSubdir).toBe('C')
     expect(result.hasShownFirstLaunchToast).toBe(false)
     expect(result.__fallbackInfo).toEqual({ used: false, reason: '' })
   })
@@ -117,6 +119,7 @@ describe('T-V016-I2 vault:set-config 触发广播', () => {
     const result = (await handler({}, { vaultRoot: '/new/v' })) as Record<string, unknown>
     expect(result.vaultRoot).toBe('/new/v')
     expect(result.qaSubdir).toBe('QA')
+    expect(result.conversationsSubdir).toBe('Conversations')
     // 广播一次
     const broadcasts = _sentMessages.filter((m) => m.channel === 'vault:config-changed')
     expect(broadcasts).toHaveLength(1)

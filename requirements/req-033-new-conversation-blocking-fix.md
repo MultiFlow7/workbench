@@ -1,7 +1,7 @@
 ---
 id: req-033
 title: 新建对话后发送内容无响应修复
-status: confirmed
+status: done
 priority: high
 source: user-report
 created: 2026-05-21

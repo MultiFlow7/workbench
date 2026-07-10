@@ -170,6 +170,7 @@ const api = {
       vaultRoot: string
       qaSubdir: string
       projectsSubdir: string
+      conversationsSubdir: string
       hasShownFirstLaunchToast: boolean
       __fallbackInfo?: { used: boolean; reason: string }
     }> => ipcRenderer.invoke('vault:get-config'),
@@ -179,11 +180,13 @@ const api = {
       vaultRoot: string
       qaSubdir: string
       projectsSubdir: string
+      conversationsSubdir: string
       hasShownFirstLaunchToast: boolean
     }>): Promise<{
       vaultRoot: string
       qaSubdir: string
       projectsSubdir: string
+      conversationsSubdir: string
       hasShownFirstLaunchToast: boolean
     }> => ipcRenderer.invoke('vault:set-config', patch),
 

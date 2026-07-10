@@ -1,14 +1,18 @@
 ---
 id: req-041
 title: Tool Calling 基础框架（Tauri 侧 tool_executor + ChatView 侧 tool_call 处理）
-status: planned
+status: backlog
 priority: high
 source: product-planning
 created: 2026-05-21
-version: v0.11
+version: ~
 ---
 
 # req-041 · Tool Calling 基础框架
+
+## 状态说明（2026-06-13）
+
+本需求暂不做。原方案面向 Tauri 侧自建 tool executor；当前主路径已切到 Electron + Claude Code SDK，工具调用框架后续需要围绕 SDK 工具、PreToolUse Hook、ProcessTrace 重新立项。
 
 ## 背景与目标
 

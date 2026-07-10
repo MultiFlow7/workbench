@@ -13,6 +13,8 @@ export interface VaultConfig {
   qaSubdir: string
   /** 相对子目录名（推荐，如 'Projects'）或绝对路径 */
   projectsSubdir: string
+  /** 相对子目录名（推荐，如 'Conversations'）或绝对路径 */
+  conversationsSubdir: string
   /** 首次启动 toast 是否已显示（lifecycle 一次） */
   hasShownFirstLaunchToast: boolean
 }

@@ -1,7 +1,7 @@
 ---
 id: req-066
 title: 公开产品洁净度补丁
-status: confirmed
+status: done
 priority: critical
 source: 2026-06-13 · GitHub 公开仓库隐私/密钥/个人信息审查后，用户确认工作台必须成为任何用户下载都干净、通用、可配置的开源产品
 created: 2026-06-13
