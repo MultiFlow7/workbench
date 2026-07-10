@@ -1,7 +1,7 @@
 {
   "name": "workbench",
   "private": true,
-  "version": "0.16.1",
+  "version": "0.16.2",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
@@ -15,10 +15,15 @@
     "dist:mac:package": "electron-builder --mac --publish never",
     "dist:win": "electron-vite build && electron-builder --win",
     "dist:win:package": "electron-builder --win --publish never",
-    "privacy:scan": "node scripts/preflight-public-cleanliness.mjs --tracked",
-    "privacy:scan:staged": "node scripts/preflight-public-cleanliness.mjs --staged",
-    "privacy:scan:build": "node scripts/preflight-public-cleanliness.mjs --build",
-    "privacy:scan:history": "node scripts/preflight-public-cleanliness.mjs --history --all-refs",
+    "privacy:scan": "scripts/run-node.sh scripts/preflight-public-cleanliness.mjs --tracked",
+    "privacy:scan:staged": "scripts/run-node.sh scripts/preflight-public-cleanliness.mjs --staged",
+    "privacy:scan:build": "scripts/run-node.sh scripts/preflight-public-cleanliness.mjs --build",
+    "privacy:scan:history": "scripts/run-node.sh scripts/preflight-public-cleanliness.mjs --history --all-refs",
+    "design:stitch-context": "node scripts/design/export-stitch-context.mjs",
+    "design:audit": "node scripts/design/audit-css-tokens.mjs",
+    "design:screenshots": "node scripts/design/capture-ui-screenshots.mjs",
+    "design:verify": "node scripts/design/verify-stitch-context.mjs",
+    "design:refresh": "pnpm design:audit && pnpm design:stitch-context && pnpm design:verify",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -1,14 +1,18 @@
 ---
 id: req-023
 title: Harness 管控层（hooks + 工作流 + 权限管理）
-status: in-progress
+status: backlog
 priority: high
 source: 对话讨论 2026-05-18
 created: 2026-05-18
-version: v0.8
+version: ~
 ---
 
 # req-023 · Harness 管控层
+
+## 状态说明（2026-06-13）
+
+本需求后推。当前代码已有部分 hook / capability token 基础，但不再按 v0.8 旧 Harness 规划作为当前版本缺口追踪；后续会围绕新的 Claude Code SDK 执行栈重新定义管控边界、权限模型与验收口径。
 
 ## 需求描述
 

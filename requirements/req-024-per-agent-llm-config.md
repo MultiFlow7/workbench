@@ -1,7 +1,7 @@
 ---
 id: req-024
 title: Agent 级别 LLM 配置（每个角色可绑定不同底层模型）
-status: in-progress
+status: done
 priority: medium
 source: 对话讨论 2026-05-18
 created: 2026-05-18

@@ -1,14 +1,18 @@
 ---
 id: req-043
 title: 工具调用状态 UI 反馈（最小化可见进度）
-status: planned
+status: backlog
 priority: medium
 source: product-planning
 created: 2026-05-21
-version: v0.11
+version: ~
 ---
 
 # req-043 · 工具调用状态 UI 反馈
+
+## 状态说明（2026-06-13）
+
+本需求暂不做。原方案是 ChatView 内存态工具状态行；当前 UI 主路径已切到 ProcessTrace，工具调用可见性后续按 ProcessTrace 数据契约重新规划。
 
 ## 背景与目标
 

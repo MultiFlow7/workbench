@@ -39,12 +39,15 @@ export function NavSection() {
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
   const handleNewProject = async () => {
-    const name = newProjectName.trim()
-    if (!name) return
     setNewProjectLoading(true)
     setNewProjectError(null)
     try {
-      await createProject(name)
+      const folderPath = await window.api.invoke<string | null>('vault:pick-folder', {
+        title: '选择工作区文件夹',
+      })
+      if (!folderPath) return
+      const fallbackName = folderPath.replace(/[/\\]+$/, '').split(/[/\\]/).pop()?.trim() || '新工作区'
+      await createProject(newProjectName.trim() || fallbackName, folderPath)
       setShowNewProject(false)
       setNewProjectName('')
     } catch (e) {

@@ -25,6 +25,8 @@ export type VaultConfig = {
   qaSubdir: string
   /** Projects 子目录名（推荐相对名，如 'Projects'）或绝对路径 */
   projectsSubdir: string
+  /** Conversations 子目录名（推荐相对名，如 'Conversations'）或绝对路径 */
+  conversationsSubdir: string
   /** 首次启动 toast 是否已显示（lifecycle 一次） */
   hasShownFirstLaunchToast: boolean
 }
@@ -37,6 +39,7 @@ const DEFAULT_VAULT_CONFIG: VaultConfig = {
   vaultRoot: '',
   qaSubdir: 'QA',
   projectsSubdir: 'Projects',
+  conversationsSubdir: 'Conversations',
   hasShownFirstLaunchToast: false,
 }
 
@@ -106,6 +109,7 @@ export function markFirstLaunchToastShown(): void {
  *   VITE_VAULT_ROOT          → vaultRoot
  *   VITE_VAULT_QA_PATH       → qaSubdir（env 旧值通常为绝对路径，paths.ts 派生时按绝对优先）
  *   VITE_VAULT_PROJECTS_PATH → projectsSubdir（同上）
+ * conversationsSubdir 是 v0.16.2 新增结构层，历史 env 没有对应字段，保持默认。
  *
  * @returns true 表示发生了迁移；false 表示无变化（无 env 或 store 已有）
  */

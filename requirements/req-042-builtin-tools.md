@@ -1,14 +1,18 @@
 ---
 id: req-042
 title: 内置工具集（读取本地文件 / 执行 Shell 命令 / 搜索 Vault）
-status: planned
+status: backlog
 priority: high
 source: product-planning
 created: 2026-05-21
-version: v0.11
+version: ~
 ---
 
 # req-042 · 内置工具集
+
+## 状态说明（2026-06-13）
+
+本需求暂不做。原方案依赖 req-041 的 Tauri 自建 tool executor；当前工具能力先交给 Claude Code SDK，后续内置工具集会按新的执行栈重新规划。
 
 ## 背景与目标
 

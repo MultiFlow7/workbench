@@ -1,7 +1,7 @@
 ---
 id: req-034
 title: 新建项目入口（NavList 前端 + create_project 后端）
-status: confirmed
+status: done
 priority: high
 source: user-report
 created: 2026-05-21

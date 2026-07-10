@@ -23,6 +23,7 @@ const SAMPLE_CONFIG: VaultConfig = {
   vaultRoot: '/Users/test/Workbench-Vault',
   qaSubdir: 'QA',
   projectsSubdir: 'Projects',
+  conversationsSubdir: 'Conversations',
   hasShownFirstLaunchToast: false,
 }
 

@@ -1,7 +1,7 @@
 ---
 id: req-035
 title: NavList 对话与项目数据分离展示
-status: confirmed
+status: done
 priority: high
 source: user-report
 created: 2026-05-21

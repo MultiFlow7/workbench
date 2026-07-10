@@ -133,6 +133,9 @@ export function useQaSubdir() {
 export function useProjectsSubdir() {
   return useStore((s) => s.vaultConfig?.projectsSubdir ?? 'Projects')
 }
+export function useConversationsSubdir() {
+  return useStore((s) => s.vaultConfig?.conversationsSubdir ?? 'Conversations')
+}
 export function useHasShownFirstLaunchToast() {
   return useStore((s) => s.vaultConfig?.hasShownFirstLaunchToast ?? false)
 }

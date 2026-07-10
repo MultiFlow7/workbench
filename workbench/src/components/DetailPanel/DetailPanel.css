@@ -32,6 +32,46 @@
   border-radius: 4px;
 }
 
+.detail-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 14px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.detail-meta-grid {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px 10px;
+  align-items: baseline;
+  font-size: 12px;
+}
+
+.detail-meta-grid span {
+  color: var(--text-3);
+}
+
+.detail-meta-grid strong {
+  min-width: 0;
+  color: var(--text);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.detail-meta-grid code {
+  min-width: 0;
+  color: var(--text-2);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  word-break: break-all;
+}
+
 .detail-divider {
   border: none;
   border-top: 1px solid var(--border);

@@ -68,6 +68,21 @@ interface WindowApiAgent {
   resume(text: string | null): Promise<null>
 }
 
+interface WindowApiVaultConfig {
+  vaultRoot: string
+  qaSubdir: string
+  projectsSubdir: string
+  conversationsSubdir: string
+  hasShownFirstLaunchToast: boolean
+  __fallbackInfo?: { used: boolean; reason: string }
+}
+
+interface WindowApiVault {
+  getConfig(): Promise<WindowApiVaultConfig>
+  setConfig(patch: Partial<WindowApiVaultConfig>): Promise<Omit<WindowApiVaultConfig, '__fallbackInfo'>>
+  pickFolder(options?: { title?: string }): Promise<string | null>
+}
+
 interface WindowApi {
   /** 通用 invoke */
   invoke<T = unknown>(channel: string, args?: unknown): Promise<T>
@@ -91,6 +106,9 @@ interface WindowApi {
 
   /** agent.* Claude Code SDK 代理控制（节点 2.1 + 2.6）*/
   agent: WindowApiAgent
+
+  /** vault.* Vault 配置 */
+  vault: WindowApiVault
 
   /** 占位字段 */
   readonly version: string

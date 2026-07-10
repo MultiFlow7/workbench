@@ -110,12 +110,13 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
   const appendAtom = useStore((s) => s.appendAtom)
   const extendCurrentPath = useStore((s) => s.extendCurrentPath)
   const selectAtom = useStore((s) => s.selectAtom)
-  const addAtomToProject = useStore((s) => s.addAtomToProject)
+  const addAtomToConversation = useStore((s) => s.addAtomToConversation)
+  const materializeLegacyConversation = useStore((s) => s.materializeLegacyConversation)
   const setIsUserInputting = useStore((s) => s.setIsUserInputting)
   const clearPendingEvents = useStore((s) => s.clearPendingEvents)
   const apiKeys = useStore((s) => s.apiKeys)
-  const selectedProjectId = useStore((s) => s.selectedProjectId)
-  const projects = useStore((s) => s.projects)
+  const selectedConversationId = useStore((s) => s.selectedConversationId)
+  const conversations = useStore((s) => s.conversations)
   const setAtomStreaming = useStore((s) => s.setAtomStreaming)
   const expandedInput = useStore((s) => s.expandedInput)
   const setExpandedInput = useStore((s) => s.setExpandedInput)
@@ -261,7 +262,16 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
 
   const handleSend = useCallback(async () => {
     if (!expandedInput.trim()) return
-    if (!currentPath.length && !selectedProjectId) return
+    if (!currentPath.length && !selectedConversationId) return
+
+    let targetConversationId = selectedConversationId
+    const selectedConversation = targetConversationId ? conversations[targetConversationId] : null
+    if (targetConversationId && selectedConversation?.legacy) {
+      const materialized = await materializeLegacyConversation(targetConversationId)
+      if (!materialized) return
+      targetConversationId = materialized.id
+    }
+    if (!targetConversationId) return
 
     const parentMeta = currentPath[currentPath.length - 1] ?? null
 
@@ -275,8 +285,6 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
         return
       }
     } else {
-      if (!selectedProjectId) return
-      if (!projects.find((p) => p.id === selectedProjectId)) return
       const branchId = await window.api.invoke<string>('next_branch_id', { qaDir: basePath })
       const now = new Date()
       const pad2 = (n: number) => String(n).padStart(2, '0')
@@ -328,11 +336,8 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
     dispatcherSetActiveAtomId(newAtomId)
     dispatcherSetSessionQ(questionText)
 
-    if (selectedProjectId) {
-      const proj = projects.find((p) => p.id === selectedProjectId)
-      if (proj) {
-        addAtomToProject(proj.name, newAtomId).catch(console.error)
-      }
+    if (targetConversationId) {
+      addAtomToConversation(targetConversationId, newAtomId, parentMeta ? undefined : newAtomId).catch(console.error)
     }
 
     opts.requestScrollToBottom()
@@ -363,8 +368,8 @@ export function useChatSend(opts: UseChatSendOptions): UseChatSendResult {
         dispatcherSetActiveAtomId(null)
         activeStreamAtomIdRef.current = null
       })
-  }, [expandedInput, currentPath, atomEntries, selectedProjectId, projects, appendAtom, extendCurrentPath, setAtomStreaming,
-      addAtomToProject, setExpandedInput, buildSystemPrompt,
+  }, [expandedInput, currentPath, atomEntries, selectedConversationId, conversations, appendAtom, extendCurrentPath, setAtomStreaming,
+      addAtomToConversation, materializeLegacyConversation, setExpandedInput, buildSystemPrompt,
       apiKeys, model, setStreamingState, clearPendingEvents, setIsUserInputting, opts])
 
   const handleStop = useCallback(() => {

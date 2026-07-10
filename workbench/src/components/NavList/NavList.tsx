@@ -1,63 +1,105 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../../store'
+import type { ConversationMeta, QAAtomMeta } from '../../store/conversationSlice'
 import './NavList.css'
+
+function formatShortDate(conversation: ConversationMeta): string | null {
+  const time = getConversationTime(conversation)
+  if (!time) return null
+  const date = new Date(time)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
+  return `${month}-${day} ${hour}:${minute}`
+}
+
+function formatConversationTitle(conversation: ConversationMeta, duplicateTitle: boolean): string {
+  const title = conversation.title?.trim() || '新对话'
+  const base = title.length > 22 ? `${title.slice(0, 22)}...` : title
+  const needsQualifier = duplicateTitle || title === '新对话' || !conversation.title?.trim()
+  if (!needsQualifier) return base
+  const qualifier = formatShortDate(conversation) ?? conversation.sourcePlatform
+  return qualifier ? `${base} · ${qualifier}` : base
+}
+
+function getConversationTime(conversation: ConversationMeta): number {
+  const ts = Date.parse(conversation.updatedAt || conversation.createdAt || '')
+  return Number.isNaN(ts) ? 0 : ts
+}
+
+function conversationCountLabel(conversation: ConversationMeta): string | null {
+  if (conversation.status === 'draft') return '草稿'
+  if (conversation.atomIds.length === 0) return null
+  return String(conversation.atomIds.length)
+}
+
+function stripWikiRef(value: string | null | undefined): string | null {
+  return value ? value.trim().replace(/^\[\[|\]\]$/g, '') || null : null
+}
+
+function getConversationRoots(
+  conversation: ConversationMeta,
+  atoms: Record<string, QAAtomMeta>,
+): QAAtomMeta[] {
+  const allowed = new Set(conversation.atomIds)
+  return conversation.atomIds
+    .map((id) => atoms[id])
+    .filter((atom): atom is QAAtomMeta => !!atom)
+    .filter((atom) => {
+      const parentId = stripWikiRef(atom.prev)
+      return parentId === null || !allowed.has(parentId)
+    })
+}
+
+function formatRootTitle(atom: QAAtomMeta): string {
+  const title = atom.summary?.trim() || atom.id
+  return title.length > 24 ? `${title.slice(0, 24)}...` : title
+}
 
 export function NavList() {
   const {
+    atoms,
     projects,
-    selectedProjectId,
-    selectProject,
-    selectAtom,
     setMode,
     createProject,
+    conversations,
+    selectedConversationId,
     selectedAtomId,
+    createConversation,
+    selectConversation,
+    selectAtom,
   } = useStore()
 
-  // T-10: 细粒度订阅 atoms，避免整个 store 引用变化触发无谓重渲染
-  const atoms = useStore((s) => s.atoms)
-
-  // T-7/T-8/T-9: 内联新建项目 state
-  const [showNewProjectInput, setShowNewProjectInput] = useState(false)
-  const [newProjectName, setNewProjectName] = useState('')
   const [newProjectError, setNewProjectError] = useState<string | null>(null)
   const [newProjectLoading, setNewProjectLoading] = useState(false)
+  const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(new Set())
+  const [expandedConversationIds, setExpandedConversationIds] = useState<Set<string>>(new Set())
 
   // 内存优先策略：先解锁 textarea，再异步处理项目关联和磁盘写入
   const handleNewConversation = async () => {
-    // 清除选中状态，切换到对话模式；不预创建占位 atom，
-    // 第一条消息发送时 ChatView 会将 Q&A atom 本身作为根节点写入
-    useStore.setState({ selectedAtomId: null, currentPath: [] })
     setMode('chat')
-
-    // 确保有选中的项目（没有则创建今日项目）
-    if (!selectedProjectId) {
-      const now = new Date()
-      const pad2 = (n: number) => String(n).padStart(2, '0')
-      const dateName = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`
-      try {
-        await createProject(dateName)
-      } catch (e) {
-        const errMsg = String(e)
-        if (errMsg.includes('已存在')) {
-          const existing = projects.find((p) => p.name === dateName)
-          if (existing) selectProject(existing.id)
-        } else {
-          console.error('[NavList] createProject failed:', errMsg)
-        }
-      }
+    try {
+      await createConversation('新对话', null)
+    } catch (e) {
+      console.error('[NavList] createConversation failed:', String(e))
     }
   }
 
-  // T-7/T-8/T-9: handleNewProject handler
+  const folderNameFromPath = (folderPath: string) => {
+    const normalized = folderPath.replace(/[/\\]+$/, '')
+    return normalized.split(/[/\\]/).pop()?.trim() || '新项目'
+  }
+
   const handleNewProject = async () => {
-    const trimmed = newProjectName.trim()
-    if (!trimmed) return
     setNewProjectLoading(true)
     setNewProjectError(null)
     try {
-      await createProject(trimmed)
-      setShowNewProjectInput(false)
-      setNewProjectName('')
+      const folderPath = await window.api.invoke<string | null>('vault:pick-folder', {
+        title: '选择项目文件夹',
+      })
+      if (!folderPath) return
+      await createProject(folderNameFromPath(folderPath), folderPath)
     } catch (e) {
       setNewProjectError(String(e))
     } finally {
@@ -65,15 +107,139 @@ export function NavList() {
     }
   }
 
-  // T-10: 派生 rootAtoms（当前项目内 prev === null 的根节点，按 timestamp 倒序）
-  const selectedProject = projects.find((p) => p.id === selectedProjectId)
-  const projectAtomIds = new Set(selectedProject?.atomIds ?? [])
+  const getProjectConversations = (projectId: string) => Object.values(conversations)
+    .filter((conversation) => conversation.projectId === projectId)
+    .sort((a, b) => getConversationTime(b) - getConversationTime(a))
+  const unprojectedConversations = Object.values(conversations)
+    .filter((conversation) => conversation.projectId === null)
+    .sort((a, b) => getConversationTime(b) - getConversationTime(a))
+  const titleCounts = Object.values(conversations).reduce<Record<string, number>>((acc, conversation) => {
+    const title = conversation.title?.trim() || '新对话'
+    acc[title] = (acc[title] ?? 0) + 1
+    return acc
+  }, {})
 
-  const rootAtoms = Object.values(atoms)
-    .filter((a) => a.prev === null && projectAtomIds.has(a.id))
-    .sort((a, b) =>
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  useEffect(() => {
+    const selectedConversation = selectedConversationId
+      ? conversations[selectedConversationId]
+      : null
+    const projectId = selectedConversation?.projectId
+    if (selectedConversationId) {
+      setExpandedConversationIds((prev) => {
+        if (prev.has(selectedConversationId)) return prev
+        const next = new Set(prev)
+        next.add(selectedConversationId)
+        return next
+      })
+    }
+    if (projectId) {
+      setExpandedProjectIds((prev) => {
+        if (prev.has(projectId)) return prev
+        const next = new Set(prev)
+        next.add(projectId)
+        return next
+      })
+    }
+  }, [conversations, selectedConversationId])
+
+  const handleSelectConversation = (conversationId: string) => {
+    selectConversation(conversationId)
+    setMode('chat')
+  }
+
+  const handleSelectStartPoint = (conversationId: string, atomId: string) => {
+    selectConversation(conversationId)
+    selectAtom(atomId)
+    setMode('chat')
+  }
+
+  const toggleProject = (projectId: string) => {
+    setExpandedProjectIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(projectId)) next.delete(projectId)
+      else next.add(projectId)
+      return next
+    })
+  }
+
+  const toggleConversation = (conversationId: string) => {
+    setExpandedConversationIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(conversationId)) next.delete(conversationId)
+      else next.add(conversationId)
+      return next
+    })
+  }
+
+  const renderConversationRow = (conversation: ConversationMeta) => {
+    const countLabel = conversationCountLabel(conversation)
+    const title = conversation.title?.trim() || '新对话'
+    const duplicateTitle = (titleCounts[title] ?? 0) > 1
+    const roots = getConversationRoots(conversation, atoms)
+    const expanded = expandedConversationIds.has(conversation.id)
+    const canExpand = roots.length > 0
+    return (
+      <li key={conversation.id}>
+        <button
+          className={`nav-list__item nav-list__item--conversation${
+            selectedConversationId === conversation.id ? ' nav-list__item--active' : ''
+          }`}
+          onClick={() => handleSelectConversation(conversation.id)}
+          title={conversation.title || conversation.id}
+        >
+          <span
+            className={`nav-list__chevron nav-list__chevron--conversation${expanded ? ' nav-list__chevron--open' : ''}${!canExpand ? ' nav-list__chevron--hidden' : ''}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              if (canExpand) toggleConversation(conversation.id)
+            }}
+          >
+            ›
+          </span>
+          <span
+            className={`nav-list__pip${
+              selectedConversationId === conversation.id ? ' nav-list__pip--active' : ''
+            }`}
+          />
+          <span className="nav-list__item-name">
+            {formatConversationTitle(conversation, duplicateTitle)}
+          </span>
+          {conversation.legacy && (
+            <span className="nav-list__badge">旧</span>
+          )}
+          {countLabel && (
+            <span className="nav-list__item-count">{countLabel}</span>
+          )}
+        </button>
+        {expanded && roots.length > 0 && (
+          <ul className="nav-list__items nav-list__items--starts">
+            {roots.map((root) => (
+              <li key={`${conversation.id}-${root.id}`}>
+                <button
+                  className={`nav-list__item nav-list__item--start${
+                    selectedConversationId === conversation.id && selectedAtomId === root.id
+                      ? ' nav-list__item--active'
+                      : ''
+                  }`}
+                  onClick={() => handleSelectStartPoint(conversation.id, root.id)}
+                  title={root.summary || root.id}
+                >
+                  <span
+                    className={`nav-list__pip nav-list__pip--start${
+                      selectedConversationId === conversation.id && selectedAtomId === root.id
+                        ? ' nav-list__pip--active'
+                        : ''
+                    }`}
+                  />
+                  <span className="nav-list__item-name">{formatRootTitle(root)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </li>
     )
+  }
 
   return (
     <div className="nav-list">
@@ -84,107 +250,63 @@ export function NavList() {
         </button>
       </div>
 
-      {/* 最近 */}
-      <section className="nav-list__section">
-        <h3 className="nav-list__heading">最近</h3>
-        <p className="nav-list__empty">暂无最近对话</p>
-      </section>
-
-      {/* T-11/T-12: 对话 section 渲染 rootAtoms */}
-      <section className="nav-list__section">
-        <h3 className="nav-list__heading">对话</h3>
-        {rootAtoms.length === 0 ? (
-          <p className="nav-list__empty">暂无对话</p>
-        ) : (
-          <ul className="nav-list__items">
-            {rootAtoms.map((atom) => {
-              const title = atom.summary
-                ? atom.summary.slice(0, 30) + (atom.summary.length > 30 ? '…' : '')
-                : '新对话'
-              return (
-                <li key={atom.id}>
-                  <button
-                    className={`nav-list__item${
-                      selectedAtomId === atom.id ? ' nav-list__item--active' : ''
-                    }`}
-                    onClick={() => {
-                      selectAtom(atom.id)
-                      setMode('chat')
-                    }}
-                    title={atom.summary || '新对话'}
-                  >
-                    <span
-                      className={`nav-list__pip${
-                        selectedAtomId === atom.id ? ' nav-list__pip--active' : ''
-                      }`}
-                    />
-                    <span className="nav-list__item-name">{title}</span>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
-
-      {/* T-7/T-8/T-9: 项目 section 标题改为 flex header + + 按钮 + 内联输入框 */}
       <section className="nav-list__section">
         <div className="nav-list__section-header">
           <h3 className="nav-list__heading">项目</h3>
           <button
             className="nav-list__section-add"
-            onClick={() => {
-              setShowNewProjectInput(true)
-              setNewProjectError(null)
-              setNewProjectName('')
-            }}
-            title="新建项目"
+            onClick={handleNewProject}
+            title="选择文件夹创建项目"
+            disabled={newProjectLoading}
           >
             +
           </button>
         </div>
 
-        {showNewProjectInput && (
-          <div className="nav-list__inline-input">
-            <input
-              autoFocus
-              className="nav-list__inline-field"
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
-              placeholder="项目名称"
-              disabled={newProjectLoading}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleNewProject()
-                if (e.key === 'Escape') {
-                  setShowNewProjectInput(false)
-                  setNewProjectName('')
-                  setNewProjectError(null)
-                }
-              }}
-            />
-            {newProjectError && (
-              <div className="nav-list__error">{newProjectError}</div>
-            )}
-          </div>
+        {newProjectError && (
+          <div className="nav-list__error">{newProjectError}</div>
         )}
 
-        {/* T-13: 项目列表原有渲染逻辑保持不变 */}
         {projects.length === 0 ? (
           <p className="nav-list__empty">暂无项目</p>
         ) : (
+          <div className="nav-list__project-groups">
+            {projects.map((project) => {
+              const projectConversations = getProjectConversations(project.id)
+              const expanded = expandedProjectIds.has(project.id)
+              return (
+                <div className="nav-list__project-group" key={project.id}>
+                  <button
+                    className={`nav-list__item nav-list__item--project${expanded ? ' nav-list__item--project-open' : ''}`}
+                    onClick={() => toggleProject(project.id)}
+                    title={project.name}
+                  >
+                    <span className={`nav-list__chevron${expanded ? ' nav-list__chevron--open' : ''}`}>›</span>
+                    <span className="nav-list__folder-icon">◫</span>
+                    <span className="nav-list__item-name">{project.name}</span>
+                    <span className="nav-list__item-count">
+                      {projectConversations.length}
+                    </span>
+                  </button>
+                  {expanded && projectConversations.length > 0 && (
+                    <ul className="nav-list__items nav-list__items--nested">
+                      {projectConversations.map(renderConversationRow)}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="nav-list__section">
+        <h3 className="nav-list__heading">对话</h3>
+        {unprojectedConversations.length === 0 ? (
+          <p className="nav-list__empty">暂无对话</p>
+        ) : (
           <ul className="nav-list__items">
-            {projects.map((project) => (
-              <li key={project.id}>
-                <button
-                  className={`nav-list__item${selectedProjectId === project.id ? ' nav-list__item--active' : ''}`}
-                  onClick={() => selectProject(project.id)}
-                  title={project.name}
-                >
-                  <span className="nav-list__folder-icon">◫</span>
-                  <span className="nav-list__item-name">{project.name}</span>
-                </button>
-              </li>
-            ))}
+            {unprojectedConversations.map(renderConversationRow)}
           </ul>
         )}
       </section>

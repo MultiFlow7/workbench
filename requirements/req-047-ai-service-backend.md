@@ -1,7 +1,7 @@
 ---
 id: req-047
 title: AI 工具层 Python 后端服务（Model Router + LLM Gateway）
-status: in-progress
+status: done
 priority: high
 source: architecture-decision
 created: 2026-05-23

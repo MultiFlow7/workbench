@@ -1,7 +1,7 @@
 ---
 id: req-013
 title: Agent 任务状态机（后端）
-status: planned
+status: done
 priority: high
 source: 对话讨论 2026-05-18
 created: 2026-05-18

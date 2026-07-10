@@ -18,6 +18,8 @@ interface QAAtom {
 
 export function DetailPanel() {
   const selectedAtomId = useStore((s) => s.selectedAtomId)
+  const selectedConversationId = useStore((s) => s.selectedConversationId)
+  const conversations = useStore((s) => s.conversations)
   const atoms = useStore((s) => s.atoms)
   const [atom, setAtom] = useState<QAAtom | null>(null)
   const p4Mode = useStore((s) => s.p4Mode)
@@ -26,9 +28,15 @@ export function DetailPanel() {
   const setExpandedInput = useStore((s) => s.setExpandedInput)
   // v0.16 R-2：vault 路径派生（替代旧 toFilePath 常量函数）
   const basePath = useBasePath()
+  const selectedConversation = selectedConversationId
+    ? conversations[selectedConversationId] ?? null
+    : null
 
   useEffect(() => {
-    if (!selectedAtomId) return
+    if (!selectedAtomId) {
+      setAtom(null)
+      return
+    }
     window.api.invoke<QAAtom>('read_qa_atom', { filePath: buildFilePath(basePath, selectedAtomId) })
       .then(setAtom)
       .catch(console.error)
@@ -54,10 +62,57 @@ export function DetailPanel() {
     )
   }
 
+  if (!atom && selectedConversation) {
+    const createdAt = selectedConversation.createdAt
+      ? new Date(selectedConversation.createdAt).toLocaleString('zh-CN')
+      : '-'
+    const updatedAt = selectedConversation.updatedAt
+      ? new Date(selectedConversation.updatedAt).toLocaleString('zh-CN')
+      : '-'
+    return (
+      <div className="detail-panel">
+        <div className="detail-section-label">对话</div>
+        <div className="detail-title">{selectedConversation.title || '新对话'}</div>
+
+        <div className="detail-meta-grid">
+          <span>ID</span>
+          <code>{selectedConversation.id}</code>
+          <span>状态</span>
+          <strong>{selectedConversation.status === 'draft' ? '草稿' : '已激活'}</strong>
+          <span>节点</span>
+          <strong>{selectedConversation.atomIds.length}</strong>
+          <span>Root</span>
+          <code>{selectedConversation.rootAtomId ?? '-'}</code>
+          <span>创建</span>
+          <strong>{createdAt}</strong>
+          <span>更新</span>
+          <strong>{updatedAt}</strong>
+        </div>
+
+        {(selectedConversation.sourcePlatform || selectedConversation.sourceSessionId || selectedConversation.sourcePath) && (
+          <>
+            <hr className="detail-divider" />
+            <div className="detail-section-label">来源</div>
+            <div className="detail-meta-grid">
+              <span>平台</span>
+              <strong>{selectedConversation.sourcePlatform ?? '-'}</strong>
+              <span>会话</span>
+              <code>{selectedConversation.sourceSessionId ?? '-'}</code>
+              <span>路径</span>
+              <code>{selectedConversation.sourcePath ?? '-'}</code>
+              <span>CWD</span>
+              <code>{selectedConversation.sourceCwd ?? '-'}</code>
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
   if (!atom) {
     return (
       <div className="detail-panel">
-        <div className="detail-empty">选择节点以查看详情</div>
+        <div className="detail-empty">选择对话或节点以查看详情</div>
       </div>
     )
   }

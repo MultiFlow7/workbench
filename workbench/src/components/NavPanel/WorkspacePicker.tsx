@@ -15,6 +15,7 @@ export function WorkspacePicker() {
   const [picking, setPicking] = useState(false)
   const loadAtoms = useStore((s) => s.loadAtoms)
   const loadProjects = useStore((s) => s.loadProjects)
+  const loadConversations = useStore((s) => s.loadConversations)
 
   useEffect(() => {
     window.api
@@ -31,6 +32,7 @@ export function WorkspacePicker() {
       if (selected) {
         setCwd(selected)
         await Promise.all([loadProjects(), loadAtoms()])
+        await loadConversations()
       }
     } catch (e) {
       console.error('[WorkspacePicker] dialog:pickFolder error:', e)

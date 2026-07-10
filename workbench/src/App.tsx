@@ -105,6 +105,7 @@ function ConsoleTabView({ onTriggerTask }: { onTriggerTask: () => void }) {
 function App() {
   const loadAtoms = useStore((s) => s.loadAtoms)
   const loadProjects = useStore((s) => s.loadProjects)
+  const loadConversations = useStore((s) => s.loadConversations)
   const currentMode = useStore((s) => s.currentMode)
   const vaultConfig = useStore((s) => s.vaultConfig)
 
@@ -131,17 +132,19 @@ function App() {
   useEffect(() => {
     if (!vaultConfig?.vaultRoot) return
 
-    loadAtoms().then(() => {
+    Promise.all([loadAtoms(), loadProjects()]).then(async () => {
+      await loadConversations()
       const count = Object.keys(useStore.getState().atoms).length
       window.api.invoke('write_event_log', { event: { event: 'app_launch', timestamp: new Date().toISOString(), payload: { version: '0.6.0', qa_atom_count: count } } }).catch(() => {})
     }).catch(console.error)
-    loadProjects().catch(console.error)
   }, [
     loadAtoms,
     loadProjects,
+    loadConversations,
     vaultConfig?.vaultRoot,
     vaultConfig?.qaSubdir,
     vaultConfig?.projectsSubdir,
+    vaultConfig?.conversationsSubdir,
   ])
 
   // v0.6: P2 switches by mode

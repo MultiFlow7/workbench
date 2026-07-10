@@ -4,8 +4,8 @@
  * 从 vaultSlice 派生 vault / QA / Projects 路径，替换原 import.meta.env.VITE_VAULT_* 编译期内联。
  *
  * 导出双轨：
- * - hook 系（React 组件用）：useVaultPath / useBasePath / useProjectsPath
- * - getter 系（非 React 上下文用）：getVaultPath / getBasePath / getProjectsPath / getVaultConfig
+ * - hook 系（React 组件用）：useVaultPath / useBasePath / useProjectsPath / useConversationsPath
+ * - getter 系（非 React 上下文用）：getVaultPath / getBasePath / getProjectsPath / getConversationsPath / getVaultConfig
  * - 纯函数：buildFilePath / toFilePathFromSnapshot
  *
  * 路径派生规则（与 main 进程 vaultStore.ts 单源对齐）：
@@ -27,6 +27,12 @@ function isAbsolutePath(p: string): boolean {
   return false
 }
 
+function parentDir(p: string): string {
+  const trimmed = p.replace(/[/\\]+$/, '')
+  const idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
+  return idx > 0 ? trimmed.slice(0, idx) : ''
+}
+
 function deriveQaDir(config: VaultConfig | null): string {
   if (!config || !config.vaultRoot) return ''
   const sub = config.qaSubdir || 'QA'
@@ -36,6 +42,17 @@ function deriveQaDir(config: VaultConfig | null): string {
 function deriveProjectsDir(config: VaultConfig | null): string {
   if (!config || !config.vaultRoot) return ''
   const sub = config.projectsSubdir || 'Projects'
+  return isAbsolutePath(sub) ? sub : `${config.vaultRoot}/${sub}`
+}
+
+function deriveConversationsDir(config: VaultConfig | null): string {
+  if (!config || !config.vaultRoot) return ''
+  const sub = config.conversationsSubdir || 'Conversations'
+  if (sub === 'Conversations' && isAbsolutePath(config.qaSubdir) && isAbsolutePath(config.projectsSubdir)) {
+    const qaParent = parentDir(config.qaSubdir)
+    const projectsParent = parentDir(config.projectsSubdir)
+    if (qaParent && qaParent === projectsParent) return `${qaParent}/Conversations`
+  }
   return isAbsolutePath(sub) ? sub : `${config.vaultRoot}/${sub}`
 }
 
@@ -51,6 +68,10 @@ export function useBasePath(): string {
 
 export function useProjectsPath(): string {
   return useStore((s) => deriveProjectsDir(s.vaultConfig))
+}
+
+export function useConversationsPath(): string {
+  return useStore((s) => deriveConversationsDir(s.vaultConfig))
 }
 
 // ─── 纯函数 ────────────────────────────────────────────────────────────────
@@ -80,6 +101,10 @@ export function getBasePath(): string {
 
 export function getProjectsPath(): string {
   return deriveProjectsDir(getVaultConfigSnapshot())
+}
+
+export function getConversationsPath(): string {
+  return deriveConversationsDir(getVaultConfigSnapshot())
 }
 
 /**

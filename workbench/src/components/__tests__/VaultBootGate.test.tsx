@@ -40,6 +40,7 @@ const SAMPLE_CONFIG: VaultConfig = {
   vaultRoot: '/v',
   qaSubdir: 'QA',
   projectsSubdir: 'Projects',
+  conversationsSubdir: 'Conversations',
   hasShownFirstLaunchToast: false,
 }
 

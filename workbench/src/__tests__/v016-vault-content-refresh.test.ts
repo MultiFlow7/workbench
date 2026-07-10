@@ -16,19 +16,20 @@ function readSource(rel: string): string {
 }
 
 describe('v0.16 Vault content refresh', () => {
-  it('App waits for vaultConfig.vaultRoot before loading atoms/projects', () => {
+  it('App waits for vaultConfig.vaultRoot before loading atoms/projects/conversations', () => {
     const src = readSource('src/App.tsx')
 
     expect(src).toContain('if (!vaultConfig?.vaultRoot) return')
-    expect(src).toContain('loadAtoms().then')
-    expect(src).toContain('loadProjects().catch')
+    expect(src).toContain('Promise.all([loadAtoms(), loadProjects()])')
+    expect(src).toContain('await loadConversations()')
   })
 
-  it('App reloads content when Vault root / QA / Projects path changes', () => {
+  it('App reloads content when Vault root / QA / Projects / Conversations path changes', () => {
     const src = readSource('src/App.tsx')
 
     expect(src).toContain('vaultConfig?.vaultRoot')
     expect(src).toContain('vaultConfig?.qaSubdir')
     expect(src).toContain('vaultConfig?.projectsSubdir')
+    expect(src).toContain('vaultConfig?.conversationsSubdir')
   })
 })

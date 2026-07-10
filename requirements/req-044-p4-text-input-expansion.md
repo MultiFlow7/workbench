@@ -1,7 +1,7 @@
 ---
 id: req-044
 title: P4 文本输入展开面板（长文本输入体验优化）
-status: planned
+status: done
 priority: medium
 source: user-feedback
 created: 2026-05-22

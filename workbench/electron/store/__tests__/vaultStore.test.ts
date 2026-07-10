@@ -52,6 +52,7 @@ describe('T-V016-U1 vaultStore 默认值', () => {
       vaultRoot: '',
       qaSubdir: 'QA',
       projectsSubdir: 'Projects',
+      conversationsSubdir: 'Conversations',
       hasShownFirstLaunchToast: false,
     })
   })
@@ -74,6 +75,7 @@ describe('T-V016-U2 vaultStore partial merge', () => {
       vaultRoot: '/x',
       qaSubdir: 'QA',
       projectsSubdir: 'Projects',
+      conversationsSubdir: 'Conversations',
       hasShownFirstLaunchToast: false,
     })
   })
@@ -82,11 +84,13 @@ describe('T-V016-U2 vaultStore partial merge', () => {
     vaultStore.setVaultConfig({ vaultRoot: '/v' })
     vaultStore.setVaultConfig({ qaSubdir: 'qa-x' })
     vaultStore.setVaultConfig({ projectsSubdir: 'proj-x' })
+    vaultStore.setVaultConfig({ conversationsSubdir: 'conv-x' })
     vaultStore.setVaultConfig({ hasShownFirstLaunchToast: true })
     expect(vaultStore.getVaultConfig()).toEqual({
       vaultRoot: '/v',
       qaSubdir: 'qa-x',
       projectsSubdir: 'proj-x',
+      conversationsSubdir: 'conv-x',
       hasShownFirstLaunchToast: true,
     })
   })
@@ -117,6 +121,7 @@ describe('T-V016-U4 markFirstLaunchToastShown', () => {
       vaultRoot: '/a',
       qaSubdir: 'b',
       projectsSubdir: 'Projects',
+      conversationsSubdir: 'Conversations',
       hasShownFirstLaunchToast: true,
     })
   })
@@ -154,6 +159,7 @@ describe('migrateFromEnv', () => {
       vaultRoot: '/env-root',
       qaSubdir: '/abs/qa',
       projectsSubdir: '/abs/proj',
+      conversationsSubdir: 'Conversations',
       hasShownFirstLaunchToast: false,
     })
   })
@@ -167,5 +173,6 @@ describe('migrateFromEnv', () => {
     expect(cfg.vaultRoot).toBe('/env-root')
     expect(cfg.qaSubdir).toBe('QA')
     expect(cfg.projectsSubdir).toBe('Projects')
+    expect(cfg.conversationsSubdir).toBe('Conversations')
   })
 })
