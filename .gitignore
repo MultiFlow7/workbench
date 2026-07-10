@@ -45,10 +45,15 @@ backend/*.db-wal
 *.sw?
 
 # ── 本地个人文件（不提交）─────────────────────────────
+.impeccable/
 agent-roster.local.md
 团队章程.local.md
 记忆/
 CLAUDE.local.md
+workbench/scripts/import-local-conversations.mjs
+workbench/scripts/reorganize-imported-conversations.mjs
+workbench/scripts/local-*.mjs
+workbench/scripts/*.local.mjs
 project-intro.html
 prototype-v0.15.html
 decision-compare.html
